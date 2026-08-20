@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    /* Light theme tokens with user primary green */
+    --surface: 255 255 255;        /* white */
+    --surface-2: 247 249 248;      
+    --surface-3: 238 242 240;      
+    --edge: 227 233 230;           
+    --edge-2: 203 213 208;         
+    --foreground: 23 32 28;        
+    --foreground-2: 43 54 49;      
+    --foreground-3: 94 107 101;    
+    --foreground-4: 138 150 144;   
+    --foreground-5: 170 182 176;   
+    --accent: 0 177 64;            /* #00B140 Primary Green */
+    --accent-strong: 1 163 90;     /* #01A35A Accent Green */
+    --accent-soft: 231 247 241;    
+    --accent-border: 71 171 136;   
+    --accent-text: 6 71 51;        
+    --success: 0 177 64;           
+    --success-soft: 209 250 229;   
+    --danger: 220 38 38;           
+    --danger-soft: 254 226 226;    
+    --warning: 217 119 6;          
+    --warning-soft: 254 243 199;   
+    --info: 2 132 199;             
+    --info-soft: 240 249 255;      
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: #f8fafc;
+    color: rgb(var(--foreground));
+    font-family: 'Inter', 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    outline: 0;
+  }
+
+  :focus-visible {
+    outline: 2px solid #00B140;
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}

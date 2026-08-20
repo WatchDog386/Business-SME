@@ -1,0 +1,186 @@
+import { Link } from 'react-router-dom';
+import { BarChart3, Wallet, Users, PackageCheck, ShieldCheck } from 'lucide-react';
+import { Brand } from '@/components/layout/brand';
+
+const highlights = [
+  { icon: BarChart3, text: 'Know your daily sales, expenses and profit' },
+  { icon: Wallet, text: 'Track money customers owe you' },
+  { icon: Users, text: 'Keep every customer in one place' },
+  { icon: PackageCheck, text: 'See what is running out of stock' },
+];
+
+const OrangeGradientStart = '#FFA751';
+const OrangeGradientEnd = '#FF5252';
+const BlueGradientStart = '#00C6FF';
+const BlueGradientEnd = '#0072FF';
+
+function WaveBackground() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 top-0 h-screen -z-10 opacity-15"
+      aria-hidden
+    >
+      <svg
+        className="h-full w-full"
+        viewBox="0 0 1440 800"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <defs>
+          <linearGradient
+            id="topWave"
+            x1="0%"
+            y1="0%"
+            x2="100%"
+            y2="30%"
+          >
+            <stop offset="0%" stopColor={OrangeGradientStart} />
+            <stop offset="100%" stopColor={OrangeGradientEnd} />
+          </linearGradient>
+          <linearGradient
+            id="bottomWave"
+            x1="0%"
+            y1="70%"
+            x2="100%"
+            y2="100%"
+          >
+            <stop offset="0%" stopColor={BlueGradientStart} />
+            <stop offset="100%" stopColor={BlueGradientEnd} />
+          </linearGradient>
+        </defs>
+
+        {/* Top orange wave */}
+        <path
+          fill="url(#topWave)"
+          d="M0,0 L1440,0 L1440,200 C1200,160 1000,120 800,180 C600,240 400,220 200,260 C0,280 0,240 0,200 Z"
+        />
+
+        {/* Bottom blue wave */}
+        <path
+          fill="url(#bottomWave)"
+          d="M1440,800 L0,800 L0,620 C200,660 400,680 600,640 C800,600 1000,580 1200,560 C1400,540 1440,560 1440,600 Z"
+        />
+      </svg>
+    </div>
+  );
+}
+
+export function AuthLayout({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid min-h-screen bg-slate-50 lg:grid-cols-2">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-brand-800 via-brand-700 to-brand-600 p-10 lg:flex">
+        <div
+          className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-2xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-black/10 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)',
+            backgroundSize: '28px 28px',
+          }}
+          aria-hidden
+        />
+
+        <div className="relative">
+          <Brand compact onDark size="lg" />
+        </div>
+
+        <div className="relative space-y-7">
+          <h1 className="font-display text-4xl font-extrabold leading-[1.1] tracking-tight text-white">
+            Run your business.
+            <br />
+            Know your numbers.
+            <br />
+            <span className="text-brand-100">Grow faster.</span>
+          </h1>
+          <p className="max-w-md text-base leading-relaxed text-white/85">
+            The simple business manager for Kenyan SMEs. Replace your notebook,
+            calculator and M-Pesa messages with one app.
+          </p>
+
+          <ul className="space-y-4 pt-2">
+            {highlights.map((item, i) => (
+              <li
+                key={item.text}
+                className="flex animate-fade-up items-center gap-3 text-sm text-white/95"
+                style={{ animationDelay: `${0.1 * i}s` }}
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 shadow-sm backdrop-blur">
+                  <item.icon className="h-4.5 w-4.5 text-white" aria-hidden />
+                </span>
+                {item.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="relative flex items-center justify-between">
+          <p className="text-xs text-white/70">
+            Made for Kenyan businesses — salons, shops, boutiques, restaurants and more.
+          </p>
+          <span className="flex items-center gap-1.5 text-xs font-medium text-white/80">
+            <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+            Secure &amp; private
+          </span>
+        </div>
+      </div>
+
+      <div className="relative flex flex-col justify-start sm:justify-center bg-slate-50 px-6 pt-10 pb-8 sm:px-8 sm:py-10 lg:bg-transparent">
+        <WaveBackground />
+
+        <div className="mb-6 flex justify-center lg:hidden">
+          <Brand compact size="lg" />
+        </div>
+
+        <div className="mx-auto w-full max-w-sm space-y-6">
+          <div className="space-y-1.5 text-center">
+            <h2 className="font-display text-3xl font-extrabold tracking-tight text-ink-900">
+              {title}
+            </h2>
+            <p className="text-sm text-ink-500">{subtitle}</p>
+          </div>
+          {children}
+
+          <p className="text-center text-xs text-ink-400">
+            By continuing you agree to our Terms and Privacy Policy.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function AuthFooterLink({
+  text,
+  linkText,
+  to,
+}: {
+  text: string;
+  linkText: string;
+  to: string;
+}) {
+  return (
+    <p className="mt-6 text-center text-sm text-ink-600">
+      {text}{' '}
+      <Link
+        to={to}
+        className="font-bold text-brand-600 transition-colors hover:text-brand-700"
+      >
+        {linkText}
+      </Link>
+    </p>
+  );
+}
