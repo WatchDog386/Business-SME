@@ -9,7 +9,7 @@ import { KpiCards } from './components/kpi-cards';
 import { SalesChart } from './components/sales-chart';
 import { QuickActions } from './components/quick-actions';
 import { AdsBanner } from './components/ads-banner';
-import { RecentTransactions } from './components/recent-transactions';
+
 import { TopProducts } from './components/top-products';
 
 export function DashboardPage() {
@@ -42,15 +42,14 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       <DashboardHeader />
       <FeaturedCard data={data} />
       <QuickActions />
       <KpiCards data={data} />
       <SalesChart series={data.salesSeries} weekRevenue={data.weekRevenue} />
-      <AdsBanner />
-      <RecentTransactions transactions={data.recentTransactions} />
       <TopProducts products={data.topProducts} />
+      <AdsBanner />
     </div>
   );
 }

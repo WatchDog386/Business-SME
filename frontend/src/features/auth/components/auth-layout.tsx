@@ -67,10 +67,12 @@ function WaveBackground() {
 export function AuthLayout({
   title,
   subtitle,
+  hideFooterLinks,
   children,
 }: {
-  title: string;
-  subtitle: string;
+  title?: string;
+  subtitle?: string;
+  hideFooterLinks?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -146,17 +148,23 @@ export function AuthLayout({
         </div>
 
         <div className="mx-auto w-full max-w-sm space-y-6">
-          <div className="space-y-1.5 text-center">
-            <h2 className="font-display text-3xl font-extrabold tracking-tight text-ink-900">
-              {title}
-            </h2>
-            <p className="text-sm text-ink-500">{subtitle}</p>
-          </div>
+          {(title || subtitle) && (
+            <div className="space-y-1 text-left">
+              {title && (
+                <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-ink-900">
+                  {title}
+                </h2>
+              )}
+              {subtitle && <p className="text-xs sm:text-sm text-ink-500">{subtitle}</p>}
+            </div>
+          )}
           {children}
 
-          <p className="text-center text-xs text-ink-400">
-            By continuing you agree to our Terms and Privacy Policy.
-          </p>
+          {!hideFooterLinks && (
+            <p className="text-center text-xs text-ink-400">
+              By continuing you agree to our Terms and Privacy Policy.
+            </p>
+          )}
         </div>
       </div>
     </div>

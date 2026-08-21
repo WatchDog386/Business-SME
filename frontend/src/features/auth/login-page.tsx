@@ -114,7 +114,7 @@ export function LoginPage() {
         </div>
         <Button
           type="submit"
-          className="w-full rounded-full"
+          className="w-full rounded-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 font-bold shadow-md"
           size="lg"
           loading={mutation.isPending}
         >
