@@ -65,6 +65,7 @@ export const businessesApi = {
     county?: string;
     currency?: string;
     timezone?: string;
+    logoUrl?: string;
   }) => api<Business>({ method: 'POST', url: '/businesses', data }),
   mine: () => api<Business[]>({ method: 'GET', url: '/businesses/mine' }),
   current: () => api<Business>({ method: 'GET', url: '/businesses/current' }),

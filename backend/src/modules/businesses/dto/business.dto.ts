@@ -45,6 +45,11 @@ export class CreateBusinessDto {
   @IsOptional()
   @IsString()
   timezone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  logoUrl?: string;
 }
 
 export class UpdateBusinessDto {

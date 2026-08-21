@@ -81,8 +81,10 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'Roboto', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        display: ['Inter', 'Roboto', 'system-ui', 'sans-serif'],
+        sans: ['Poppins', 'Quicksand', 'Inter', 'Roboto', 'system-ui', 'sans-serif'],
+        display: ['Poppins', 'Quicksand', 'Inter', 'system-ui', 'sans-serif'],
+        poppins: ['Poppins', 'sans-serif'],
+        quicksand: ['Quicksand', 'sans-serif'],
       },
       boxShadow: {
         soft: '0 1px 3px 0 rgb(20 40 30 / 0.04), 0 4px 12px -4px rgb(20 40 30 / 0.06)',

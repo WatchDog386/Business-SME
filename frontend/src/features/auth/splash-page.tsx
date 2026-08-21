@@ -15,10 +15,10 @@ export function SplashPage() {
           alt="Biashara logo"
           className="relative h-44 w-44 object-contain"
         />
-        <h1 className="mt-4 text-xl font-bold tracking-tight text-gray-900 font-sans text-center">
+        <h1 className="mt-4 text-xl font-bold tracking-tight text-gray-900 font-poppins text-center">
           Professional Business Manager
         </h1>
-        <p className="mt-1 text-sm text-gray-500 font-sans text-center max-w-xs">
+        <p className="mt-1 text-sm text-gray-500 font-poppins text-center max-w-xs">
           Manage sales, inventory, customers, and reports effortlessly.
         </p>
       </div>

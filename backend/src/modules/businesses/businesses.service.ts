@@ -34,6 +34,7 @@ export class BusinessesService {
       const business = manager.create(Business, {
         name: dto.name,
         business_type: dto.businessType,
+        logo_url: dto.logoUrl ?? null,
         phone: dto.phone ?? null,
         address: dto.address ?? null,
         county: dto.county ?? null,
