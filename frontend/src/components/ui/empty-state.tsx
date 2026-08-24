@@ -20,7 +20,7 @@ export function EmptyState({
         <Icon className="h-6 w-6 text-accent" aria-hidden />
       </div>
       <div className="space-y-1">
-        <p className="font-semibold text-foreground">{title}</p>
+        <p className="font-medium text-foreground">{title}</p>
         {description && (
           <p className="mx-auto max-w-sm text-sm text-foreground-4">{description}</p>
         )}

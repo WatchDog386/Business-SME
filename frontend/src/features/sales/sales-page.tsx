@@ -100,7 +100,7 @@ export function SalesPage() {
               setSearchParams({});
               setPage(1);
             }}
-            className="font-bold underline"
+            className="font-medium underline"
           >
             Clear filter
           </button>
@@ -148,7 +148,7 @@ export function SalesPage() {
                     <Receipt className="h-4 w-4" aria-hidden />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-foreground">
+                    <p className="truncate text-sm font-medium text-foreground">
                       {sale.customer_name ?? 'Walk-in customer'}
                     </p>
                     <p className="truncate text-xs text-foreground-5">
@@ -158,7 +158,7 @@ export function SalesPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-foreground">
+                    <p className="text-sm font-medium text-foreground">
                       {formatKES(sale.total)}
                     </p>
                     <Badge variant={statusVariant(sale.payment_status)}>

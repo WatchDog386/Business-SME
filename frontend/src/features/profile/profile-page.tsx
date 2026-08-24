@@ -1,25 +1,41 @@
 import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
-import { Camera, User as UserIcon, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Camera,
+  Mail,
+  Phone,
+  Save,
+  Trash2,
+  User as UserIcon,
+} from 'lucide-react';
 import { authApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { useAuthStore } from '@/stores/auth';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
-import { Card } from '@/components/ui/card';
-import { PageHeader } from '@/components/layout/page-header';
 
 interface FormValues {
   fullName: string;
   phone: string;
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-foreground-4">
+      {children}
+    </p>
+  );
+}
+
 export function ProfilePage() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+  const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,11 +86,20 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <PageHeader
-        title="My Profile"
-        description="Update your personal details and profile picture."
-      />
+    <div className="mx-auto max-w-2xl space-y-5">
+      {/* App bar */}
+      <div className="relative flex h-12 items-center px-1">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-edge bg-surface text-foreground transition-colors hover:bg-surface-2 active:bg-surface-3"
+          aria-label="Back to dashboard"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">
+          My Profile
+        </h1>
+      </div>
 
       {success && (
         <Alert variant="success" title="Profile updated successfully">
@@ -88,101 +113,147 @@ export function ProfilePage() {
         </Alert>
       )}
 
-      <Card className="p-6">
-        <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-center gap-5">
-            <div className="relative">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent text-3xl font-bold border-2 border-edge shadow-sm">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-                ) : user?.fullName ? (
-                  user.fullName.charAt(0).toUpperCase()
-                ) : (
-                  <UserIcon className="h-10 w-10" />
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-md transition-transform hover:scale-105"
-                aria-label="Upload photo"
-              >
-                <Camera className="h-4 w-4" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageChange}
-              />
-            </div>
-            <div className="text-center sm:text-left">
-              <h3 className="text-base font-bold text-foreground">Profile Picture</h3>
-              <p className="text-xs text-foreground-4 mt-0.5">
-                Upload a clear photo of yourself. PNG, JPG or WEBP up to 2MB.
+      {/* Identity card */}
+      <section className="flex flex-col items-center rounded-3xl border border-edge bg-surface p-6 text-center shadow-soft">
+        <div className="relative">
+          <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-edge bg-accent-soft text-3xl font-medium text-accent shadow-sm">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+            ) : user?.fullName ? (
+              user.fullName.charAt(0).toUpperCase()
+            ) : (
+              <UserIcon className="h-10 w-10" />
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-md ring-2 ring-white transition-transform hover:scale-105 active:scale-95"
+            aria-label="Upload photo"
+          >
+            <Camera className="h-3.5 w-3.5" />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageChange}
+          />
+        </div>
+
+        <div className="mt-4 flex items-center gap-1.5">
+          <h2 className="text-base font-medium tracking-tight text-foreground">
+            {user?.fullName ?? 'Your name'}
+          </h2>
+          {user?.emailVerified && (
+            <BadgeCheck className="h-4 w-4 text-accent" aria-label="Verified" />
+          )}
+        </div>
+
+        <div className="mt-1.5 space-y-0.5">
+          <p className="flex items-center justify-center gap-1.5 text-xs font-medium text-foreground-3">
+            <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {user?.email}
+          </p>
+          {(avatarUrl ?? user?.phone) && (
+            <p className="flex items-center justify-center gap-1.5 text-xs font-medium text-foreground-3">
+              <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {user?.phone || 'Add your phone number below'}
+            </p>
+          )}
+        </div>
+
+        {avatarUrl && (
+          <button
+            type="button"
+            onClick={() => setAvatarUrl(null)}
+            className="mt-3 flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger-soft"
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+            Remove photo
+          </button>
+        )}
+        <p className="mt-2 text-[10px] text-foreground-5">PNG, JPG or WEBP · up to 2MB</p>
+      </section>
+
+      {/* Details card */}
+      <section className="rounded-3xl border border-edge bg-surface p-5 shadow-soft sm:p-6">
+        <SectionLabel>Personal details</SectionLabel>
+        <form
+          onSubmit={handleSubmit((values) => mutation.mutate(values))}
+          className="mt-4 space-y-4"
+        >
+          <div>
+            <Label htmlFor="fullName" className="text-xs">
+              Full Name
+            </Label>
+            <Input
+              id="fullName"
+              placeholder="Enter your full name"
+              className="mt-1.5"
+              {...register('fullName', { required: 'Full name is required.' })}
+            />
+            {errors.fullName && (
+              <p className="mt-1 text-xs font-medium text-danger">
+                {errors.fullName.message}
               </p>
-              {avatarUrl && (
-                <button
-                  type="button"
-                  onClick={() => setAvatarUrl(null)}
-                  className="mt-2 text-xs font-semibold text-danger hover:underline"
-                >
-                  Remove photo
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                placeholder="Enter your full name"
-                className="mt-1"
-                {...register('fullName', { required: 'Full name is required.' })}
-              />
-              {errors.fullName && (
-                <p className="mt-1 text-xs text-danger">{errors.fullName.message}</p>
-              )}
-            </div>
+          <div>
+            <Label htmlFor="phone" className="text-xs">
+              Phone Number
+            </Label>
+            <Input
+              id="phone"
+              placeholder="e.g. +254712345678"
+              className="mt-1.5"
+              {...register('phone')}
+            />
+          </div>
 
-            <div>
-              <Label htmlFor="email">Email Address</Label>
+          <div>
+            <Label htmlFor="email" className="text-xs">
+              Email Address
+            </Label>
+            <div className="relative mt-1.5">
+              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-5" aria-hidden />
               <Input
                 id="email"
                 type="email"
                 disabled
                 value={user?.email ?? ''}
-                className="mt-1 bg-surface-2 cursor-not-allowed"
+                className="cursor-not-allowed bg-surface-2 pl-9 pr-20"
               />
-              <p className="mt-1 text-[11px] text-foreground-5">Email address cannot be changed.</p>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground-4">
+                Locked
+              </span>
             </div>
-
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                placeholder="e.g. +254712345678"
-                className="mt-1"
-                {...register('phone')}
-              />
-            </div>
+            <p className="mt-1 text-[10px] text-foreground-5">
+              Email address cannot be changed.
+            </p>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="submit"
-              loading={mutation.isPending}
-              className="rounded-full px-6"
-            >
-              <Check className="h-4 w-4 mr-1.5" />
-              Save changes
-            </Button>
-          </div>
+          <button
+            type="submit"
+            disabled={mutation.isPending}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-accent text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-strong active:scale-[0.99] disabled:opacity-60"
+          >
+            {mutation.isPending ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden />
+                Saving…
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" aria-hidden />
+                Save changes
+              </>
+            )}
+          </button>
         </form>
-      </Card>
+      </section>
     </div>
   );
 }

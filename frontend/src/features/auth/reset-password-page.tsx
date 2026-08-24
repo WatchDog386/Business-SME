@@ -74,7 +74,7 @@ export function ResetPasswordPage() {
           <Label htmlFor="token">Reset token</Label>
           <input
             id="token"
-            className="h-11 w-full rounded-full border border-ink-200 bg-white px-4 font-mono text-sm"
+            className="h-11 w-full rounded-full border border-edge bg-surface px-4 font-mono text-sm focus:border-edge-2 focus:ring-0 outline-none"
             placeholder="Paste the token from the reset link"
             aria-invalid={errors.token ? true : undefined}
             {...register('token')}

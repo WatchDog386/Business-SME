@@ -8,6 +8,7 @@ import { Business } from '../modules/businesses/entities/business.entity';
 import { BusinessMember } from '../modules/businesses/entities/business-member.entity';
 import { Category } from '../modules/categories/entities/category.entity';
 import { Product } from '../modules/products/entities/product.entity';
+import { Service } from '../modules/products/entities/service.entity';
 import { Customer } from '../modules/customers/entities/customer.entity';
 import { Sale } from '../modules/sales/entities/sale.entity';
 import { SaleItem } from '../modules/sales/entities/sale-item.entity';
@@ -26,6 +27,7 @@ import { Expense } from '../modules/expenses/entities/expense.entity';
       BusinessMember,
       Category,
       Product,
+      Service,
       Customer,
       Sale,
       SaleItem,

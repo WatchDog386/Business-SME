@@ -43,7 +43,7 @@ export function DailySummaryPanel({ from, to }: { from: string; to: string }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-edge text-left text-xs font-semibold uppercase text-foreground-5">
+            <tr className="border-b border-edge text-left text-xs font-medium uppercase text-foreground-5">
               <th className="px-4 py-3">Day</th>
               <th className="px-4 py-3 text-right">Revenue</th>
               <th className="px-4 py-3 text-right">COGS</th>
@@ -54,11 +54,11 @@ export function DailySummaryPanel({ from, to }: { from: string; to: string }) {
           <tbody className="divide-y divide-edge">
             {data.map((row) => (
               <tr key={row.date}>
-                <td className="px-4 py-3 font-bold text-foreground">{row.date}</td>
-                <td className="px-4 py-3 text-right font-semibold text-foreground">{formatKES(row.revenue)}</td>
+                <td className="px-4 py-3 font-medium text-foreground">{row.date}</td>
+                <td className="px-4 py-3 text-right font-medium text-foreground">{formatKES(row.revenue)}</td>
                 <td className="px-4 py-3 text-right text-danger">−{formatKES(row.cogs)}</td>
                 <td className="px-4 py-3 text-right text-danger">−{formatKES(row.expenses)}</td>
-                <td className={`px-4 py-3 text-right font-bold ${row.netProfit >= 0 ? 'text-success' : 'text-danger'}`}>
+                <td className={`px-4 py-3 text-right font-medium ${row.netProfit >= 0 ? 'text-success' : 'text-danger'}`}>
                   {row.netProfit < 0 ? `−${formatKES(-row.netProfit)}` : formatKES(row.netProfit)}
                 </td>
               </tr>

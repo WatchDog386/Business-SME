@@ -37,10 +37,10 @@ export function TopProducts({
   return (
     <div className="mt-2">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base font-bold text-foreground">
+        <h2 className="text-[14px] font-medium tracking-tight text-foreground">
           Top sellers — last 30 days
         </h2>
-        <Link to="/products" className="text-sm font-semibold text-accent hover:text-accent-strong">
+        <Link to="/products" className="text-xs font-medium text-accent hover:text-accent-strong">
           See All
         </Link>
       </div>
@@ -69,17 +69,17 @@ export function TopProducts({
                       alt={product.name}
                       className="h-full w-full object-cover"
                     />
-                    <span className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-bold text-white shadow">
+                    <span className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 backdrop-blur-md text-[10px] font-medium text-white shadow">
                       {originalIndex + 1}
                     </span>
                   </div>
-                  <p className="mt-2 truncate text-xs font-bold text-foreground">
+                  <p className="mt-2 truncate text-xs font-medium text-foreground">
                     {product.name}
                   </p>
-                  <p className="text-[11px] text-foreground-5">
+                  <p className="text-[10px] text-foreground-5">
                     {Number(product.quantity)} sold
                   </p>
-                  <p className="text-xs font-extrabold text-foreground mt-0.5">
+                  <p className="text-xs font-medium text-foreground mt-0.5">
                     {formatKES(Number(product.revenue))}
                   </p>
                 </div>

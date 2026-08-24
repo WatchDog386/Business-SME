@@ -11,13 +11,13 @@ import {
 import { formatKES } from '@/lib/utils';
 
 const BAR_COLORS = [
-  '#10B981', // Green
-  '#18181B', // Black
-  '#F97316', // Orange
-  '#FFFFFF', // White
-  '#059669', // Emerald Green
-  '#27272A', // Dark Charcoal / Black
-  '#EA580C', // Deep Orange
+  '#6366F1', // Indigo
+  '#8B5CF6', // Violet
+  '#14B8A6', // Teal
+  '#F59E0B', // Amber
+  '#0EA5E9', // Sky
+  '#EC4899', // Pink
+  '#10B981', // Emerald
 ];
 
 export function SalesChart({
@@ -58,17 +58,17 @@ export function SalesChart({
 
   return (
     <div className="space-y-3">
-      <h2 className="text-base font-bold text-foreground tracking-tight">Weekly analytics</h2>
-      <div className="overflow-hidden rounded-3xl border border-[#2A2A2A] bg-[#1E1E1E] p-6 shadow-xl text-white">
+      <h2 className="text-[14px] font-medium tracking-tight text-foreground">Weekly analytics</h2>
+      <div className="rounded-3xl border border-edge bg-surface p-4 sm:p-6 shadow-soft">
         <div className="h-52 sm:h-60">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
               <XAxis
                 dataKey="label"
                 tick={{ fontSize: 11, fill: '#a1a1aa', fontWeight: 600 }}
                 tickLine={false}
-                axisLine={{ stroke: '#2a2a2a' }}
+                axisLine={{ stroke: '#e4e4e7' }}
               />
               <YAxis
                 tick={{ fontSize: 11, fill: '#a1a1aa', fontWeight: 600 }}
@@ -80,23 +80,18 @@ export function SalesChart({
                 formatter={(value) => [formatKES(Number(value)), 'Sales Revenue']}
                 contentStyle={{
                   borderRadius: 14,
-                  border: '1px solid #2a2a2a',
-                  backgroundColor: '#18181b',
-                  color: '#ffffff',
+                  border: '1px solid #e4e4e7',
+                  backgroundColor: '#ffffff',
+                  color: '#18181b',
                   fontSize: 13,
                   fontWeight: 600,
-                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
                   padding: '10px 14px',
                 }}
               />
-              <Bar dataKey="total" radius={[0, 0, 0, 0]} barSize={26}>
+              <Bar dataKey="total" radius={[6, 6, 0, 0]} barSize={26}>
                 {data.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={entry.fillColor}
-                    stroke={entry.fillColor === '#FFFFFF' ? '#e4e4e7' : undefined}
-                    strokeWidth={entry.fillColor === '#FFFFFF' ? 1 : 0}
-                  />
+                  <Cell key={`cell-${index}`} fill={entry.fillColor} />
                 ))}
               </Bar>
             </BarChart>

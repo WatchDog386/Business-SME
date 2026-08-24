@@ -32,7 +32,7 @@ export function CustomerPicker({
           type="button"
           onClick={() => onChange(null)}
           className={cn(
-            'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
+            'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
             value === null
               ? 'border-accent bg-accent text-white'
               : 'border-edge text-foreground-2 hover:bg-surface-2',
@@ -43,7 +43,7 @@ export function CustomerPicker({
         {selected && value !== null && (
           <button
             type="button"
-            className="rounded-full border border-accent-border bg-accent-soft px-3 py-1.5 text-xs font-semibold text-accent"
+            className="rounded-full border border-accent-border bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent"
           >
             {selected.name} ✓
           </button>
@@ -75,11 +75,11 @@ export function CustomerPicker({
                     onClick={() => onChange(customer.id)}
                     className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-accent-soft"
                   >
-                    <span className="truncate font-semibold text-foreground">
+                    <span className="truncate font-medium text-foreground">
                       {customer.name}
                     </span>
                     {customer.outstanding_balance > 0 && (
-                      <span className="shrink-0 text-xs font-semibold text-danger">
+                      <span className="shrink-0 text-xs font-medium text-danger">
                         owes {customer.outstanding_balance.toLocaleString('en-KE')}
                       </span>
                     )}

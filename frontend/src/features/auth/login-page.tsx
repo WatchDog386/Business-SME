@@ -80,11 +80,11 @@ export function LoginPage() {
             autoComplete="email"
             placeholder="you@example.com"
             aria-invalid={errors.email ? true : undefined}
-            className="h-12 px-5 text-base rounded-full"
+            className="h-12 px-5 text-sm rounded-full"
             {...register('email')}
           />
           {errors.email && (
-            <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+            <p className="mt-1 text-xs font-medium text-danger">{errors.email.message}</p>
           )}
         </div>
         <div>
@@ -94,11 +94,11 @@ export function LoginPage() {
             autoComplete="current-password"
             placeholder="Your password"
             aria-invalid={errors.password ? true : undefined}
-            className="h-12 px-5 text-base rounded-full"
+            className="h-12 px-5 text-sm rounded-full"
             {...register('password')}
           />
           {errors.password && (
-            <p className="mt-1 text-xs text-red-600">
+            <p className="mt-1 text-xs font-medium text-danger">
               {errors.password.message}
             </p>
           )}
@@ -107,14 +107,14 @@ export function LoginPage() {
           <button
             type="button"
             onClick={() => navigate('/forgot-password')}
-            className="text-sm font-semibold text-brand-600 hover:text-brand-700"
+            className="text-sm font-medium text-brand-600 hover:text-brand-700"
           >
             Forgot password?
           </button>
         </div>
         <Button
           type="submit"
-          className="w-full rounded-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 font-bold shadow-md"
+          className="w-full rounded-full bg-brand-700 hover:bg-brand-800 text-white h-12 font-medium shadow-sm"
           size="lg"
           loading={mutation.isPending}
         >
@@ -123,9 +123,9 @@ export function LoginPage() {
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-ink-200" />
+            <span className="w-full border-t border-edge" />
           </div>
-          <div className="relative flex justify-center text-xs text-ink-500 bg-slate-50 px-3">
+          <div className="relative flex justify-center text-xs font-medium text-foreground-3 bg-surface-2 px-3">
             Or continue with
           </div>
         </div>
@@ -134,7 +134,7 @@ export function LoginPage() {
           <button
             type="button"
             onClick={() => (window.location.href = '/auth/oauth/google')}
-            className="flex h-12 w-full items-center justify-center rounded-full border border-ink-200 bg-white text-ink-700 shadow-soft transition-colors hover:bg-ink-50"
+            className="flex h-12 w-full items-center justify-center rounded-full border border-edge bg-surface text-foreground-2 shadow-soft transition-colors hover:bg-surface-3"
             aria-label="Continue with Google"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
@@ -159,7 +159,7 @@ export function LoginPage() {
           <button
             type="button"
             onClick={() => (window.location.href = '/auth/oauth/facebook')}
-            className="flex h-12 w-full items-center justify-center rounded-full border border-ink-200 bg-white text-ink-700 shadow-soft transition-colors hover:bg-ink-50"
+            className="flex h-12 w-full items-center justify-center rounded-full border border-edge bg-surface text-foreground-2 shadow-soft transition-colors hover:bg-surface-3"
             aria-label="Continue with Facebook"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
@@ -172,7 +172,7 @@ export function LoginPage() {
           <button
             type="button"
             onClick={() => (window.location.href = '/auth/oauth/twitter')}
-            className="flex h-12 w-full items-center justify-center rounded-full border border-ink-200 bg-white text-ink-700 shadow-soft transition-colors hover:bg-ink-50"
+            className="flex h-12 w-full items-center justify-center rounded-full border border-edge bg-surface text-foreground-2 shadow-soft transition-colors hover:bg-surface-3"
             aria-label="Continue with Twitter"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
@@ -192,3 +192,4 @@ export function LoginPage() {
     </AuthLayout>
   );
 }
+

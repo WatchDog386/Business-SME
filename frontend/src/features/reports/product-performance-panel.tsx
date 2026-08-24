@@ -45,7 +45,7 @@ export function ProductPerformancePanel({ from, to }: { from: string; to: string
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-edge text-left text-xs font-semibold uppercase text-foreground-5">
+            <tr className="border-b border-edge text-left text-xs font-medium uppercase text-foreground-5">
               <th className="px-4 py-3">Product</th>
               <th className="px-4 py-3 text-right">Sold</th>
               <th className="px-4 py-3 text-right">Revenue</th>
@@ -55,10 +55,10 @@ export function ProductPerformancePanel({ from, to }: { from: string; to: string
           <tbody className="divide-y divide-edge">
             {sorted.map((row) => (
               <tr key={row.name}>
-                <td className="px-4 py-3 font-bold text-foreground">{row.name}</td>
+                <td className="px-4 py-3 font-medium text-foreground">{row.name}</td>
                 <td className="px-4 py-3 text-right text-foreground-2">{row.quantity}</td>
-                <td className="px-4 py-3 text-right font-semibold text-foreground">{formatKES(row.revenue)}</td>
-                <td className={`px-4 py-3 text-right font-bold ${row.profit >= 0 ? 'text-success' : 'text-danger'}`}>
+                <td className="px-4 py-3 text-right font-medium text-foreground">{formatKES(row.revenue)}</td>
+                <td className={`px-4 py-3 text-right font-medium ${row.profit >= 0 ? 'text-success' : 'text-danger'}`}>
                   {row.profit < 0 ? `−${formatKES(-row.profit)}` : formatKES(row.profit)}
                 </td>
               </tr>

@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
-import { Phone, Mail } from 'lucide-react';
+import { Phone, Mail, Loader2 } from 'lucide-react';
 import { AuthLayout, AuthFooterLink } from './components/auth-layout';
 
 const schema = z.object({
@@ -25,65 +25,83 @@ type FormValues = z.infer<typeof schema>;
 function OtpInput({
   value,
   onChange,
+  verifying = false,
   length = 6,
 }: {
   value: string;
   onChange: (val: string) => void;
+  verifying?: boolean;
   length?: number;
 }) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
-  const digits = value.padEnd(length, '').split('').slice(0, length);
+  const digits = value.padEnd(length, ' ').split('').slice(0, length);
+
+  const commit = (index: number, digit: string) => {
+    const next = [...digits];
+    next[index] = digit === '' ? ' ' : digit;
+    onChange(next.join('').replace(/\s/g, ''));
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    const val = e.target.value;
-    const digit = val.replace(/\D/g, '').slice(-1);
-    
-    const newDigits = [...digits];
-    newDigits[index] = digit;
-    const combined = newDigits.join('').trim();
-    onChange(combined);
-
+    if (verifying) return;
+    const digit = e.target.value.replace(/\D/g, '').slice(-1);
+    commit(index, digit);
     if (digit && index < length - 1) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    if (e.key === 'Backspace') {
-      if (!digits[index] && index > 0) {
+    if (e.key === 'Backspace' && !verifying) {
+      if (digits[index] !== ' ') {
+        commit(index, '');
+      } else if (index > 0) {
         inputRefs.current[index - 1]?.focus();
-      } else {
-        const newDigits = [...digits];
-        newDigits[index] = '';
-        onChange(newDigits.join('').trim());
+        commit(index - 1, '');
       }
+    }
+    if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowRight' && index < length - 1) {
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
+    if (verifying) return;
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, length);
     onChange(pasted);
-    const nextIndex = Math.min(pasted.length, length - 1);
-    inputRefs.current[nextIndex]?.focus();
+    inputRefs.current[Math.min(pasted.length, length - 1)]?.focus();
   };
 
   return (
-    <div className="flex justify-between gap-2">
-      {Array.from({ length }).map((_, i) => (
-        <input
-          key={i}
-          ref={(el) => (inputRefs.current[i] = el)}
-          type="text"
-          inputMode="numeric"
-          maxLength={1}
-          value={digits[i] !== ' ' ? digits[i] : ''}
-          onChange={(e) => handleChange(e, i)}
-          onKeyDown={(e) => handleKeyDown(e, i)}
-          onPaste={handlePaste}
-          className="h-14 w-12 rounded-2xl border border-edge bg-surface text-center text-2xl font-bold text-foreground shadow-sm transition-all focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
-        />
-      ))}
+    <div className="flex justify-between gap-2 sm:gap-3">
+      {Array.from({ length }).map((_, i) => {
+        const filled = digits[i] !== ' ';
+        return (
+          <input
+            key={i}
+            ref={(el) => (inputRefs.current[i] = el)}
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={1}
+            disabled={verifying}
+            autoFocus={i === 0}
+            aria-label={`Digit ${i + 1}`}
+            value={filled ? digits[i] : ''}
+            onChange={(e) => handleChange(e, i)}
+            onKeyDown={(e) => handleKeyDown(e, i)}
+            onPaste={handlePaste}
+            className={`h-14 w-full min-w-0 flex-1 rounded-2xl border bg-surface text-center text-lg font-medium text-foreground shadow-sm caret-foreground outline-none transition-all duration-200 focus:border-edge-2 focus:ring-0 ${
+              filled ? 'border-edge-2 bg-surface-2' : 'border-edge'
+            } ${verifying ? 'animate-otp-wave border-edge-2' : ''}`}
+            style={verifying ? { animationDelay: `${i * 130}ms` } : undefined}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -100,6 +118,7 @@ export function RegisterPage() {
   const [sentOtp, setSentOtp] = useState<string>('123456');
   const [enteredOtp, setEnteredOtp] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(180); // 3 minutes
 
   useEffect(() => {
@@ -148,7 +167,11 @@ export function RegisterPage() {
       await queryClient.invalidateQueries();
       navigate('/onboarding', { replace: true });
     },
-    onError: (err) => setError(apiErrorMessage(err)),
+    onError: (err) => {
+      setVerifying(false);
+      setEnteredOtp('');
+      setError(apiErrorMessage(err));
+    },
   });
 
   const handleInitialSubmit = async (values: FormValues) => {
@@ -201,30 +224,45 @@ export function RegisterPage() {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  const performVerify = async (code: string) => {
+    if (!formData || verifying || mutation.isPending) return;
+    setVerifying(true);
+    setError(null);
+
+    try {
+      if (formData.mode === 'phone') {
+        const fullPhone = `+254${formData.identifier.replace(/^0+/, '')}`;
+        try {
+          await supabase.auth.verifyOtp({ phone: fullPhone, token: code, type: 'sms' });
+        } catch {
+          // Proceed even if Supabase SMS verification has gateway issues
+        }
+      } else if (code !== sentOtp && code !== '123456') {
+        throw new Error('Invalid verification code.');
+      }
+
+      mutation.mutate(formData);
+    } catch (err: any) {
+      setVerifying(false);
+      setEnteredOtp('');
+      setError(err?.message ?? 'Invalid verification code.');
+    }
+  };
+
+  useEffect(() => {
+    // Auto-verify as soon as all six digits have been keyed in
+    if (step === 'otp' && enteredOtp.length === 6) {
+      void performVerify(enteredOtp);
+    }
+  }, [enteredOtp, step]);
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
     if (!enteredOtp || enteredOtp.length < 6) {
       setError('Enter the 6-digit verification code.');
       return;
     }
-    setError(null);
-    if (formData) {
-      try {
-        if (formData.mode === 'phone') {
-          const fullPhone = `+254${formData.identifier.replace(/^0+/, '')}`;
-          await supabase.auth.verifyOtp({ phone: fullPhone, token: enteredOtp, type: 'sms' });
-        } else {
-          if (enteredOtp !== sentOtp && enteredOtp !== '123456') {
-            setError('Invalid verification code.');
-            return;
-          }
-        }
-      } catch {
-        // Proceed even if Supabase SMS verification has gateway issues
-      }
-
-      mutation.mutate(formData);
-    }
+    void performVerify(enteredOtp);
   };
 
   if (token) return <Navigate to="/dashboard" replace />;
@@ -255,10 +293,9 @@ export function RegisterPage() {
           {error && <Alert variant="error">{error}</Alert>}
           
           <div className="space-y-6">
-            {/* Sliding Toggle Bar matching standard input height (h-12) */}
-            <div className="relative flex h-12 items-center rounded-full bg-surface-2 overflow-hidden border border-edge">
+            <div className="relative flex h-12 items-center rounded-full border border-edge bg-surface-2 overflow-hidden">
               <div
-                className={`absolute inset-y-0 w-1/2 rounded-full bg-emerald-600 transition-transform duration-300 ease-out shadow-sm ${
+                className={`absolute inset-y-0 w-1/2 rounded-full bg-brand-700 transition-transform duration-300 ease-out shadow-sm ${
                   authMode === 'email' ? 'translate-x-full' : 'translate-x-0'
                 }`}
               />
@@ -268,7 +305,7 @@ export function RegisterPage() {
                   setAuthMode('phone');
                   setValue('mode', 'phone');
                 }}
-                className={`relative z-10 flex h-full w-full items-center justify-center gap-2 text-xs font-bold transition-colors ${
+                className={`relative z-10 flex h-full w-full items-center justify-center gap-2 text-xs font-medium transition-colors ${
                   authMode === 'phone' ? 'text-white' : 'text-foreground-4 hover:text-foreground'
                 }`}
               >
@@ -281,7 +318,7 @@ export function RegisterPage() {
                   setAuthMode('email');
                   setValue('mode', 'email');
                 }}
-                className={`relative z-10 flex h-full w-full items-center justify-center gap-2 text-xs font-bold transition-colors ${
+                className={`relative z-10 flex h-full w-full items-center justify-center gap-2 text-xs font-medium transition-colors ${
                   authMode === 'email' ? 'text-white' : 'text-foreground-4 hover:text-foreground'
                 }`}
               >
@@ -294,7 +331,7 @@ export function RegisterPage() {
             <div className="space-y-2">
               <div className="relative flex items-center">
                 {authMode === 'phone' && (
-                  <div className="absolute left-4 flex items-center gap-1.5 border-r border-edge pr-3 text-base font-bold text-foreground">
+                  <div className="absolute left-4 flex items-center gap-1.5 border-r border-edge pr-3 text-sm font-medium text-foreground">
                     <span>🇰🇪</span>
                     <span>+254</span>
                   </div>
@@ -304,7 +341,7 @@ export function RegisterPage() {
                   type={authMode === 'email' ? 'email' : 'tel'}
                   placeholder={authMode === 'phone' ? '712 345 678' : 'you@example.com'}
                   aria-invalid={errors.identifier ? true : undefined}
-                  className={`h-12 text-base font-normal rounded-full bg-surface border-edge hover:border-edge focus:border-emerald-600 ${
+                  className={`h-12 text-sm font-normal rounded-full bg-surface border-edge focus:border-edge-2 focus:ring-0 ${
                     authMode === 'phone' ? 'pl-28 pr-5' : 'px-5'
                   }`}
                   {...register('identifier')}
@@ -316,7 +353,7 @@ export function RegisterPage() {
                   : 'We will email a 6-digit verification code to this address.'}
               </p>
               {errors.identifier && (
-                <p className="mt-1 text-xs text-red-600 px-2">{errors.identifier.message}</p>
+                <p className="mt-1 text-xs font-medium text-danger px-2">{errors.identifier.message}</p>
               )}
             </div>
           </div>
@@ -325,13 +362,13 @@ export function RegisterPage() {
             <Button
               type="button"
               onClick={() => navigate('/')}
-              className="rounded-full bg-black text-white hover:bg-zinc-800 h-11 font-bold shadow-sm"
+              className="rounded-full border border-edge bg-surface text-foreground hover:bg-surface-2 h-11 font-medium"
             >
               Back
             </Button>
             <Button
               type="submit"
-              className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 font-bold shadow-md"
+              className="rounded-full bg-brand-700 hover:bg-brand-800 text-white h-11 font-medium shadow-sm"
             >
               Continue
             </Button>
@@ -343,35 +380,50 @@ export function RegisterPage() {
           
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-wider text-foreground-4">
+              <Label className="text-xs font-medium uppercase tracking-wider text-foreground-4">
                 Enter 6-digit code
               </Label>
-              <OtpInput value={enteredOtp} onChange={setEnteredOtp} length={6} />
+              <OtpInput
+                value={enteredOtp}
+                onChange={setEnteredOtp}
+                length={6}
+                verifying={verifying || mutation.isPending}
+              />
             </div>
 
-            <div className="flex items-center justify-between text-xs text-foreground-4 px-1">
-              <span>Didn't receive the code?</span>
-              {timeLeft > 0 ? (
-                <span className="font-semibold text-foreground-3">
-                  Resend code in <strong className="text-foreground">{formatTime(timeLeft)}</strong>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleResendCode}
-                  className="font-bold text-emerald-600 hover:text-emerald-700 underline"
-                >
-                  Resend code
-                </button>
-              )}
-            </div>
+            {verifying || mutation.isPending ? (
+              <p className="flex items-center justify-center gap-2 text-xs font-medium text-brand-700">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                Verifying your code…
+              </p>
+            ) : (
+              enteredOtp.length < 6 && (
+                <div className="flex items-center justify-between px-1 text-xs">
+                  <span className="text-brand-600">Didn't receive the code?</span>
+                  {timeLeft > 0 ? (
+                    <span className="font-medium text-brand-600">
+                      Resend code in{' '}
+                      <span className="tabular-nums text-brand-700">{formatTime(timeLeft)}</span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResendCode}
+                      className="font-medium text-brand-600 underline hover:text-brand-700"
+                    >
+                      Resend code
+                    </button>
+                  )}
+                </div>
+              )
+            )}
           </div>
 
           <div className="space-y-3 pt-10 mt-auto">
             <Button
               type="submit"
-              className="w-full rounded-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 font-bold shadow-md"
-              loading={mutation.isPending}
+              className="w-full rounded-full bg-brand-700 hover:bg-brand-800 text-white h-12 font-medium shadow-sm"
+              loading={verifying || mutation.isPending}
             >
               Verify & Create Account
             </Button>
@@ -379,7 +431,7 @@ export function RegisterPage() {
             <button
               type="button"
               onClick={() => setStep('form')}
-              className="w-full text-center text-xs font-semibold text-foreground-4 hover:text-foreground py-2"
+              className="w-full text-center text-xs font-medium text-foreground-4 hover:text-foreground py-2"
             >
               Back to registration form
             </button>

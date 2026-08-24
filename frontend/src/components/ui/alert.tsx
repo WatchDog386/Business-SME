@@ -52,7 +52,7 @@ export function Alert({
     >
       <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', iconClass)} aria-hidden />
       <div>
-        {title && <p className="font-semibold">{title}</p>}
+        {title && <p className="font-medium">{title}</p>}
         {children && <div className="text-sm">{children}</div>}
       </div>
     </div>

@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
   IsEnum,
   IsInt,
@@ -36,12 +35,26 @@ export class SaleItemInputDto {
 }
 
 export class CreateSaleDto {
-  @ApiProperty({ type: [SaleItemInputDto] })
+  @ApiProperty({
+    type: [SaleItemInputDto],
+    description:
+      'Line items. May be empty only when `total` is provided (amount-only express sale, e.g. recorded from an M-Pesa SMS).',
+  })
   @IsArray()
-  @ArrayMinSize(1, { message: 'Add at least one product or service.' })
   @ValidateNested({ each: true })
   @Type(() => SaleItemInputDto)
   items: SaleItemInputDto[];
+
+  @ApiPropertyOptional({
+    example: 1500,
+    description:
+      'Explicit sale total for amount-only express sales. Required when `items` is empty.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  total?: number;
 
   @ApiPropertyOptional({ example: 'uuid-of-customer' })
   @IsOptional()

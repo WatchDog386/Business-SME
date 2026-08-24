@@ -174,7 +174,7 @@ export function ProductsPage() {
               <li key={product.id} className="px-4 py-3 sm:px-5">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-foreground">
+                    <p className="text-sm font-medium text-foreground">
                       {product.name}
                     </p>
                     <p className="text-xs text-foreground-5">
@@ -183,13 +183,13 @@ export function ProductsPage() {
                     </p>
                   </div>
                   <div className="hidden text-right sm:block">
-                    <p className="text-sm font-bold text-foreground">
+                    <p className="text-sm font-medium text-foreground">
                       {formatKES(product.selling_price)}
                     </p>
                     <p className="text-xs text-foreground-5">selling price</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-foreground">
+                    <p className="text-sm font-medium text-foreground">
                       {product.track_inventory ? product.stock_quantity : '—'}
                     </p>
                     <p className="text-xs text-foreground-5">
@@ -391,7 +391,7 @@ function ProductHistory({ productId }: { productId: string }) {
           className="flex items-center justify-between rounded-xl border border-edge px-3 py-2"
         >
           <div>
-            <p className="text-sm font-bold text-foreground">
+            <p className="text-sm font-medium text-foreground">
               {statusLabel(movement.type)}
               {movement.quantity >= 0 ? ' +' : ' '}
               {movement.quantity}

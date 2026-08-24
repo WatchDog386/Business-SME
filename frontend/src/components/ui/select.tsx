@@ -19,7 +19,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           className={cn(
             'h-11 w-full appearance-none rounded-full border border-edge bg-surface pl-4 pr-9 text-sm text-foreground shadow-sm',
-            'transition-colors hover:border-edge-2 focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-2',
+            'transition-colors focus:border-edge-2 focus:ring-0 focus-visible:ring-0 disabled:cursor-not-allowed disabled:bg-surface-2',
             'aria-[invalid=true]:border-danger',
             placeholder && !props.value && 'text-foreground-5',
             className,

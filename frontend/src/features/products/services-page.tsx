@@ -107,7 +107,7 @@ export function ServicesPage() {
               <li key={service.id} className="px-4 py-3 sm:px-5">
                 <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-foreground">
+                    <p className="text-sm font-medium text-foreground">
                       {service.name}
                     </p>
                     <p className="truncate text-xs text-foreground-5">
@@ -120,7 +120,7 @@ export function ServicesPage() {
                       {service.duration_minutes} min
                     </Badge>
                   )}
-                  <p className="text-sm font-bold text-foreground">
+                  <p className="text-sm font-medium text-foreground">
                     {formatKES(service.price)}
                   </p>
                   <div className="flex items-center gap-1">

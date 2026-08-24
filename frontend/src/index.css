@@ -1,5 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Quicksand:wght@500;600;700&family=Nunito:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -42,8 +41,59 @@
   body {
     background-color: #f8fafc;
     color: rgb(var(--foreground));
-    font-family: 'Inter', 'Roboto', sans-serif;
+    font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'kern' 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Dark "Shevify" theme — flips every semantic token */
+  .dark {
+    color-scheme: dark;
+
+    --surface: 18 26 22;           /* #121A16 */
+    --surface-2: 11 17 14;         /* #0B110E */
+    --surface-3: 32 43 37;         /* #202B25 */
+    --edge: 46 58 51;              /* #2E3A33 */
+    --edge-2: 66 79 71;            /* #424F47 */
+    --foreground: 233 238 235;     /* #E9EEEB */
+    --foreground-2: 214 222 217;   /* #D6DED9 */
+    --foreground-3: 158 171 164;   /* #9EABA4 */
+    --foreground-4: 122 134 127;   /* #7A867F */
+    --foreground-5: 94 105 99;     /* #5E6963 */
+    --accent: 0 177 64;            /* #00B140 Primary Green */
+    --accent-strong: 34 197 111;   /* brighter green for dark bg */
+    --accent-soft: 8 54 36;        /* deep green tint */
+    --accent-border: 35 155 102;
+    --accent-text: 167 243 208;
+    --success: 52 211 153;
+    --success-soft: 6 46 32;
+    --danger: 248 113 113;
+    --danger-soft: 56 17 17;
+    --warning: 251 191 36;
+    --warning-soft: 53 38 9;
+    --info: 96 165 250;
+    --info-soft: 13 36 56;
+  }
+
+  .dark body {
+    background-color: #0b110e;
+  }
+
+  h1, h2, h3, h4 {
+    text-rendering: geometricPrecision;
+  }
+
+  /* Keep text crisp on mobile — no blurry scaling artifacts */
+  @media (max-width: 640px) {
+    body {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
   }
 
   * {
@@ -53,6 +103,24 @@
   :focus-visible {
     outline: 2px solid #00B140;
     outline-offset: 2px;
+  }
+
+  /* Neutral focus for form fields — no green border on click */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+  textarea:focus,
+  select:focus {
+    border-color: rgb(var(--edge-2));
+    box-shadow: none;
+  }
+
+  /* Remove browser autofill blue/yellow flash */
+  input:-webkit-autofill,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px rgb(var(--surface)) inset !important;
+    -webkit-text-fill-color: rgb(var(--foreground)) !important;
+    caret-color: rgb(var(--foreground));
+    transition: background-color 9999s ease-out 0s;
   }
 }
 

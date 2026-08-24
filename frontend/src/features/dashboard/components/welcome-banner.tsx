@@ -12,11 +12,11 @@ export function WelcomeBanner() {
       <div className="relative space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-white/80" aria-hidden />
-          <p className="text-sm font-bold uppercase tracking-wide text-white/80">
+          <p className="text-sm font-medium uppercase tracking-wide text-white/80">
             Welcome!
           </p>
         </div>
-        <h2 className="text-xl font-extrabold sm:text-2xl">
+        <h2 className="text-lg font-medium sm:text-xl">
           Your business is set up. Now let's make your first sale.
         </h2>
         <p className="max-w-lg text-sm text-white/80">

@@ -63,7 +63,7 @@ export function RecordSalePage() {
   if (!activeBusiness) {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-base font-bold text-foreground">No active business selected</p>
+        <p className="text-sm font-medium text-foreground">No active business selected</p>
         <p className="text-sm text-foreground-5">Please select or create a business to record sales.</p>
       </div>
     );
@@ -273,10 +273,10 @@ export function RecordSalePage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success-soft">
               <CheckCircle2 className="h-9 w-9 text-success" aria-hidden />
             </div>
-            <h2 className="text-xl font-extrabold text-foreground">Sale recorded!</h2>
+            <h2 className="text-lg font-medium text-foreground">Sale recorded!</h2>
             <p className="text-sm text-foreground-5">
               Sale total of{' '}
-              <span className="font-bold text-foreground">
+              <span className="font-medium text-foreground">
                 {formatKES(successSale.total)}
               </span>{' '}
               has been saved. Stock, customer and profit were updated automatically.
@@ -319,7 +319,7 @@ export function RecordSalePage() {
         actions={
           <button
             onClick={() => window.history.back()}
-            className="flex items-center gap-1 text-sm font-semibold text-foreground-5 hover:text-foreground"
+            className="flex items-center gap-1 text-sm font-medium text-foreground-5 hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -391,7 +391,7 @@ export function RecordSalePage() {
                             )}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-foreground">
+                            <p className="truncate text-sm font-medium text-foreground">
                               {item.name}
                             </p>
                             <p className="text-xs text-foreground-5">
@@ -400,11 +400,11 @@ export function RecordSalePage() {
                               {outOfStock && ' · out of stock'}
                             </p>
                           </div>
-                          <span className="text-sm font-bold text-foreground">
+                          <span className="text-sm font-medium text-foreground">
                             {formatKES(item.unitPrice)}
                           </span>
                           {inCart ? (
-                            <span className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-white">
+                            <span className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-white">
                               {inCart.quantity} in cart
                             </span>
                           ) : (
@@ -440,7 +440,7 @@ export function RecordSalePage() {
                       className="flex items-center gap-3 py-3"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-foreground">
+                        <p className="truncate text-sm font-medium text-foreground">
                           {item.name}
                         </p>
                         <p className="text-xs text-foreground-5">
@@ -458,7 +458,7 @@ export function RecordSalePage() {
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
-                        <span className="w-8 text-center text-sm font-bold">
+                        <span className="w-8 text-center text-sm font-medium">
                           {item.quantity}
                         </span>
                         <Button
@@ -472,7 +472,7 @@ export function RecordSalePage() {
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
-                      <span className="w-20 text-right text-sm font-bold text-foreground">
+                      <span className="w-20 text-right text-sm font-medium text-foreground">
                         {formatKES(item.unitPrice * item.quantity)}
                       </span>
                       <Button
@@ -626,14 +626,14 @@ export function RecordSalePage() {
             <CardContent className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-foreground-5">Subtotal</span>
-                <span className="font-semibold text-foreground">
+                <span className="font-medium text-foreground">
                   {formatKES(subtotal)}
                 </span>
               </div>
               {appliedDiscount > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-foreground-5">Discount</span>
-                  <span className="font-semibold text-danger">
+                  <span className="font-medium text-danger">
                     −{formatKES(appliedDiscount)}
                   </span>
                 </div>
@@ -641,14 +641,14 @@ export function RecordSalePage() {
               {tax > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-foreground-5">Tax</span>
-                  <span className="font-semibold text-foreground">
+                  <span className="font-medium text-foreground">
                     {formatKES(tax)}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-edge pt-2 text-base">
-                <span className="font-bold text-foreground">Total</span>
-                <span className="font-extrabold text-foreground">
+              <div className="flex justify-between border-t border-edge pt-2 text-sm">
+                <span className="font-medium text-foreground">Total</span>
+                <span className="font-medium text-foreground">
                   {formatKES(total)}
                 </span>
               </div>

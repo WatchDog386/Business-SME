@@ -145,7 +145,7 @@ export function ExpensesPage() {
               <li key={expense.id} className="px-4 py-3 sm:px-5">
                 <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-foreground">
+                    <p className="text-sm font-medium text-foreground">
                       {expense.description}
                     </p>
                     <p className="truncate text-xs text-foreground-5">
@@ -153,7 +153,7 @@ export function ExpensesPage() {
                       {formatDate(expense.expense_date)} · {expense.payment_method}
                     </p>
                   </div>
-                  <p className="text-sm font-bold text-danger">
+                  <p className="text-sm font-medium text-danger">
                     −{formatKES(expense.amount)}
                   </p>
                   <div className="flex items-center gap-1">

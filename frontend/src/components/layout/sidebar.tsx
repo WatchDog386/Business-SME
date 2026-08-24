@@ -6,6 +6,7 @@ import {
   Package,
   Scissors,
   Wallet,
+  Banknote,
   BarChart3,
   type LucideIcon,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ const navItems: Array<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '/products', label: 'Products', icon: Package },
   { to: '/services', label: 'Services', icon: Scissors },
   { to: '/expenses', label: 'Expenses', icon: Wallet },
+  { to: '/account', label: 'Account', icon: Banknote },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
 ];
 
@@ -35,7 +37,7 @@ export function Sidebar() {
             to={item.to}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-accent-soft text-accent'
                   : 'text-foreground-4 hover:bg-surface-3 hover:text-foreground',

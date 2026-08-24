@@ -54,7 +54,7 @@ export function CustomerDetailPage() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-sm font-semibold text-foreground-5 hover:text-accent"
+          className="flex items-center gap-1 text-sm font-medium text-foreground-5 hover:text-accent"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -74,11 +74,11 @@ export function CustomerDetailPage() {
       <Card>
         <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-xl font-extrabold text-accent-text">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-lg font-medium text-accent-text">
               {customer.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h1 className="text-lg font-extrabold text-foreground">
+              <h1 className="text-base font-medium text-foreground">
                 {customer.name}
               </h1>
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground-5">
@@ -121,7 +121,7 @@ export function CustomerDetailPage() {
           <CardTitle>Sales history</CardTitle>
           <Link
             to={`/sales?customer=${customer.id}`}
-            className="text-sm font-semibold text-accent hover:text-accent-strong"
+            className="text-sm font-medium text-accent hover:text-accent-strong"
           >
             View all
           </Link>
@@ -146,7 +146,7 @@ export function CustomerDetailPage() {
                     className="flex items-center justify-between gap-3 py-3"
                   >
                     <div>
-                      <p className="text-sm font-bold text-foreground">
+                      <p className="text-sm font-medium text-foreground">
                         #{sale.id.slice(0, 8).toUpperCase()}
                       </p>
                       <p className="text-xs text-foreground-5">
@@ -154,7 +154,7 @@ export function CustomerDetailPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-foreground">
+                      <span className="text-sm font-medium text-foreground">
                         {formatKES(sale.total)}
                       </span>
                       <Badge variant={statusVariant(sale.payment_status)}>
@@ -202,12 +202,12 @@ function Stat({
 }) {
   return (
       <div className="rounded-xl bg-surface-2 px-3 py-2">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground-5">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-foreground-5">
         {label}
       </p>
       <p
         className={
-          'mt-0.5 text-sm font-extrabold ' +
+          'mt-0.5 text-sm font-medium ' +
           (tone === 'danger' ? 'text-danger' : 'text-foreground')
         }
       >

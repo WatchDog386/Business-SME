@@ -25,7 +25,7 @@ const variantClasses: Record<ButtonVariant, string> = {
 const sizeClasses: Record<ButtonSize, string> = {
   default: 'h-11 px-5 text-sm',
   sm: 'h-9 px-3.5 text-sm',
-  lg: 'h-[52px] px-6 text-base',
+  lg: 'h-[52px] px-6 text-sm',
   icon: 'h-11 w-11',
 };
 
@@ -44,7 +44,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100',
+        'inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100',
         variantClasses[variant],
         sizeClasses[size],
         className,

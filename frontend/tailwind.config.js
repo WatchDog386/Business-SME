@@ -81,10 +81,10 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Poppins', 'Quicksand', 'Inter', 'Roboto', 'system-ui', 'sans-serif'],
-        display: ['Poppins', 'Quicksand', 'Inter', 'system-ui', 'sans-serif'],
-        poppins: ['Poppins', 'sans-serif'],
-        quicksand: ['Quicksand', 'sans-serif'],
+        sans: ['Roboto', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        display: ['Roboto', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        poppins: ['Roboto', 'system-ui', 'sans-serif'],
+        quicksand: ['Roboto', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         soft: '0 1px 3px 0 rgb(20 40 30 / 0.04), 0 4px 12px -4px rgb(20 40 30 / 0.06)',
@@ -131,6 +131,16 @@ export default {
           from: { transform: 'translateX(0)' },
           to: { transform: 'translateX(-50%)' },
         },
+        'otp-wave': {
+          '0%, 100%': {
+            transform: 'translateY(0)',
+            boxShadow: '0 0 0 0 rgb(10 108 78 / 0)',
+          },
+          '50%': {
+            transform: 'translateY(-8px)',
+            boxShadow: '0 10px 18px -6px rgb(10 108 78 / 0.5)',
+          },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.5s ease-out both',
@@ -141,6 +151,7 @@ export default {
         shimmer: 'shimmer 2.5s linear infinite',
         'pulse-ring': 'pulse-ring 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite',
         marquee: 'marquee 40s linear infinite',
+        'otp-wave': 'otp-wave 1.1s ease-in-out infinite',
       },
     },
   },

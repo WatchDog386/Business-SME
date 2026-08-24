@@ -60,7 +60,7 @@ export function ForgotPasswordPage() {
             <button
               type="button"
               onClick={() => navigate('/reset-password')}
-              className="mt-2 font-bold underline"
+              className="mt-2 font-medium underline"
             >
               Go to reset password
             </button>

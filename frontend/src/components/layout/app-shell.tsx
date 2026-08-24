@@ -37,7 +37,7 @@ export function AppShell() {
         <main
           className={cn(
             'flex-1 px-4 pb-28 lg:px-8 lg:pb-10',
-            isDashboard ? 'pt-2 pb-6 lg:pt-3 lg:pb-8' : 'py-6 lg:py-8',
+            isDashboard ? 'pt-2 pb-28 lg:pt-3 lg:pb-10' : 'py-6 lg:py-8',
           )}
         >
           <div className="mx-auto w-full max-w-6xl">

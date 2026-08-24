@@ -81,7 +81,7 @@ export function SaleDetailPage() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-sm font-semibold text-foreground-5 hover:text-foreground"
+          className="flex items-center gap-1 text-sm font-medium text-foreground-5 hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -111,7 +111,7 @@ export function SaleDetailPage() {
           <div>
             <div className="flex items-center gap-2">
               <Receipt className="h-5 w-5 text-accent" aria-hidden />
-              <h1 className="text-lg font-extrabold text-foreground">
+              <h1 className="text-base font-medium text-foreground">
                 #{sale.id.slice(0, 8).toUpperCase()}
               </h1>
               <Badge variant={statusVariant(sale.payment_status)}>
@@ -124,10 +124,10 @@ export function SaleDetailPage() {
             </p>
           </div>
           <div className="rounded-xl bg-accent-soft px-4 py-2">
-            <p className="text-xs font-semibold uppercase text-accent">
+            <p className="text-xs font-medium uppercase text-accent">
               Total
             </p>
-            <p className="text-2xl font-extrabold text-foreground">
+            <p className="text-xl font-medium text-foreground">
               {formatKES(sale.total)}
             </p>
           </div>
@@ -144,14 +144,14 @@ export function SaleDetailPage() {
               {sale.items.map((item) => (
                 <li key={item.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">
+                    <p className="truncate text-sm font-medium text-foreground">
                       {item.product_name ?? item.service_name ?? item.item_name}
                     </p>
                     <p className="text-xs text-foreground-5">
                       {item.quantity} × {formatKES(item.unit_price)}
                     </p>
                   </div>
-                  <span className="text-sm font-bold text-foreground">
+                  <span className="text-sm font-medium text-foreground">
                     {formatKES(item.total)}
                   </span>
                 </li>
@@ -160,12 +160,12 @@ export function SaleDetailPage() {
             <div className="mt-3 space-y-1 border-t border-edge pt-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-foreground-5">Subtotal</span>
-                <span className="font-semibold">{formatKES(sale.subtotal)}</span>
+                <span className="font-medium">{formatKES(sale.subtotal)}</span>
               </div>
               {sale.discount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-foreground-5">Discount</span>
-                  <span className="font-semibold text-danger">
+                  <span className="font-medium text-danger">
                     −{formatKES(sale.discount)}
                   </span>
                 </div>
@@ -173,12 +173,12 @@ export function SaleDetailPage() {
               {sale.tax > 0 && (
                 <div className="flex justify-between">
                   <span className="text-foreground-5">Tax</span>
-                  <span className="font-semibold">{formatKES(sale.tax)}</span>
+                  <span className="font-medium">{formatKES(sale.tax)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-base">
-                <span className="font-bold">Total</span>
-                <span className="font-extrabold">{formatKES(sale.total)}</span>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">Total</span>
+                <span className="font-medium">{formatKES(sale.total)}</span>
               </div>
             </div>
             {sale.notes && (
@@ -202,7 +202,7 @@ export function SaleDetailPage() {
                   {sale.payments.map((payment) => (
                     <li key={payment.id} className="flex items-center justify-between py-2.5">
                       <div>
-                        <p className="text-sm font-semibold text-foreground">
+                        <p className="text-sm font-medium text-foreground">
                           {payment.method}
                           {payment.reference && (
                             <span className="text-xs text-foreground-5">
@@ -215,7 +215,7 @@ export function SaleDetailPage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-bold text-foreground">
+                        <p className="text-sm font-medium text-foreground">
                           {formatKES(payment.amount)}
                         </p>
                         <Badge variant={statusVariant(payment.status)}>
@@ -229,14 +229,14 @@ export function SaleDetailPage() {
               <div className="mt-3 space-y-1 border-t border-edge pt-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-foreground-5">Paid</span>
-                  <span className="font-semibold text-success">
+                  <span className="font-medium text-success">
                     {formatKES(paid)}
                   </span>
                 </div>
                 {remaining > 0 && (
                   <div className="flex justify-between">
                     <span className="text-foreground-5">Remaining</span>
-                    <span className="font-semibold text-danger">
+                    <span className="font-medium text-danger">
                       {formatKES(remaining)}
                     </span>
                   </div>
@@ -253,7 +253,7 @@ export function SaleDetailPage() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-bold text-foreground">{sale.customer.name}</p>
+                    <p className="font-medium text-foreground">{sale.customer.name}</p>
                     <p className="text-xs text-foreground-5">
                       {sale.customer.phone ?? 'No phone'} · owes{' '}
                       {formatKES(sale.customer.outstanding_balance)}
@@ -261,7 +261,7 @@ export function SaleDetailPage() {
                   </div>
                   <Link
                     to={`/customers/${sale.customer.id}`}
-                    className="text-sm font-semibold text-accent hover:text-accent"
+                    className="text-sm font-medium text-accent hover:text-accent"
                   >
                     View profile
                   </Link>

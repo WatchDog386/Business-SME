@@ -16,6 +16,7 @@ import { SalesPage } from '@/features/sales/sales-page';
 import { RecordSalePage } from '@/features/sales/record-sale-page';
 import { SaleDetailPage } from '@/features/sales/sale-detail-page';
 import { ExpensesPage } from '@/features/expenses/expenses-page';
+import { AccountPage } from '@/features/account/account-page';
 import { ReportsPage } from '@/features/reports/reports-page';
 import { ProfilePage } from '@/features/profile/profile-page';
 import { NotificationsPage } from '@/features/notifications/notifications-page';
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/sales/new" element={<RecordSalePage />} />
         <Route path="/sales/:id" element={<SaleDetailPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
+        <Route path="/account" element={<AccountPage />} />
         <Route path="/reports" element={<ReportsPage />} />
       </Route>
 

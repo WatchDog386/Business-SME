@@ -25,7 +25,7 @@ export function Brand({
         <div className="leading-tight">
           <p
             className={cn(
-              'font-display text-base font-extrabold tracking-tight',
+              'font-display text-sm font-medium tracking-tight',
               onDark ? 'text-white' : 'text-foreground',
             )}
           >
@@ -33,7 +33,7 @@ export function Brand({
           </p>
           <p
             className={cn(
-              'text-[11px] font-medium',
+              'text-[10px] font-medium',
               onDark ? 'text-white/70' : 'text-foreground-5',
             )}
           >

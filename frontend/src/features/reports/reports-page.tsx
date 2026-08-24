@@ -30,7 +30,7 @@ export function ReportsPage() {
             <button
               key={tab.id}
               onClick={() => setActive(tab.id)}
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                 active === tab.id
                   ? 'bg-surface text-foreground shadow-sm'
                   : 'text-foreground-5 hover:text-foreground'

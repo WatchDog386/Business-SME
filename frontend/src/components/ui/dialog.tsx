@@ -56,7 +56,7 @@ export function Dialog({
         {(title || description) && (
           <div className="flex items-start justify-between gap-4 border-b border-edge p-5 pb-4">
             <div className="space-y-1">
-              {title && <h2 className="text-base font-bold text-foreground">{title}</h2>}
+              {title && <h2 className="text-sm font-medium text-foreground">{title}</h2>}
               {description && <p className="text-sm text-foreground-4">{description}</p>}
             </div>
             <Button

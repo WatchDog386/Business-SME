@@ -227,6 +227,8 @@ export interface CreateSaleInput {
   reference?: string;
   notes?: string;
   idempotencyKey: string;
+  /** Amount-only express sale (e.g. recorded from a scanned M-Pesa SMS). */
+  total?: number;
 }
 
 export interface SalePreview {

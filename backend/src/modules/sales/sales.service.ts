@@ -152,7 +152,21 @@ export class SalesService {
     return { subtotal, discount: appliedDiscount, tax, total };
   }
 
+  private isAmountOnly(dto: CreateSaleDto): boolean {
+    return (!dto.items || dto.items.length === 0) && !!dto.total;
+  }
+
   async preview(businessId: string, dto: CreateSaleDto) {
+    if (this.isAmountOnly(dto)) {
+      const total = roundKES(dto.total as number);
+      return {
+        subtotal: total,
+        discount: 0,
+        tax: 0,
+        total,
+        items: [],
+      };
+    }
     const items = await this.resolveItems(businessId, dto.items);
     const totals = this.computeTotals(items, dto.discount ?? 0, dto.taxRate ?? 0);
     return {
@@ -180,8 +194,25 @@ export class SalesService {
       return this.get(businessId, existing.id);
     }
 
-    const resolved = await this.resolveItems(businessId, dto.items);
-    const totals = this.computeTotals(resolved, dto.discount ?? 0, dto.taxRate ?? 0);
+    const isAmountOnly = this.isAmountOnly(dto);
+    if (!isAmountOnly && dto.items.length === 0) {
+      throw new BadRequestException({
+        code: 'EMPTY_SALE',
+        message: 'Add at least one product or service.',
+      });
+    }
+
+    const resolved = isAmountOnly
+      ? []
+      : await this.resolveItems(businessId, dto.items);
+    const totals = isAmountOnly
+      ? {
+          subtotal: roundKES(dto.total as number),
+          discount: 0,
+          tax: 0,
+          total: roundKES(dto.total as number),
+        }
+      : this.computeTotals(resolved, dto.discount ?? 0, dto.taxRate ?? 0);
 
     if (totals.total === 0) {
       throw new BadRequestException({

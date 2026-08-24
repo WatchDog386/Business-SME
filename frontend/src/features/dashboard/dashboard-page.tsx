@@ -1,18 +1,21 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ScanLine } from 'lucide-react';
 import { dashboardApi } from '@/api/endpoints';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert } from '@/components/ui/alert';
 import { apiErrorMessage } from '@/api/client';
 import { DashboardHeader } from './components/dashboard-header';
 import { FeaturedCard } from './components/featured-card';
-import { KpiCards } from './components/kpi-cards';
 import { SalesChart } from './components/sales-chart';
 import { QuickActions } from './components/quick-actions';
 import { AdsBanner } from './components/ads-banner';
+import { ScanSaleDialog } from './components/scan-sale-dialog';
 
 import { TopProducts } from './components/top-products';
 
 export function DashboardPage() {
+  const [scanOpen, setScanOpen] = useState(false);
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard'],
     queryFn: dashboardApi.get,
@@ -42,14 +45,24 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-2">
       <DashboardHeader />
       <FeaturedCard data={data} />
       <QuickActions />
-      <KpiCards data={data} />
-      <SalesChart series={data.salesSeries} weekRevenue={data.weekRevenue} />
       <TopProducts products={data.topProducts} />
       <AdsBanner />
+      <SalesChart series={data.salesSeries} weekRevenue={data.weekRevenue} />
+
+      {/* Floating scan-to-record-sale action */}
+      <button
+        onClick={() => setScanOpen(true)}
+        className="fixed bottom-24 right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-brand-700 pl-4 pr-5 text-white shadow-sm transition-transform active:scale-95"
+        aria-label="Scan to record sale"
+      >
+        <ScanLine className="h-5 w-5" />
+        <span className="text-sm font-medium">Scan sale</span>
+      </button>
+      <ScanSaleDialog open={scanOpen} onOpenChange={setScanOpen} />
     </div>
   );
 }

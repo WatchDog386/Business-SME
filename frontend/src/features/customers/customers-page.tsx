@@ -100,11 +100,11 @@ export function CustomersPage() {
                   to={`/customers/${customer.id}`}
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2 sm:px-5"
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-bold text-accent-text">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-medium text-accent-text">
                     {customer.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-foreground">
+                    <p className="truncate text-sm font-medium text-foreground">
                       {customer.name}
                     </p>
                     <p className="truncate text-xs text-foreground-5">
@@ -113,7 +113,7 @@ export function CustomersPage() {
                     </p>
                   </div>
                   <div className="hidden text-right sm:block">
-                    <p className="text-sm font-bold text-foreground">
+                    <p className="text-sm font-medium text-foreground">
                       {formatKES(customer.total_spent)}
                     </p>
                     <p className="text-xs text-foreground-5">total spent</p>

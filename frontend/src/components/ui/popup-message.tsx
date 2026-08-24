@@ -48,7 +48,7 @@ export function PopupMessage({
           )}
 
           <div className="space-y-1.5">
-            <h3 className="text-lg font-bold text-foreground tracking-tight">{title}</h3>
+            <h3 className="text-base font-medium text-foreground tracking-tight">{title}</h3>
             {message && <p className="text-xs text-foreground-4 leading-relaxed">{message}</p>}
           </div>
 
@@ -56,7 +56,7 @@ export function PopupMessage({
             <button
               onClick={onClose}
               className={cn(
-                'mt-2 w-full rounded-full py-2.5 text-xs font-bold text-white shadow-md transition-all active:scale-95',
+                'mt-2 w-full rounded-full py-2.5 text-xs font-medium text-white shadow-md transition-all active:scale-95',
                 type === 'success' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700',
               )}
             >

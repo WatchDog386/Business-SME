@@ -1,94 +1,102 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 
 const ads = [
   {
     title: 'Grow Your SME with M-Pesa & Biashara',
-    description: 'Instant reconciliation, automated stock tracking, and zero paperwork for Kenyan businesses.',
-    image: 'https://images.unsplash.com/photo-1556742049-0a67d5e0f7ef?auto=format&fit=crop&w=800&q=80',
+    image: 'https://i.pinimg.com/736x/12/c7/e2/12c7e2bffeb946a611862b2d29f53073.jpg',
     badge: 'Featured',
-    bgClass: 'bg-gradient-to-br from-emerald-600 via-emerald-800 to-green-950',
+    bgClass: 'bg-gradient-to-br from-indigo-600 via-violet-800 to-slate-950',
   },
   {
     title: 'Unlock Business Loans Instantly',
-    description: 'Access working capital up to KSh 500k based on your verified sales history.',
     image: 'https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&w=800&q=80',
     badge: 'Partner Offer',
     bgClass: 'bg-gradient-to-br from-blue-600 via-indigo-800 to-slate-950',
   },
   {
     title: 'Zero-Paper Tax & Compliance',
-    description: 'Generate KRA-ready sales and profit reports in one tap. Stay audit-ready effortlessly.',
     image: 'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=800&q=80',
     badge: 'Compliance Pro',
     bgClass: 'bg-gradient-to-br from-amber-600 via-orange-800 to-yellow-950',
   },
 ];
 
+const SLIDE_GAP = 12; // px between slides
+
 export function AdsBanner() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [fade, setFade] = useState(true);
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setFade(false);
-      setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % ads.length);
-        setFade(true);
-      }, 300);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
+  // Sync the active dot while the user scrolls/swipes manually
+  const handleScroll = () => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const step = el.clientWidth + SLIDE_GAP;
+    const idx = Math.min(
+      ads.length - 1,
+      Math.max(0, Math.round(el.scrollLeft / step)),
+    );
+    setCurrentIndex(idx);
+  };
 
-  const current = ads[currentIndex];
+  // Centre the chosen slide (flush at the ends)
+  const scrollToIndex = (idx: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: idx * (el.clientWidth + SLIDE_GAP), behavior: 'smooth' });
+    setCurrentIndex(idx);
+  };
 
   return (
     <div className="space-y-3">
-      <h2 className="text-base font-bold text-foreground tracking-tight">Featured updates</h2>
-      <div className={`relative overflow-hidden rounded-3xl border border-[#2A2A2A] ${current.bgClass} p-6 shadow-xl text-white transition-all duration-500`}>
-        <div className="absolute inset-0 z-0 opacity-20">
-          <img
-            src={current.image}
-            alt={current.title}
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/50" />
-        </div>
+      <h2 className="text-[14px] font-medium tracking-tight text-foreground">Featured updates</h2>
 
-        <div className={`relative z-10 flex flex-col justify-between h-32 sm:h-36 transition-opacity duration-300 ${fade ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1 rounded-full bg-white/20 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-400" /> {current.badge}
-            </span>
-          </div>
+      {/* Full-width cards — same footprint as the featured summary card */}
+      <div
+        ref={trackRef}
+        onScroll={handleScroll}
+        className="flex snap-x snap-mandatory items-stretch overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {ads.map((ad, idx) => (
+          <button
+            key={ad.title}
+            onClick={() => scrollToIndex(idx)}
+            aria-label={ad.title}
+            style={{ width: '100%', marginRight: SLIDE_GAP }}
+            className={`relative h-44 shrink-0 snap-center overflow-hidden rounded-3xl text-left shadow-lift sm:h-52 ${ad.bgClass}`}
+          >
+            {/* Full-clarity image with a light scrim for legibility */}
+            <img
+              src={ad.image}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/15" />
 
-          <div>
-            <h3 className="text-base sm:text-lg font-extrabold text-white tracking-tight drop-shadow-sm">
-              {current.title}
-            </h3>
-            <p className="mt-1 text-xs text-zinc-200 font-medium line-clamp-2 max-w-xl">
-              {current.description}
-            </p>
-          </div>
+            <div className="relative z-10 flex h-full flex-col justify-between p-5 sm:p-6">
+              <span className="flex w-fit items-center gap-1 rounded-full bg-white/20 px-3 py-0.5 text-xs font-medium uppercase tracking-wider text-white backdrop-blur">
+                <Sparkles className="h-3.5 w-3.5 text-amber-300" /> {ad.badge}
+              </span>
 
-          <div className="text-[11px] font-semibold text-zinc-400">
-            Biashara Showcase
-          </div>
-        </div>
+              <h3 className="text-sm sm:text-base font-medium tracking-tight text-white">
+                {ad.title}
+              </h3>
+
+              <div className="text-[10px] font-medium text-white/50">
+                Biashara Showcase
+              </div>
+            </div>
+          </button>
+        ))}
       </div>
 
-      {/* Centered Dots below card */}
+      {/* Centered dots below card */}
       <div className="flex justify-center gap-2 pt-1">
         {ads.map((_, idx) => (
           <button
             key={idx}
-            onClick={() => {
-              setFade(false);
-              setTimeout(() => {
-                setCurrentIndex(idx);
-                setFade(true);
-              }, 300);
-            }}
+            onClick={() => scrollToIndex(idx)}
             className={`h-2 rounded-full transition-all duration-300 ${
               idx === currentIndex ? 'w-6 bg-accent' : 'w-2 bg-foreground-5'
             }`}
