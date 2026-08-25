@@ -57,46 +57,44 @@ export function SalesChart({
   }));
 
   return (
-    <div className="space-y-3">
-      <h2 className="text-[14px] font-medium tracking-tight text-foreground">Weekly analytics</h2>
-      <div className="rounded-3xl border border-edge bg-surface p-4 sm:p-6 shadow-soft">
-        <div className="h-52 sm:h-60">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: '#a1a1aa', fontWeight: 600 }}
-                tickLine={false}
-                axisLine={{ stroke: '#e4e4e7' }}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: '#a1a1aa', fontWeight: 600 }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => compactKES(value)}
-              />
-              <Tooltip
-                formatter={(value) => [formatKES(Number(value)), 'Sales Revenue']}
-                contentStyle={{
-                  borderRadius: 14,
-                  border: '1px solid #e4e4e7',
-                  backgroundColor: '#ffffff',
-                  color: '#18181b',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
-                  padding: '10px 14px',
-                }}
-              />
-              <Bar dataKey="total" radius={[6, 6, 0, 0]} barSize={26}>
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fillColor} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+    <div className="space-y-2">
+      <h2 className="px-1 text-[13px] font-medium tracking-tight text-foreground">Weekly analytics</h2>
+      <div className="h-52 sm:h-60">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 12, fill: '#17201c', fontWeight: 700 }}
+              tickLine={{ stroke: '#52525b', strokeWidth: 2 }}
+              axisLine={{ stroke: '#3f3f46', strokeWidth: 2.5 }}
+            />
+            <YAxis
+              tick={{ fontSize: 12, fill: '#17201c', fontWeight: 700 }}
+              tickLine={{ stroke: '#52525b', strokeWidth: 2 }}
+              axisLine={{ stroke: '#3f3f46', strokeWidth: 2.5 }}
+              tickFormatter={(value) => compactKES(value)}
+            />
+            <Tooltip
+              formatter={(value) => [formatKES(Number(value)), 'Sales Revenue']}
+              contentStyle={{
+                borderRadius: 14,
+                border: '1px solid #e4e4e7',
+                backgroundColor: '#ffffff',
+                color: '#18181b',
+                fontSize: 13,
+                fontWeight: 600,
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
+                padding: '10px 14px',
+              }}
+            />
+            <Bar dataKey="total" radius={[0, 0, 0, 0]} barSize={26}>
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.fillColor} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

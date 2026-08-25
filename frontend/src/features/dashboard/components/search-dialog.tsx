@@ -18,8 +18,10 @@ import {
   Hammer,
   Headphones,
   Laptop,
+  LayoutGrid,
   Loader2,
   Milk,
+  Package,
   Pill,
   Scissors,
   Search,
@@ -27,6 +29,7 @@ import {
   ShoppingBag,
   Smartphone,
   Truck,
+  Users,
   Utensils,
   Wrench,
   Zap,
@@ -42,11 +45,11 @@ import { cn } from '@/lib/utils';
 
 type Scope = 'all' | 'products' | 'services' | 'customers';
 
-const scopes: Array<{ id: Scope; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'products', label: 'Products' },
-  { id: 'services', label: 'Services' },
-  { id: 'customers', label: 'Customers' },
+const scopes: Array<{ id: Scope; label: string; icon: LucideIcon; iconColor: string }> = [
+  { id: 'all', label: 'All', icon: LayoutGrid, iconColor: 'text-blue-600' },
+  { id: 'products', label: 'Products', icon: Package, iconColor: 'text-purple-600' },
+  { id: 'services', label: 'Services', icon: Scissors, iconColor: 'text-emerald-600' },
+  { id: 'customers', label: 'Customers', icon: Users, iconColor: 'text-amber-600' },
 ];
 
 const productIconMap: Array<[RegExp, LucideIcon]> = [
@@ -262,8 +265,8 @@ export function SearchDialog({
           </div>
         </div>
 
-        {/* Scope buttons */}
-        <div className="flex items-center justify-center gap-2 px-4 pb-3">
+        {/* Scope buttons — admin nav tab style */}
+        <div className="flex items-center justify-center gap-1.5 px-4 pb-3">
           {scopes.map((item) => {
             const isActive = scope === item.id;
             return (
@@ -271,12 +274,13 @@ export function SearchDialog({
                 key={item.id}
                 onClick={() => setScope(item.id)}
                 className={cn(
-                  'flex h-9 flex-1 items-center justify-center rounded-full border text-xs font-medium transition-all active:scale-[0.97]',
+                  'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-medium transition-colors',
                   isActive
-                    ? 'border-brand-700 bg-brand-700 text-white shadow-sm'
-                    : 'border-edge bg-surface text-foreground-2 hover:bg-surface-2',
+                    ? 'bg-accent-soft text-accent'
+                    : 'bg-transparent text-foreground-3 hover:bg-surface-2',
                 )}
               >
+                <item.icon className={cn('h-3.5 w-3.5', item.iconColor)} aria-hidden />
                 {item.label}
               </button>
             );

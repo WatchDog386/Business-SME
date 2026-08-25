@@ -8,11 +8,13 @@ import { useActiveBusiness, useBusinessStore } from '@/stores/business';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { ThemeToggle } from './theme-toggle';
 
 export function Topbar() {
   return (
     <header className="hidden sm:flex sticky top-0 z-30 h-16 items-center justify-between gap-3 border-b border-edge bg-surface-2/90 px-6 backdrop-blur">
       <BusinessSwitcher />
+      <ThemeToggle />
     </header>
   );
 }

@@ -81,7 +81,11 @@ export class SeedService implements OnModuleInit {
       await this.userRepo.save(user);
     }
 
-    if (!withBusiness) return;
+    if (!withBusiness) {
+      // Platform admins are pure admins — strip any legacy business links.
+      await this.stripBusinesses(user);
+      return;
+    }
 
     let member = await this.memberRepo.findOne({ where: { userId: user.id } });
     let business: Business | null = null;
@@ -294,6 +298,29 @@ export class SeedService implements OnModuleInit {
     this.logger.log(
       'Applied showcase today-summary — sales 6,580 / net profit 3,500',
     );
+  }
+
+  /**
+   * Admins own nothing — remove every business membership and any owned
+   * business (with its data) so the account stays a pure platform admin.
+   */
+  private async stripBusinesses(user: User) {
+    const members = await this.memberRepo.find({ where: { userId: user.id } });
+    for (const m of members) {
+      await this.wipeBusinessData(m.businessId);
+      await this.memberRepo.delete({ id: m.id });
+      await this.bizRepo.delete({ id: m.businessId });
+      this.logger.log(`Stripped business ${m.businessId} from admin ${user.email}`);
+    }
+
+    // Also catch businesses still pointing at the user as owner without a membership row
+    const owned = await this.bizRepo.find({ where: { ownerId: user.id } });
+    for (const b of owned) {
+      await this.wipeBusinessData(b.id);
+      await this.memberRepo.delete({ businessId: b.id });
+      await this.bizRepo.delete({ id: b.id });
+      this.logger.log(`Stripped owned business ${b.id} from admin ${user.email}`);
+    }
   }
 
   private async wipeBusinessData(businessId: string) {

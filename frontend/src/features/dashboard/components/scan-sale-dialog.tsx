@@ -16,7 +16,7 @@ import {
   parseTransactionSms,
   type ParsedTransaction,
 } from '@/lib/parse-transaction-sms';
-import { cn } from '@/lib/utils';
+import { cn, uuid } from '@/lib/utils';
 
 type Step = 'capture' | 'paste' | 'review' | 'saving' | 'done';
 
@@ -205,7 +205,7 @@ export function ScanSaleDialog({
         notes: parsed?.code
           ? `Recorded from transaction SMS ${parsed.code}`
           : 'Recorded from transaction SMS',
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: uuid(),
       });
 
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });

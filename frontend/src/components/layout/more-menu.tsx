@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
+  Moon,
   Package,
   Scissors,
   ShieldCheck,
   Store,
+  Sun,
   UserCircle,
   Wallet,
   X,
@@ -12,6 +14,7 @@ import {
 import { Dialog } from '@/components/ui/dialog';
 import { useActiveBusiness } from '@/stores/business';
 import { useAuthStore } from '@/stores/auth';
+import { useTheme } from '@/lib/theme';
 import { ADMIN_EMAILS } from '@/lib/constants';
 
 const moreLinks = [
@@ -31,6 +34,7 @@ export function MoreMenu({
 }) {
   const active = useActiveBusiness();
   const user = useAuthStore((s) => s.user);
+  const [theme, setTheme] = useTheme();
   const isAdmin = Boolean(
     user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase() as never),
   );
@@ -79,6 +83,17 @@ export function MoreMenu({
             {link.label}
           </button>
         ))}
+        <button
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium text-foreground-3 transition-colors hover:bg-surface-2"
+        >
+          {theme === 'dark' ? (
+            <Sun className="h-5 w-5 text-foreground-5" aria-hidden />
+          ) : (
+            <Moon className="h-5 w-5 text-foreground-5" aria-hidden />
+          )}
+          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        </button>
         <button
           onClick={() => {
             onOpenChange(false);

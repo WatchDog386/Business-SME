@@ -46,12 +46,12 @@ export function DashboardHeader() {
             className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-medium text-white transition-transform active:scale-95 shadow-md shadow-indigo-500/30"
             aria-label="Open menu"
           >
-            {active?.logo_url ? (
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+            ) : active?.logo_url ? (
               <img src={active.logo_url} alt="Business logo" className="h-full w-full object-cover" />
             ) : active ? (
               active.name.charAt(0).toUpperCase()
-            ) : user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
             ) : (
               user?.fullName?.charAt(0).toUpperCase() ?? '?'
             )}

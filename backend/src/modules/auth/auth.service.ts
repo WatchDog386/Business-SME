@@ -103,7 +103,7 @@ export class AuthService {
 
   async updateProfile(
     userId: string,
-    dto: { fullName?: string; phone?: string; avatarUrl?: string },
+    dto: { fullName?: string; phone?: string; avatarUrl?: string | null },
   ) {
     const patch: Partial<User> = {};
     if (dto.fullName !== undefined) patch.full_name = dto.fullName;

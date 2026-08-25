@@ -53,7 +53,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Update current user profile' })
   updateProfile(
     @CurrentUser() user: AuthUser,
-    @Body() dto: { fullName?: string; phone?: string; avatarUrl?: string },
+    @Body() dto: { fullName?: string; phone?: string; avatarUrl?: string | null },
   ) {
     return this.authService.updateProfile(user.id, dto);
   }

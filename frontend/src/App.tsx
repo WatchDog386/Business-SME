@@ -30,12 +30,12 @@ import { AdminPaymentsPage } from '@/features/admin/admin-payments-page';
 import { AdminUsersPage } from '@/features/admin/admin-users-page';
 import { AdminSettingsPage } from '@/features/admin/admin-settings-page';
 
-/** Re-applies the theme on every route change — dark only on onboarding/dashboard. */
+/** Re-applies the theme on every route change so it survives navigation. */
 function ThemeScope() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    applyTheme(getTheme(), pathname);
+    applyTheme(getTheme());
   }, [pathname]);
 
   return null;

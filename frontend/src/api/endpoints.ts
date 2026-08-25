@@ -58,7 +58,7 @@ export const authApi = {
       url: '/auth/change-password',
       data: { currentPassword, newPassword },
     }),
-  updateProfile: (data: { fullName?: string; phone?: string; avatarUrl?: string }) =>
+  updateProfile: (data: { fullName?: string; phone?: string; avatarUrl?: string | null }) =>
     api<User>({ method: 'PATCH', url: '/auth/profile', data }),
 };
 

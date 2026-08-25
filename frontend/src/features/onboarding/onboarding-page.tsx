@@ -489,12 +489,23 @@ export function OnboardingPage() {
               >
                 Back
               </Button>
-              <Button
-                onClick={() => setStep(3)}
-                className="rounded-full bg-brand-700 text-white hover:bg-brand-800"
-              >
-                Continue to checkout
-              </Button>
+              {plan.amount === 0 ? (
+                <Button
+                  onClick={handleSubmit((values) => mutation.mutate(values))}
+                  loading={mutation.isPending}
+                  className="rounded-full bg-brand-700 text-white hover:bg-brand-800"
+                >
+                  <Rocket className="h-4 w-4" aria-hidden />
+                  Launch free plan
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setStep(3)}
+                  className="rounded-full bg-brand-700 text-white hover:bg-brand-800"
+                >
+                  Continue to checkout
+                </Button>
+              )}
             </div>
           </div>
         )}

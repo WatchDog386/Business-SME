@@ -1,335 +1,345 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Building2,
-  Calendar,
-  Crown,
-  Globe,
+  Clock,
   Mail,
   MapPin,
   Package,
   Phone,
+  Receipt,
   ShoppingCart,
   Store,
+  TrendingUp,
   Users,
-  Wallet,
 } from 'lucide-react';
 import { adminApi } from '@/api/endpoints';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import {
+  PaymentLine,
+  formatKES,
+} from './admin-shared';
 
-const PLAN_OPTIONS = ['FREE', 'GROWTH', 'SCALE'] as const;
+const HERO_PLAN_PILL: Record<string, string> = {
+  FREE: 'border border-white/15 bg-white/15 text-white/85 backdrop-blur',
+  GROWTH: 'bg-emerald-500 text-white',
+  SCALE: 'bg-blue-500 text-white',
+};
+
+function GradientStat({
+  icon,
+  label,
+  value,
+  gradient,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  gradient: string;
+}) {
+  return (
+    <div
+      className={`relative flex h-[104px] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-3.5 shadow-lg ${gradient}`}
+    >
+      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" aria-hidden />
+      <div className="relative flex items-start justify-between gap-2">
+        <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">{label}</p>
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/15 text-white backdrop-blur">
+          {icon}
+        </span>
+      </div>
+      <p className="relative text-2xl font-black leading-none tracking-tight tabular-nums text-white drop-shadow-[0_1px_5px_rgba(0,0,0,0.55)]">
+        {value}
+      </p>
+    </div>
+  );
+}
 
 export function AdminBusinessDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'overview' | 'members' | 'activity' | 'billing'>('overview');
 
-  const detailQuery = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'business', id],
     queryFn: () => adminApi.businessDetail(id!),
     enabled: Boolean(id),
   });
 
-  const setPlanMutation = useMutation({
-    mutationFn: ({ plan }: { plan: 'FREE' | 'GROWTH' | 'SCALE' }) =>
-      adminApi.setPlan(id!, plan),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin'] });
-      void detailQuery.refetch();
-    },
-  });
-
-  if (detailQuery.isLoading) {
+  if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-32 rounded-full" />
-        <Skeleton className="h-40 rounded-2xl" />
-        <Skeleton className="h-60 rounded-2xl" />
-      </div>
-    );
-  }
-
-  if (detailQuery.error || !detailQuery.data) {
-    return (
-      <div className="py-12 text-center">
-        <p className="text-sm text-foreground-4">Could not load business details.</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate('/admin/businesses')}>
-          Back to businesses
-        </Button>
-      </div>
-    );
-  }
-
-  const data = detailQuery.data;
-
-  return (
-    <div className="space-y-6 pb-6">
-      <button
-        onClick={() => navigate('/admin/businesses')}
-        className="flex items-center gap-1.5 text-sm font-medium text-foreground-3 hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-        Back to businesses
-      </button>
-
-      {/* Hero — standalone, not floating */}
-      <div className="overflow-hidden rounded-3xl border border-edge bg-surface shadow-soft">
-        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-black p-6 text-white">
-          <div className="flex items-start gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 backdrop-blur border border-white/15">
-              {data.business.logo_url ? (
-                <img src={data.business.logo_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <Building2 className="h-7 w-7 text-white/80" aria-hidden />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-xl font-semibold tracking-tight">{data.business.name}</h1>
-                <select
-                  value={data.business.subscription_plan}
-                  onChange={(e) =>
-                    setPlanMutation.mutate({ plan: e.target.value as 'FREE' | 'GROWTH' | 'SCALE' })
-                  }
-                  disabled={setPlanMutation.isPending}
-                  className="h-7 rounded-full bg-white/15 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur outline-none"
-                >
-                  {PLAN_OPTIONS.map((p) => (
-                    <option key={p} value={p} className="text-foreground">
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/70">
-                <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider backdrop-blur">
-                  {data.business.business_type}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" aria-hidden />
-                  Joined {new Date(data.business.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </span>
-              </p>
-              <div className="mt-2 flex flex-wrap gap-3 text-xs text-white/60">
-                {data.business.county && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> {data.business.county}
-                  </span>
-                )}
-                {data.business.phone && (
-                  <span className="flex items-center gap-1">
-                    <Phone className="h-3 w-3" /> {data.business.phone}
-                  </span>
-                )}
-                {data.business.email && (
-                  <span className="flex items-center gap-1">
-                    <Mail className="h-3 w-3" /> {data.business.email}
-                  </span>
-                )}
-                <span className="flex items-center gap-1">
-                  <Globe className="h-3 w-3" /> {data.business.currency} · {data.business.timezone}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-6">
-            <MiniStat icon={<Package className="h-3.5 w-3.5" />} label="Products" value={data.stats.products} />
-            <MiniStat icon={<Store className="h-3.5 w-3.5" />} label="Services" value={data.stats.services} />
-            <MiniStat icon={<Users className="h-3.5 w-3.5" />} label="Customers" value={data.stats.customers} />
-            <MiniStat icon={<ShoppingCart className="h-3.5 w-3.5" />} label="Sales" value={data.stats.sales} />
-            <MiniStat icon={<Wallet className="h-3.5 w-3.5" />} label="Expenses" value={data.stats.expenses} />
-            <MiniStat icon={<Crown className="h-3.5 w-3.5" />} label="Revenue" value={`KSh ${data.stats.totalRevenue.toLocaleString('en-KE')}`} />
-          </div>
-        </div>
-
-        <div className="flex gap-1 border-b border-edge bg-surface px-2 py-2">
-          {[
-            { id: 'overview', label: 'Overview' },
-            { id: 'members', label: `Members (${data.members.length})` },
-            { id: 'activity', label: 'Activity' },
-            { id: 'billing', label: 'Billing' },
-          ].map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id as never)}
-              className={cn(
-                'rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors',
-                tab === t.id ? 'bg-accent-soft text-accent' : 'text-foreground-4 hover:bg-surface-2 hover:text-foreground',
-              )}
-            >
-              {t.label}
-            </button>
+      <div className="space-y-5">
+        <Skeleton className="h-5 w-40 rounded-full" />
+        <Skeleton className="h-[110px] rounded-2xl" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[92px] rounded-2xl" />
           ))}
         </div>
+        <Skeleton className="h-40 rounded-2xl" />
+      </div>
+    );
+  }
 
-        <div className="space-y-5 p-5">
-          {tab === 'overview' && (
-            <>
-              <DetailSection title="Business details">
-                <dl className="grid grid-cols-2 gap-4 text-sm">
-                  <DetailRow label="Business name" value={data.business.name} />
-                  <DetailRow label="Type" value={data.business.business_type} />
-                  <DetailRow label="County" value={data.business.county ?? '—'} />
-                  <DetailRow label="Address" value={data.business.address ?? '—'} />
-                  <DetailRow label="Phone" value={data.business.phone ?? '—'} />
-                  <DetailRow label="Email" value={data.business.email ?? '—'} />
-                  <DetailRow label="Currency" value={data.business.currency} />
-                  <DetailRow label="Timezone" value={data.business.timezone} />
-                  <DetailRow label="Status" value={data.business.status} />
-                  <DetailRow label="Plan" value={data.business.subscription_plan} />
-                  <DetailRow label="Owner" value={data.owner?.email ?? '—'} />
-                  <DetailRow label="Created" value={new Date(data.business.created_at).toLocaleString()} />
-                </dl>
-              </DetailSection>
-              <DetailSection title="Owner">
-                {data.owner ? (
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
-                      {(data.owner.fullName || '?').charAt(0).toUpperCase()}
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{data.owner.fullName}</p>
-                      <p className="text-xs text-foreground-4">
-                        {data.owner.email} · {data.owner.phone ?? 'no phone'}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-foreground-4">No owner found.</p>
-                )}
-              </DetailSection>
-            </>
-          )}
-          {tab === 'members' && (
-            <DetailSection title={`Team · ${data.members.length} member${data.members.length === 1 ? '' : 's'}`}>
-              <ul className="divide-y divide-edge">
-                {data.members.map((m) => (
-                  <li key={m.id} className="flex items-center justify-between gap-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-xs font-medium text-foreground-3">
-                        {(m.user?.fullName || '?').charAt(0).toUpperCase()}
-                      </span>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{m.user?.fullName ?? 'Unknown'}</p>
-                        <p className="text-xs text-foreground-4">{m.user?.email ?? m.userId}</p>
-                      </div>
-                    </div>
-                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground-4">
-                      {m.role} · {m.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </DetailSection>
-          )}
-          {tab === 'activity' && (
-            <>
-              <DetailSection title="Recent sales">
-                {data.recentSales.length === 0 ? (
-                  <p className="py-4 text-center text-xs text-foreground-4">No sales yet.</p>
-                ) : (
-                  <ul className="divide-y divide-edge">
-                    {data.recentSales.map((s) => (
-                      <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
-                        <div>
-                          <p className="text-sm font-medium tabular-nums text-foreground">KSh {s.total.toLocaleString('en-KE')}</p>
-                          <p className="text-xs text-foreground-4">
-                            {s.payment_method} · {s.payment_status} · {new Date(s.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <span className="text-xs text-foreground-5">{s.id.slice(0, 8)}…</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </DetailSection>
-              <DetailSection title="Recent customers">
-                {data.recentCustomers.length === 0 ? (
-                  <p className="py-4 text-center text-xs text-foreground-4">No customers yet.</p>
-                ) : (
-                  <ul className="divide-y divide-edge">
-                    {data.recentCustomers.map((c) => (
-                      <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{c.name}</p>
-                          <p className="text-xs text-foreground-4">{c.phone ?? 'no phone'}</p>
-                        </div>
-                        <span className="text-xs tabular-nums text-foreground-3">KSh {c.total_spent.toLocaleString('en-KE')}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </DetailSection>
-            </>
-          )}
-          {tab === 'billing' && (
-            <DetailSection title="Subscription history">
-              {data.subscriptionHistory.length === 0 ? (
-                <p className="py-4 text-center text-xs text-foreground-4">No subscription payments.</p>
-              ) : (
-                <ul className="divide-y divide-edge">
-                  {data.subscriptionHistory.map((p) => (
-                    <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
-                      <div>
-                        <p className="text-sm font-medium tabular-nums text-foreground">
-                          KSh {p.amount.toLocaleString('en-KE')} · {p.method} · {p.plan}
-                        </p>
-                        <p className="text-xs text-foreground-4">{p.reference}</p>
-                      </div>
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                          p.status === 'PAID' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning',
-                        )}
-                      >
-                        {p.status}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+  if (error || !data) {
+    return (
+      <div className="py-16 text-center">
+        <p className="text-sm text-foreground-4">Could not load this business.</p>
+        <Link
+          to="/admin/businesses"
+          className="mt-3 inline-block text-xs font-medium text-accent hover:text-accent-strong"
+        >
+          Back to businesses
+        </Link>
+      </div>
+    );
+  }
+
+  const { business, stats, members, recentSales, subscriptionHistory } = data;
+  const joinedDate = new Date(business.created_at).toLocaleDateString('en-KE', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  return (
+    <div className="space-y-5 pb-4">
+      <Link
+        to="/admin/businesses"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-4 transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+        Businesses
+      </Link>
+
+      {/* Identity hero — gradient like overview bank cards */}
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" aria-hidden />
+        <div className="absolute -right-10 -top-14 h-44 w-44 rounded-full bg-accent/25 blur-3xl" aria-hidden />
+        <div className="relative flex items-center gap-4 p-5">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-white/10 text-white backdrop-blur-md">
+            {business.logo_url ? (
+              <img src={business.logo_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Building2 className="h-6 w-6 text-white/90" aria-hidden />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-base font-semibold tracking-tight text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
+                {business.name}
+              </h2>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${HERO_PLAN_PILL[business.subscription_plan] ?? HERO_PLAN_PILL.FREE}`}
+              >
+                {business.subscription_plan}
+              </span>
+              <span className="shrink-0 rounded-full border border-white/15 bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/85 backdrop-blur">
+                {business.business_type}
+              </span>
+            </div>
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium text-white/70">
+              {business.county && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" aria-hidden />
+                  {business.county}
+                </span>
               )}
-            </DetailSection>
-          )}
+              {business.phone && (
+                <span className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" aria-hidden />
+                  {business.phone}
+                </span>
+              )}
+              {business.email && (
+                <span className="flex items-center gap-1 truncate">
+                  <Mail className="h-3 w-3" aria-hidden />
+                  {business.email}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" aria-hidden />
+                Joined {joinedDate}
+              </span>
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
-  return (
-    <div className="rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur border border-white/10">
-      <p className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-white/60">
-        {icon}
-        {label}
-      </p>
-      <p className="mt-1 truncate text-sm font-semibold tabular-nums text-white">{value}</p>
-    </div>
-  );
-}
-
-function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-edge bg-surface shadow-soft">
-      <div className="border-b border-edge px-4 py-2.5">
-        <h3 className="text-[13px] font-medium tracking-tight text-foreground">{title}</h3>
+      {/* Stats — deep-gradient mini cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <GradientStat
+          icon={<Package className="h-3.5 w-3.5" aria-hidden />}
+          label="Products"
+          value={String(stats.products)}
+          gradient="from-blue-900 via-blue-950 to-indigo-950"
+        />
+        <GradientStat
+          icon={<Store className="h-3.5 w-3.5" aria-hidden />}
+          label="Services"
+          value={String(stats.services)}
+          gradient="from-purple-900 via-purple-950 to-fuchsia-950"
+        />
+        <GradientStat
+          icon={<Users className="h-3.5 w-3.5" aria-hidden />}
+          label="Customers"
+          value={String(stats.customers)}
+          gradient="from-amber-700 via-orange-800 to-orange-950"
+        />
+        <GradientStat
+          icon={<ShoppingCart className="h-3.5 w-3.5" aria-hidden />}
+          label="Sales"
+          value={String(stats.sales)}
+          gradient="from-emerald-800 via-green-900 to-emerald-950"
+        />
       </div>
-      <div className="p-4">{children}</div>
-    </section>
+
+      {/* Financials — flat on background like overview */}
+      <section>
+        <div className="px-1 py-2">
+          <h2 className="text-[13px] font-medium tracking-tight text-foreground">Financials</h2>
+        </div>
+        <ul className="divide-y divide-edge">
+          <FinRow
+            label="Total revenue"
+            value={formatKES(stats.totalRevenue)}
+            accent
+          />
+          <FinRow label="Total expenses" value={formatKES(stats.totalExpenses)} />
+          <FinRow
+            label="Net position"
+            value={formatKES(stats.totalRevenue - stats.totalExpenses)}
+            muted={stats.totalRevenue - stats.totalExpenses < 0}
+          />
+        </ul>
+      </section>
+
+      {/* Team — flat on background */}
+      <section>
+        <div className="flex items-center justify-between gap-3 px-1 py-2">
+          <h2 className="text-[13px] font-medium tracking-tight text-foreground">
+            Team
+          </h2>
+          <span className="text-[11px] font-medium text-foreground-4">
+            {members.length} member{members.length === 1 ? '' : 's'}
+          </span>
+        </div>
+        <ul className="divide-y divide-edge">
+          {members.map((m) => (
+            <li
+              key={m.id}
+              className="flex items-center justify-between gap-3 px-1 py-3 transition-colors hover:bg-surface-2/60"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[10px] font-semibold uppercase text-foreground-3">
+                  {(m.user?.fullName ?? m.user?.email ?? '?').charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium text-foreground">
+                    {m.user?.fullName ?? 'Unknown user'}
+                  </p>
+                  <p className="truncate text-[11px] text-foreground-5">
+                    {m.user?.email ?? m.userId}
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground-4">
+                {m.role}
+              </span>
+            </li>
+          ))}
+          {members.length === 0 && (
+            <li className="px-1 py-8 text-center text-xs text-foreground-4">No team members.</li>
+          )}
+        </ul>
+      </section>
+
+      {/* Recent sales — flat on background */}
+      <section>
+        <div className="px-1 py-2">
+          <h2 className="text-[13px] font-medium tracking-tight text-foreground">Recent sales</h2>
+        </div>
+        <ul className="divide-y divide-edge">
+          {recentSales.slice(0, 6).map((s) => (
+            <li
+              key={s.id}
+              className="flex items-center justify-between gap-3 px-1 py-3 transition-colors hover:bg-surface-2/60"
+            >
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium tabular-nums text-foreground">
+                  {formatKES(s.total)}
+                </p>
+                <p className="truncate text-[11px] text-foreground-5">
+                  {s.payment_method} ·{' '}
+                  {new Date(s.created_at).toLocaleDateString('en-KE', {
+                    day: 'numeric',
+                    month: 'short',
+                  })}
+                </p>
+              </div>
+              <Receipt className="h-3.5 w-3.5 shrink-0 text-foreground-5" aria-hidden />
+            </li>
+          ))}
+          {recentSales.length === 0 && (
+            <li className="px-1 py-8 text-center text-xs text-foreground-4">
+              No sales recorded yet.
+            </li>
+          )}
+        </ul>
+      </section>
+
+      {/* Billing — flat on background */}
+      <section>
+        <div className="px-1 py-2">
+          <h2 className="text-[13px] font-medium tracking-tight text-foreground">
+            Subscription payments
+          </h2>
+        </div>
+        <ul className="divide-y divide-edge">
+          {subscriptionHistory.slice(0, 6).map((p) => (
+            <PaymentLine key={p.id} payment={p} />
+          ))}
+          {subscriptionHistory.length === 0 && (
+            <li className="px-1 py-8 text-center text-xs text-foreground-4">
+              No subscription payments yet.
+            </li>
+          )}
+        </ul>
+      </section>
+    </div>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function FinRow({
+  label,
+  value,
+  accent,
+  muted,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  muted?: boolean;
+}) {
   return (
-    <div>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-foreground-4">{label}</p>
-      <p className="mt-0.5 truncate text-sm text-foreground">{value}</p>
-    </div>
+    <li className="flex items-center justify-between gap-3 px-1 py-3 transition-colors hover:bg-surface-2/60">
+      <span className="flex items-center gap-2.5 text-[13px] text-foreground-2">
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+            accent ? 'bg-accent-soft text-accent' : 'bg-surface-3 text-foreground-3'
+          }`}
+        >
+          <TrendingUp className="h-3.5 w-3.5" aria-hidden />
+        </span>
+        {label}
+      </span>
+      <span
+        className={`shrink-0 text-[13px] font-medium tracking-tight tabular-nums ${
+          muted ? 'text-danger' : accent ? 'text-accent' : 'text-foreground'
+        }`}
+      >
+        {value}
+      </span>
+    </li>
   );
 }

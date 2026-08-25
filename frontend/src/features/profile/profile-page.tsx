@@ -26,7 +26,7 @@ interface FormValues {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-foreground-4">
+    <p className="text-[15px] font-medium tracking-tight text-foreground">
       {children}
     </p>
   );
@@ -57,7 +57,7 @@ export function ProfilePage() {
       authApi.updateProfile({
         fullName: values.fullName,
         phone: values.phone || undefined,
-        avatarUrl: avatarUrl || undefined,
+        avatarUrl: avatarUrl,
       }),
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
@@ -113,8 +113,8 @@ export function ProfilePage() {
         </Alert>
       )}
 
-      {/* Identity card */}
-      <section className="flex flex-col items-center rounded-3xl border border-edge bg-surface p-6 text-center shadow-soft">
+      {/* Identity — flat on background */}
+      <section className="flex flex-col items-center p-1 text-center">
         <div className="relative">
           <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-edge bg-accent-soft text-3xl font-medium text-accent shadow-sm">
             {avatarUrl ? (
@@ -177,8 +177,8 @@ export function ProfilePage() {
         <p className="mt-2 text-[10px] text-foreground-5">PNG, JPG or WEBP · up to 2MB</p>
       </section>
 
-      {/* Details card */}
-      <section className="rounded-3xl border border-edge bg-surface p-5 shadow-soft sm:p-6">
+      {/* Details — flat on background */}
+      <section className="px-1">
         <SectionLabel>Personal details</SectionLabel>
         <form
           onSubmit={handleSubmit((values) => mutation.mutate(values))}
