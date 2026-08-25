@@ -9,6 +9,8 @@ export interface User {
   phone: string | null;
   avatarUrl: string | null;
   emailVerified: boolean;
+  /** True for the app-owner platform-admin accounts. */
+  isAdmin?: boolean;
 }
 
 export interface AuthResult {
@@ -250,6 +252,102 @@ export interface InventoryTransaction {
   referenceId: string | null;
   reason: string | null;
   created_at: string;
+}
+
+export type BillingMethod = 'MPESA' | 'CARD' | 'BANK' | 'PAYPAL';
+
+export interface SubscriptionPayment {
+  id: string;
+  businessId: string;
+  plan: string;
+  amount: number;
+  method: BillingMethod;
+  reference: string;
+  payer_email: string | null;
+  status: 'PENDING' | 'PAID' | 'FAILED';
+  paid_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BillingInitResult {
+  reference: string;
+  amount: number;
+  plan: string;
+  method: BillingMethod;
+  requiresManualConfirmation: boolean;
+}
+
+export interface AdminSummary {
+  totalBusinesses: number;
+  activeSubscriptions: number;
+  monthRevenue: number;
+  lifetimeRevenue: number;
+  pendingPayments: number;
+}
+
+export interface AdminBusiness extends Business {
+  owner_email: string | null;
+  owner_name: string | null;
+  member_count: number;
+}
+
+export interface AdminBusinessDetail {
+  business: AdminBusiness;
+  owner: {
+    id: string;
+    email: string;
+    fullName: string;
+    phone: string | null;
+    avatar_url: string | null;
+    emailVerified: boolean;
+  } | null;
+  members: Array<{
+    id: string;
+    userId: string;
+    role: string;
+    status: string;
+    created_at: string;
+    user: {
+      id: string;
+      email: string;
+      fullName: string;
+      phone: string | null;
+      avatar_url: string | null;
+    } | null;
+  }>;
+  stats: {
+    products: number;
+    services: number;
+    customers: number;
+    sales: number;
+    expenses: number;
+    totalRevenue: number;
+    totalExpenses: number;
+  };
+  recentSales: Sale[];
+  recentCustomers: Customer[];
+  subscriptionHistory: SubscriptionPayment[];
+}
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  emailVerified: boolean;
+  createdAt: string;
+  isAdmin: boolean;
+  businessCount: number;
+}
+
+export interface PlatformSettings {
+  adminEmails: string[];
+  paystackConfigured: boolean;
+  plans: Array<{ id: string; price: number }>;
+  currency: string;
+  billingCycle: string;
 }
 
 export type {

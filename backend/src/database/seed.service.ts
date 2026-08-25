@@ -50,32 +50,38 @@ export class SeedService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      await this.seedAccount('korrifantes36@gmail.com', true);
-      await this.seedAccount('fanteskorri36@gmail.com', false);
+      // Platform admin — owns the app, has no business of their own.
+      await this.ensureAccount('korrifantes36@gmail.com');
+      // Demo business owner — gets a business with a full mock dataset.
+      await this.ensureAccount('fanteskorri36@gmail.com', true);
     } catch (err) {
       this.logger.error('Error in SeedService:', err);
     }
   }
 
-  private async seedAccount(email: string, createIfMissing: boolean) {
+  private async ensureAccount(email: string, withBusiness = false) {
+    const passwordHash = await bcrypt.hash('fantes361', 10);
     let user = await this.userRepo.findOne({ where: { email } });
 
     if (!user) {
-      if (!createIfMissing) return;
-      const passwordHash = await bcrypt.hash('fantes361', 10);
       user = this.userRepo.create({
         email,
-        full_name: 'Korri Fant',
+        full_name:
+          email === 'korrifantes36@gmail.com'
+            ? 'Korri (Platform Admin)'
+            : 'Felix Ochieng',
         phone: '+254712345678',
         password_hash: passwordHash,
         email_verified: true,
       });
       await this.userRepo.save(user);
-      this.logger.log(`Created owner user ${email}`);
-    } else if (createIfMissing) {
-      user.password_hash = await bcrypt.hash('fantes361', 10);
+      this.logger.log(`Created account ${email}`);
+    } else {
+      user.password_hash = passwordHash;
       await this.userRepo.save(user);
     }
+
+    if (!withBusiness) return;
 
     let member = await this.memberRepo.findOne({ where: { userId: user.id } });
     let business: Business | null = null;
@@ -123,9 +129,7 @@ export class SeedService implements OnModuleInit {
     }
 
     // Showcase account always reports exact demo figures for today
-    if (email === 'fanteskorri36@gmail.com') {
-      await this.applyDemoTodaySummary(business.id);
-    }
+    await this.applyDemoTodaySummary(business.id);
   }
 
   /**

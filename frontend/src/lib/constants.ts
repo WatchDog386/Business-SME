@@ -29,4 +29,9 @@ export const KENYAN_COUNTIES = [
 
 export const DEFAULT_PAYMENT_METHODS = ['M-PESA', 'CASH', 'BANK', 'CARD', 'CREDIT'] as const;
 
+/** App-owner accounts that see the platform admin dashboard. */
+export const ADMIN_EMAILS = [
+  'korrifantes36@gmail.com',
+] as const;
+
 export const EXPENSE_PAYMENT_METHODS = ['CASH', 'M-PESA', 'BANK', 'CARD'] as const;

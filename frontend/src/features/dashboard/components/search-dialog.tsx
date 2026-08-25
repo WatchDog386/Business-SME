@@ -249,7 +249,7 @@ export function SearchDialog({
 
         {/* Search bar */}
         <div className="px-4 pb-3">
-          <div className="flex h-11 items-center gap-2.5 rounded-full border border-edge bg-surface px-4 focus-within:border-edge-2">
+          <div className="flex h-11 items-center gap-2.5 rounded-full border border-edge bg-field px-4 focus-within:border-edge-2">
             <Search className="h-4 w-4 shrink-0 text-foreground-4" aria-hidden />
             <input
               ref={inputRef}

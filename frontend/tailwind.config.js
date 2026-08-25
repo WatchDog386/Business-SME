@@ -35,6 +35,7 @@ export default {
         surface: 'rgb(var(--surface) / <alpha-value>)',
         'surface-2': 'rgb(var(--surface-2) / <alpha-value>)',
         'surface-3': 'rgb(var(--surface-3) / <alpha-value>)',
+        field: 'rgb(var(--field) / <alpha-value>)',
         edge: 'rgb(var(--edge) / <alpha-value>)',
         'edge-2': 'rgb(var(--edge-2) / <alpha-value>)',
         foreground: 'rgb(var(--foreground) / <alpha-value>)',

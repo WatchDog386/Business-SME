@@ -10,15 +10,12 @@ import {
   Banknote,
   ChevronRight,
   Settings,
-  Moon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useActiveBusiness } from '@/stores/business';
 import { useAuthStore } from '@/stores/auth';
-import { useTheme } from '@/lib/theme';
-import { ThemeToggle } from '@/components/layout/theme-toggle';
 
 type Tint = keyof typeof tints;
 
@@ -110,9 +107,6 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
-  const [theme, setTheme] = useTheme();
-
-  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
@@ -132,15 +126,12 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
     <div className="fixed inset-0 z-40 overflow-y-auto bg-surface-2 scrollbar-none animate-fade-in">
       <div className="mx-auto max-w-md px-4 pb-10 pt-7">
         {/* Header */}
-        <header className="flex items-start justify-between gap-3">
-          <div className="leading-tight">
-            <p className="text-[13px] font-medium text-foreground-3">Your workspace</p>
-            <h1 className="flex items-center gap-2 text-lg font-medium tracking-tight text-foreground sm:text-xl">
-              <Settings className="h-5 w-5 text-accent" aria-hidden />
-              Settings
-            </h1>
-          </div>
-          <ThemeToggle />
+        <header className="leading-tight">
+          <p className="text-[13px] font-medium text-foreground-3">Your workspace</p>
+          <h1 className="flex items-center gap-2 text-lg font-medium tracking-tight text-foreground sm:text-xl">
+            <Settings className="h-5 w-5 text-accent" aria-hidden />
+            Settings
+          </h1>
         </header>
 
         {/* Identity card */}
@@ -178,44 +169,6 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
             {businessItems.map((item, i) => (
               <Row key={item.label} item={item} onClick={() => go(item.to)} last={i === businessItems.length - 1} />
             ))}
-          </div>
-        </section>
-
-        {/* Appearance */}
-        <section className="mt-6">
-          <SectionLabel>Appearance</SectionLabel>
-          <div className="overflow-hidden rounded-xl bg-surface shadow-soft">
-            <button
-              onClick={toggleTheme}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3"
-              role="switch"
-              aria-checked={theme === 'dark'}
-              aria-label="Toggle dark mode"
-            >
-              <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-info-soft text-info">
-                <Moon className="h-4 w-4" aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] leading-snug text-foreground">Dark mode</span>
-                <span className="block truncate text-xs leading-snug text-foreground-3">
-                  {theme === 'dark' ? 'Dark theme is on' : 'Light theme is on'}
-                </span>
-              </span>
-              <span
-                className={cn(
-                  'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200',
-                  theme === 'dark' ? 'bg-accent' : 'bg-edge-2',
-                )}
-                aria-hidden
-              >
-                <span
-                  className={cn(
-                    'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200',
-                    theme === 'dark' ? 'translate-x-[22px]' : 'translate-x-0.5',
-                  )}
-                />
-              </span>
-            </button>
           </div>
         </section>
 

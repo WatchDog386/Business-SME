@@ -14,6 +14,8 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -33,8 +35,10 @@ import { AuditModule } from './modules/audit/audit.module';
     ProductsModule,
     SalesModule,
     ExpensesModule,
-    DashboardModule,
-    ReportsModule,
-  ],
+  DashboardModule,
+  ReportsModule,
+  BillingModule,
+  AdminModule,
+],
 })
 export class AppModule {}

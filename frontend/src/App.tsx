@@ -1,4 +1,6 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { applyTheme, getTheme } from '@/lib/theme';
 import { AppShell } from '@/components/layout/app-shell';
 import { SplashPage } from '@/features/auth/splash-page';
 import { LoginPage } from '@/features/auth/login-page';
@@ -20,10 +22,30 @@ import { AccountPage } from '@/features/account/account-page';
 import { ReportsPage } from '@/features/reports/reports-page';
 import { ProfilePage } from '@/features/profile/profile-page';
 import { NotificationsPage } from '@/features/notifications/notifications-page';
+import { AdminGate } from '@/features/admin/admin-gate';
+import { AdminOverviewPage } from '@/features/admin/admin-page';
+import { AdminBusinessesPage } from '@/features/admin/admin-businesses-page';
+import { AdminBusinessDetailPage } from '@/features/admin/admin-business-detail-page';
+import { AdminPaymentsPage } from '@/features/admin/admin-payments-page';
+import { AdminUsersPage } from '@/features/admin/admin-users-page';
+import { AdminSettingsPage } from '@/features/admin/admin-settings-page';
+
+/** Re-applies the theme on every route change — dark only on onboarding/dashboard. */
+function ThemeScope() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    applyTheme(getTheme(), pathname);
+  }, [pathname]);
+
+  return null;
+}
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <ThemeScope />
+      <Routes>
       <Route path="/splash" element={<SplashPage />} />
       <Route path="/" element={<SplashPage />} />
       <Route path="/login" element={<LoginPage />} />
@@ -32,6 +54,14 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/auth-success" element={<SuccessPage />} />
       <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/admin" element={<AdminGate />}>
+        <Route index element={<AdminOverviewPage />} />
+        <Route path="businesses" element={<AdminBusinessesPage />} />
+        <Route path="businesses/:id" element={<AdminBusinessDetailPage />} />
+        <Route path="payments" element={<AdminPaymentsPage />} />
+        <Route path="users" element={<AdminUsersPage />} />
+        <Route path="settings" element={<AdminSettingsPage />} />
+      </Route>
 
       <Route element={<AppShell />}>
         <Route path="/dashboard" element={<DashboardPage />} />
@@ -50,6 +80,7 @@ export default function App() {
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }

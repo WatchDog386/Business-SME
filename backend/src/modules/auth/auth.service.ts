@@ -4,7 +4,9 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes, createHash } from 'node:crypto';
 import { Repository } from 'typeorm';
@@ -24,6 +26,7 @@ export interface AuthResult {
     phone: string | null;
     avatarUrl: string | null;
     emailVerified: boolean;
+    isAdmin: boolean;
   };
 }
 
@@ -32,6 +35,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
 
@@ -93,6 +97,7 @@ export class AuthService {
       phone: user.phone,
       avatarUrl: user.avatar_url,
       emailVerified: user.email_verified,
+      isAdmin: this.isAdminEmail(user.email),
     };
   }
 
@@ -113,6 +118,7 @@ export class AuthService {
       phone: user.phone,
       avatarUrl: user.avatar_url,
       emailVerified: user.email_verified,
+      isAdmin: this.isAdminEmail(user.email),
     };
   }
 
@@ -195,7 +201,14 @@ export class AuthService {
         phone: user.phone,
         avatarUrl: user.avatar_url,
         emailVerified: user.email_verified,
+        isAdmin: this.isAdminEmail(user.email),
       },
     };
+  }
+
+  private isAdminEmail(email: string): boolean {
+    return this.config
+      .get<string[]>('adminEmails', [])
+      .includes(email.toLowerCase());
   }
 }

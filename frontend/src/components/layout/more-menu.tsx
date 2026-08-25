@@ -3,6 +3,7 @@ import {
   BarChart3,
   Package,
   Scissors,
+  ShieldCheck,
   Store,
   UserCircle,
   Wallet,
@@ -11,6 +12,7 @@ import {
 import { Dialog } from '@/components/ui/dialog';
 import { useActiveBusiness } from '@/stores/business';
 import { useAuthStore } from '@/stores/auth';
+import { ADMIN_EMAILS } from '@/lib/constants';
 
 const moreLinks = [
   { to: '/profile', label: 'My Profile', icon: UserCircle },
@@ -29,6 +31,9 @@ export function MoreMenu({
 }) {
   const active = useActiveBusiness();
   const user = useAuthStore((s) => s.user);
+  const isAdmin = Boolean(
+    user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase() as never),
+  );
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
 
@@ -84,6 +89,18 @@ export function MoreMenu({
           <Store className="h-5 w-5 text-foreground-5" aria-hidden />
           Add another business
         </button>
+        {isAdmin && (
+          <button
+            onClick={() => {
+              onOpenChange(false);
+              navigate('/admin');
+            }}
+            className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent-soft"
+          >
+            <ShieldCheck className="h-5 w-5" aria-hidden />
+            Platform admin
+          </button>
+        )}
         <button
           onClick={() => {
             onOpenChange(false);

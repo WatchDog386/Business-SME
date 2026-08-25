@@ -12,6 +12,7 @@
     --surface: 255 255 255;        /* white */
     --surface-2: 247 249 248;      
     --surface-3: 238 242 240;      
+    --field: 238 242 240;          /* dull grey-green field bg, distinct from page */
     --edge: 227 233 230;           
     --edge-2: 203 213 208;         
     --foreground: 23 32 28;        
@@ -58,6 +59,7 @@
     --surface: 18 26 22;           /* #121A16 */
     --surface-2: 11 17 14;         /* #0B110E */
     --surface-3: 32 43 37;         /* #202B25 */
+    --field: 32 43 37;             /* dull dark field bg */
     --edge: 46 58 51;              /* #2E3A33 */
     --edge-2: 66 79 71;            /* #424F47 */
     --foreground: 233 238 235;     /* #E9EEEB */
@@ -105,19 +107,30 @@
     outline-offset: 2px;
   }
 
-  /* Neutral focus for form fields — no green border on click */
+  /* Form fields: no green outline/border on click or focus */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    background-color: rgb(var(--field));
+  }
+
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
   textarea:focus,
-  select:focus {
+  textarea:focus-visible,
+  select:focus,
+  select:focus-visible {
+    outline: none;
     border-color: rgb(var(--edge-2));
     box-shadow: none;
+    background-color: rgb(var(--field));
   }
 
   /* Remove browser autofill blue/yellow flash */
   input:-webkit-autofill,
   textarea:-webkit-autofill,
   select:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0 1000px rgb(var(--surface)) inset !important;
+    -webkit-box-shadow: 0 0 0 1000px rgb(var(--field)) inset !important;
     -webkit-text-fill-color: rgb(var(--foreground)) !important;
     caret-color: rgb(var(--foreground));
     transition: background-color 9999s ease-out 0s;

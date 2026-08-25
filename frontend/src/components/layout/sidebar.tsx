@@ -8,23 +8,31 @@ import {
   Wallet,
   Banknote,
   BarChart3,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ADMIN_EMAILS } from '@/lib/constants';
+import { useAuthStore } from '@/stores/auth';
 import { Brand } from './brand';
 
-const navItems: Array<{ to: string; label: string; icon: LucideIcon }> = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/sales', label: 'Sales', icon: ShoppingCart },
-  { to: '/customers', label: 'Customers', icon: Users },
-  { to: '/products', label: 'Products', icon: Package },
-  { to: '/services', label: 'Services', icon: Scissors },
-  { to: '/expenses', label: 'Expenses', icon: Wallet },
-  { to: '/account', label: 'Account', icon: Banknote },
-  { to: '/reports', label: 'Reports', icon: BarChart3 },
-];
-
 export function Sidebar() {
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = Boolean(
+    user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase() as never),
+  );
+  const navItems: Array<{ to: string; label: string; icon: LucideIcon }> = [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/sales', label: 'Sales', icon: ShoppingCart },
+    { to: '/customers', label: 'Customers', icon: Users },
+    { to: '/products', label: 'Products', icon: Package },
+    { to: '/services', label: 'Services', icon: Scissors },
+    { to: '/expenses', label: 'Expenses', icon: Wallet },
+    { to: '/account', label: 'Account', icon: Banknote },
+    { to: '/reports', label: 'Reports', icon: BarChart3 },
+    ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
+  ];
+
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-edge bg-surface-2 lg:flex">
       <div className="border-b border-edge px-5 py-4">

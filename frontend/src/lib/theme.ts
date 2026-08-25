@@ -4,6 +4,9 @@ export type Theme = 'light' | 'dark';
 
 const STORAGE_KEY = 'biashara_theme';
 
+/** Dark mode disabled — app stays in original light design. */
+const DARK_ROUTES: string[] = [];
+
 const listeners = new Set<(theme: Theme) => void>();
 
 export function getTheme(): Theme {
@@ -11,8 +14,20 @@ export function getTheme(): Theme {
   return stored === 'dark' ? 'dark' : 'light';
 }
 
-export function applyTheme(theme: Theme): void {
-  document.documentElement.classList.toggle('dark', theme === 'dark');
+function isDarkAllowed(pathname: string): boolean {
+  return DARK_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+}
+
+export function applyTheme(
+  theme: Theme,
+  pathname: string = window.location.pathname,
+): void {
+  document.documentElement.classList.toggle(
+    'dark',
+    theme === 'dark' && isDarkAllowed(pathname),
+  );
 }
 
 export function setTheme(theme: Theme): void {

@@ -315,7 +315,7 @@ export function ScanSaleDialog({
                 onChange={(e) => setRawText(e.target.value)}
                 rows={6}
                 placeholder={`Example:\nQGH7XY8K2R Confirmed.Ksh1,500.00 paid to MARY WANJIKU on 23/8/26 at 2:30 PM.New M-PESA balance is Ksh24,300.00`}
-                className="w-full resize-none rounded-2xl border border-edge bg-surface p-4 text-sm text-foreground outline-none placeholder:text-foreground-5 focus:border-edge-2 focus:ring-0"
+                className="w-full resize-none rounded-2xl border border-edge bg-field p-4 text-sm text-foreground outline-none placeholder:text-foreground-5 focus:border-edge-2 focus:ring-0"
               />
               <button
                 onClick={parsePasted}
@@ -353,7 +353,7 @@ export function ScanSaleDialog({
                   onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
                   inputMode="numeric"
                   placeholder="1500"
-                  className="h-14 w-full rounded-2xl border border-edge bg-surface text-center text-xl font-medium tabular-nums text-foreground outline-none focus:border-edge-2 focus:ring-0"
+                  className="h-14 w-full rounded-2xl border border-edge bg-field text-center text-xl font-medium tabular-nums text-foreground outline-none focus:border-edge-2 focus:ring-0"
                 />
               </div>
 
@@ -366,7 +366,7 @@ export function ScanSaleDialog({
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Optional"
-                    className="h-12 w-full rounded-full border border-edge bg-surface px-4 text-sm text-foreground outline-none placeholder:text-foreground-5 focus:border-edge-2 focus:ring-0"
+                    className="h-12 w-full rounded-full border border-edge bg-field px-4 text-sm text-foreground outline-none placeholder:text-foreground-5 focus:border-edge-2 focus:ring-0"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -378,7 +378,7 @@ export function ScanSaleDialog({
                     onChange={(e) => setPhone(e.target.value)}
                     inputMode="tel"
                     placeholder="07XX XXX XXX"
-                    className="h-12 w-full rounded-full border border-edge bg-surface px-4 text-sm tabular-nums text-foreground outline-none placeholder:text-foreground-5 focus:border-edge-2 focus:ring-0"
+                    className="h-12 w-full rounded-full border border-edge bg-field px-4 text-sm tabular-nums text-foreground outline-none placeholder:text-foreground-5 focus:border-edge-2 focus:ring-0"
                   />
                 </div>
               </div>

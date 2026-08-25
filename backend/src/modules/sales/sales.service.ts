@@ -354,7 +354,7 @@ export class SalesService {
       .leftJoin('customers', 'customer', 'customer.id = sale.customerId')
       .addSelect('customer.name', 'customer_name')
       .addSelect(
-        '(SELECT COUNT(*) FROM sale_items si WHERE si.saleId = sale.id)',
+        '(SELECT COUNT(*) FROM sale_items si WHERE si."saleId" = sale.id)',
         'item_count',
       )
       .where('sale.businessId = :businessId', { businessId });

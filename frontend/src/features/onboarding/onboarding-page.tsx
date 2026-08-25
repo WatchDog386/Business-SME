@@ -9,14 +9,21 @@ import {
   CheckCircle2,
   ShieldCheck,
   Check,
-  Sparkles,
   Rocket,
+  CreditCard,
+  Building,
+  MapPin,
+  DollarSign,
 } from 'lucide-react';
 import { businessesApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { useBusinessStore } from '@/stores/business';
 import { useAuthStore } from '@/stores/auth';
-import { startCheckout } from '@/lib/paystack';
+import {
+  startCheckout,
+  confirmSubscription,
+  type CheckoutMethod,
+} from '@/lib/paystack';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,6 +66,7 @@ const plans = [
     tagline: 'Everything you need to get going',
     features: ['Unlimited sales recording', 'Basic inventory tracking', 'Email support'],
     popular: false,
+    tone: 'blue' as const,
   },
   {
     id: 'growth',
@@ -69,6 +77,7 @@ const plans = [
     tagline: 'For businesses on the rise',
     features: ['Everything in Starter', 'Advanced reports & analytics', 'Multi-user access', 'Priority support'],
     popular: true,
+    tone: 'green' as const,
   },
   {
     id: 'scale',
@@ -79,8 +88,62 @@ const plans = [
     tagline: 'Power tools for serious volume',
     features: ['Everything in Growth', 'Multi-branch management', 'Custom integrations', 'Dedicated manager'],
     popular: false,
+    tone: 'red' as const,
   },
 ];
+
+type PlanTone = (typeof plans)[number]['tone'];
+
+/** Checkout payment options — M-Pesa/Card/Bank settle via Paystack, PayPal is invoiced. */
+const PAYMENT_OPTIONS: Array<{ value: CheckoutMethod; label: string; icon: React.ReactNode }> = [
+  { value: 'MPESA', label: 'M-Pesa', icon: <MapPin className="h-4 w-4" /> },
+  { value: 'CARD', label: 'Card', icon: <CreditCard className="h-4 w-4" /> },
+  { value: 'BANK', label: 'Bank transfer', icon: <Building className="h-4 w-4" /> },
+  { value: 'PAYPAL', label: 'PayPal', icon: <DollarSign className="h-4 w-4" /> },
+];
+
+/** Sleek per-plan identities — blue / green / red-into-black gradients. */
+const PLAN_TONES: Record<
+  PlanTone,
+  { card: string; selected: string; badge: string; title: string; tagline: string; price: string; period: string; feature: string; checkIcon: string }
+> = {
+  blue: {
+    card: 'border-blue-800 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-950 hover:border-blue-600',
+    selected:
+      'border-blue-500 bg-gradient-to-br from-blue-700 via-blue-800 to-slate-950 ring-2 ring-blue-500/70',
+    badge: 'bg-gradient-to-r from-sky-500 to-blue-500',
+    title: 'text-white',
+    tagline: 'text-blue-100/85',
+    price: 'text-white',
+    period: 'text-blue-200/75',
+    feature: 'text-blue-400',
+    checkIcon: 'text-sky-300',
+  },
+  green: {
+    card: 'border-emerald-800 bg-gradient-to-br from-emerald-900 via-emerald-950 to-slate-950 hover:border-emerald-700',
+    selected:
+      'border-emerald-600 bg-gradient-to-br from-emerald-700 via-emerald-800 to-slate-950 ring-2 ring-emerald-500/60',
+    badge: 'bg-gradient-to-r from-lime-500 to-emerald-500',
+    title: 'text-white',
+    tagline: 'text-green-100/85',
+    price: 'text-white',
+    period: 'text-green-200/75',
+    feature: 'text-green-400',
+    checkIcon: 'text-lime-300',
+  },
+  red: {
+    card: 'border-red-900/60 bg-gradient-to-br from-red-700 via-red-950 to-black shadow-[0_12px_36px_-14px_rgba(220,38,38,0.6)] hover:border-red-500/70',
+    selected:
+      'border-red-500 bg-gradient-to-br from-red-600 via-red-800 to-black ring-2 ring-red-500/60 shadow-[0_16px_48px_-12px_rgba(239,68,68,0.8)]',
+    badge: 'bg-gradient-to-r from-red-500 to-orange-500 shadow-[0_4px_14px_-4px_rgba(239,68,68,0.8)]',
+    title: 'text-white',
+    tagline: 'text-red-100/80',
+    price: 'text-white drop-shadow-[0_2px_8px_rgba(239,68,68,0.6)]',
+    period: 'text-red-200/70',
+    feature: 'text-gray-200',
+    checkIcon: 'text-red-400',
+  },
+};
 
 export function OnboardingPage() {
   const navigate = useNavigate();
@@ -92,6 +155,7 @@ export function OnboardingPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedPlan, setSelectedPlan] = useState<string>('growth');
+  const [payMethod, setPayMethod] = useState<CheckoutMethod>('MPESA');
   const [paying, setPaying] = useState(false);
   const [paidReference, setPaidReference] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -162,10 +226,18 @@ export function OnboardingPage() {
         planId: plan.id,
         planName: plan.name,
         amountKes: plan.amount,
+        method: payMethod,
       });
+      if (plan.amount > 0) {
+        await confirmSubscription(result.reference);
+      }
       setPaidReference(result.reference);
-    } catch {
-      setError('Payment did not go through. Please try again.');
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message === 'Payment cancelled.'
+          ? 'Payment cancelled.'
+          : 'Payment did not go through. Please try again.',
+      );
     } finally {
       setPaying(false);
     }
@@ -336,7 +408,7 @@ export function OnboardingPage() {
                 type="button"
                 variant="outline"
                 onClick={() => navigate(-1)}
-                className="rounded-full"
+                className="rounded-full bg-black text-white hover:bg-gray-800"
               >
                 Back
               </Button>
@@ -356,6 +428,7 @@ export function OnboardingPage() {
             <div className="space-y-3">
               {plans.map((plan) => {
                 const isSelected = selectedPlan === plan.id;
+                const tone = PLAN_TONES[plan.tone];
                 return (
                   <button
                     key={plan.id}
@@ -363,40 +436,37 @@ export function OnboardingPage() {
                     onClick={() => setSelectedPlan(plan.id)}
                     className={cn(
                       'relative flex w-full flex-col gap-3 rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.99]',
-                      isSelected
-                        ? 'border-accent bg-accent-soft shadow-lift ring-1 ring-accent'
-                        : 'border-edge bg-surface shadow-soft hover:border-edge-2',
+                      isSelected ? tone.selected : tone.card,
                     )}
                   >
                     {plan.popular && (
-                      <span className="absolute -top-2.5 right-4 flex items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow-sm">
-                        <Sparkles className="h-3 w-3" aria-hidden />
+                      <span className={cn('absolute -top-2.5 right-4 flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow-sm', tone.badge)}>
                         Most popular
                       </span>
                     )}
 
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="flex items-center gap-2 text-base font-semibold text-foreground">
+                        <p className={cn('flex items-center gap-2 text-base font-semibold', tone.title)}>
                           {plan.name}
                           {isSelected && (
-                            <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-accent" aria-hidden />
+                            <CheckCircle2 className={cn('h-4.5 w-4.5 shrink-0', tone.checkIcon)} aria-hidden />
                           )}
                         </p>
-                        <p className="mt-0.5 truncate text-xs text-foreground-3">{plan.tagline}</p>
+                        <p className={cn('mt-0.5 truncate text-xs', tone.tagline)}>{plan.tagline}</p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="text-lg font-semibold leading-none tracking-tight text-foreground tabular-nums">
+                        <p className={cn('text-lg font-semibold leading-none tracking-tight tabular-nums', tone.price)}>
                           {plan.price}
                         </p>
-                        <p className="mt-1 text-[11px] text-foreground-4">{plan.period}</p>
+                        <p className={cn('mt-1 text-[11px]', tone.period)}>{plan.period}</p>
                       </div>
                     </div>
 
                     <ul className="space-y-1.5">
                       {plan.features.map((feature) => (
-                        <li key={feature} className="flex items-center gap-2 text-xs text-foreground-2">
-                          <Check className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
+                        <li key={feature} className={cn('flex items-center gap-2 text-xs', tone.feature)}>
+                          <Check className={cn('h-3.5 w-3.5 shrink-0', tone.checkIcon)} aria-hidden />
                           {feature}
                         </li>
                       ))}
@@ -415,7 +485,7 @@ export function OnboardingPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setStep(1)}
-                className="rounded-full"
+                className="rounded-full bg-black text-white hover:bg-gray-800"
               >
                 Back
               </Button>
@@ -433,32 +503,23 @@ export function OnboardingPage() {
         {step === 3 && (
           <div className="animate-fade-up space-y-5">
             {/* Order summary */}
-            <div className="space-y-3 rounded-2xl border border-edge bg-surface p-5 shadow-soft">
+            <div className="space-y-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-foreground-4">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   Order summary
                 </p>
-                <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-                  Monthly
-                </span>
+                <span className="text-sm font-medium text-foreground">{plan.name} plan</span>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-foreground">{plan.name} plan</span>
-                <span className="tabular-nums text-foreground-2">{plan.price}{plan.period}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-foreground-3">Business</span>
-                <span className="max-w-[60%] truncate font-medium text-foreground">
-                  {businessName || 'My business'}
-                </span>
-              </div>
-              <div className="border-t border-edge pt-3">
+              <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-medium text-foreground">Business</span>
+                  <span className="max-w-[60%] truncate text-sm text-foreground">{businessName || 'My business'}</span>
+                </div>
+
+                <div className="flex items-baseline justify-between border-t border-border pt-3">
                   <span className="text-sm font-medium text-foreground">Total due today</span>
-                  <span className="text-xl font-semibold tracking-tight tabular-nums text-foreground">
-                    {plan.price}
-                  </span>
+                  <span className="text-xl font-semibold tracking-tight text-foreground">{plan.price}</span>
                 </div>
               </div>
             </div>
@@ -466,20 +527,41 @@ export function OnboardingPage() {
             {/* Payment method */}
             <div className="space-y-1.5">
               <Label>Payment method</Label>
-              <div className="flex items-center justify-between rounded-full border border-accent bg-accent-soft px-5 py-3">
-                <span className="text-sm font-medium text-accent-strong">Card · Paystack</span>
-                <CheckCircle2 className="h-4.5 w-4.5 text-accent" aria-hidden />
+              <p className="text-[10px] font-medium text-muted-foreground mb-2">
+                How would you like to pay?
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_OPTIONS.map((opt) => {
+                  const active = payMethod === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setPayMethod(opt.value)}
+                      className={cn(
+                        'flex items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-background',
+                        active
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-surface hover:border-border/50',
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        {opt.icon}
+                        {opt.label}
+                      </span>
+                      {active && (
+                        <Check className="h-4 w-4 text-primary shrink-0" aria-hidden />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-              <button
-                type="button"
-                disabled
-                className="flex w-full cursor-not-allowed items-center justify-between rounded-full border border-edge bg-surface px-5 py-3 opacity-50"
-              >
-                <span className="text-sm text-foreground-3">M-Pesa (coming soon)</span>
-                <span className="text-[10px] font-medium uppercase tracking-wider text-foreground-5">
-                  Soon
-                </span>
-              </button>
+              {payMethod === 'PAYPAL' && (
+                <p className="pt-2 text-xs text-muted-foreground">
+                  A PayPal invoice will be issued to your email — your plan
+                  activates as soon as it is confirmed.
+                </p>
+              )}
             </div>
 
             {paidReference && (
@@ -502,13 +584,17 @@ export function OnboardingPage() {
                 <Button
                   onClick={handleSubmit((values) => mutation.mutate(values))}
                   loading={mutation.isPending}
-                  className="rounded-full bg-brand-700 text-white hover:bg-brand-800"
+                  className="rounded-full bg-gradient-to-r from-primary to-primary/90 text-white hover:bg-primary/90"
                 >
-                  <Rocket className="h-4 w-4" aria-hidden />
+                  <Rocket className="h-4 w-4 me-2" aria-hidden />
                   Launch
                 </Button>
               ) : (
-                <Button onClick={handlePay} loading={paying} className="rounded-full bg-brand-700 text-white hover:bg-brand-800">
+                <Button
+                  onClick={handlePay}
+                  loading={paying}
+                  className="rounded-full bg-gradient-to-r from-primary to-primary/90 text-white hover:bg-primary/80"
+                >
                   Pay {plan.price}
                 </Button>
               )}

@@ -1,6 +1,12 @@
 import { api, type Paginated } from './client';
 import type {
+  AdminBusiness,
+  AdminBusinessDetail,
+  AdminSummary,
+  AdminUserRow,
   AuthResult,
+  BillingInitResult,
+  BillingMethod,
   Business,
   BusinessMember,
   Category,
@@ -10,12 +16,14 @@ import type {
   Expense,
   InventoryTransaction,
   Payment,
+  PlatformSettings,
   Product,
   ProductPerformanceRow,
   ProfitLoss,
   Sale,
   SaleDetail,
   Service,
+  SubscriptionPayment,
   User,
   UserRole,
 } from './types';
@@ -341,6 +349,52 @@ export const reportsApi = {
       url: '/reports/expenses',
       params,
     }),
+};
+
+// ---- Billing (subscriptions) ----
+
+export const billingApi = {
+  initiate: (planId: string, method: BillingMethod) =>
+    api<BillingInitResult>({
+      method: 'POST',
+      url: '/billing/initiate',
+      data: { plan: planId.toUpperCase(), method },
+    }),
+  verify: (reference: string) =>
+    api<SubscriptionPayment>({
+      method: 'GET',
+      url: `/billing/verify/${reference}`,
+    }),
+};
+
+// ---- Platform admin (app owner) ----
+
+export const adminApi = {
+  summary: () => api<AdminSummary>({ method: 'GET', url: '/admin/summary' }),
+  businesses: () =>
+    api<AdminBusiness[]>({ method: 'GET', url: '/admin/businesses' }),
+  businessDetail: (id: string) =>
+    api<AdminBusinessDetail>({ method: 'GET', url: `/admin/businesses/${id}` }),
+  setPlan: (id: string, plan: 'FREE' | 'GROWTH' | 'SCALE') =>
+    api<Business>({
+      method: 'PATCH',
+      url: `/admin/businesses/${id}/plan`,
+      data: { plan },
+    }),
+  payments: (status?: 'PENDING' | 'PAID' | 'FAILED') =>
+    api<SubscriptionPayment[]>({
+      method: 'GET',
+      url: '/admin/payments',
+      params: status ? { status } : {},
+    }),
+  confirmPayment: (id: string) =>
+    api<SubscriptionPayment>({
+      method: 'POST',
+      url: `/admin/payments/${id}/confirm`,
+    }),
+  users: () => api<AdminUserRow[]>({ method: 'GET', url: '/admin/users' }),
+  settings: () =>
+    api<PlatformSettings>({ method: 'GET', url: '/admin/settings' }),
 };
 
 export type { Payment };

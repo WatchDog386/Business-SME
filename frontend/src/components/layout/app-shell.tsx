@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useBootstrap } from '@/hooks/use-bootstrap';
 import { useBusinessStore } from '@/stores/business';
+import { useAuthStore } from '@/stores/auth';
 import { Sidebar } from './sidebar';
 import { MobileNav } from './mobile-nav';
 import { Topbar } from './topbar';
@@ -10,6 +11,7 @@ import { cn } from '@/lib/utils';
 export function AppShell() {
   const { token, loading } = useBootstrap();
   const businesses = useBusinessStore((s) => s.businesses);
+  const user = useAuthStore((s) => s.user);
   const location = useLocation();
   const isDashboard = location.pathname === '/dashboard';
 
@@ -26,6 +28,10 @@ export function AppShell() {
   }
 
   if (businesses.length === 0) {
+    // Platform admins have no business of their own — send them to the admin console.
+    if (user?.isAdmin) {
+      return <Navigate to="/admin" replace />;
+    }
     return <Navigate to="/onboarding" replace />;
   }
 

@@ -95,7 +95,7 @@ function OtpInput({
             onChange={(e) => handleChange(e, i)}
             onKeyDown={(e) => handleKeyDown(e, i)}
             onPaste={handlePaste}
-            className={`h-14 w-full min-w-0 flex-1 rounded-2xl border bg-surface text-center text-lg font-medium text-foreground shadow-sm caret-foreground outline-none transition-all duration-200 focus:border-edge-2 focus:ring-0 ${
+            className={`h-14 w-full min-w-0 flex-1 rounded-2xl border bg-field text-center text-lg font-medium text-foreground shadow-sm caret-foreground outline-none transition-all duration-200 focus:border-edge-2 focus:ring-0 ${
               filled ? 'border-edge-2 bg-surface-2' : 'border-edge'
             } ${verifying ? 'animate-otp-wave border-edge-2' : ''}`}
             style={verifying ? { animationDelay: `${i * 130}ms` } : undefined}
@@ -341,7 +341,7 @@ export function RegisterPage() {
                   type={authMode === 'email' ? 'email' : 'tel'}
                   placeholder={authMode === 'phone' ? '712 345 678' : 'you@example.com'}
                   aria-invalid={errors.identifier ? true : undefined}
-                  className={`h-12 text-sm font-normal rounded-full bg-surface border-edge focus:border-edge-2 focus:ring-0 ${
+                  className={`h-12 text-sm font-normal rounded-full bg-field border-edge focus:border-edge-2 focus:ring-0 ${
                     authMode === 'phone' ? 'pl-28 pr-5' : 'px-5'
                   }`}
                   {...register('identifier')}

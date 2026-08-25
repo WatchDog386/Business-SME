@@ -3,6 +3,14 @@ export default () => ({
   port: parseInt(process.env.PORT || '4000', 10),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   corsOrigin: (process.env.CORS_ORIGIN || 'http://localhost:5173').split(','),
+  // App-owner accounts allowed to open the platform admin dashboard.
+  adminEmails: (
+    process.env.ADMIN_EMAILS || 'korrifantes36@gmail.com'
+  )
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+  paystackSecretKey: process.env.PAYSTACK_SECRET_KEY || '',
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-change-me',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',

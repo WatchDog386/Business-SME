@@ -13,6 +13,7 @@ import { Customer } from '../modules/customers/entities/customer.entity';
 import { Sale } from '../modules/sales/entities/sale.entity';
 import { SaleItem } from '../modules/sales/entities/sale-item.entity';
 import { Expense } from '../modules/expenses/entities/expense.entity';
+import { SubscriptionPayment } from '../modules/billing/entities/subscription-payment.entity';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { Expense } from '../modules/expenses/entities/expense.entity';
       Sale,
       SaleItem,
       Expense,
+      SubscriptionPayment,
     ]),
   ],
   providers: [SeedService],

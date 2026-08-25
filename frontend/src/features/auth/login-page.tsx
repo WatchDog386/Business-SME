@@ -44,14 +44,22 @@ export function LoginPage() {
       try {
         const businesses = await businessesApi.mine();
         setBusinesses(businesses);
+        const redirect = result.user.isAdmin
+          ? '/admin'
+          : businesses.length > 0
+            ? '/dashboard'
+            : '/onboarding';
         navigate('/auth-success', {
           replace: true,
-          state: { redirectTo: businesses.length > 0 ? '/dashboard' : '/onboarding', subtitle: 'Welcome back!' },
+          state: { redirectTo: redirect, subtitle: 'Welcome back!' },
         });
       } catch {
         navigate('/auth-success', {
           replace: true,
-          state: { redirectTo: '/onboarding', subtitle: 'Welcome back!' },
+          state: {
+            redirectTo: result.user.isAdmin ? '/admin' : '/onboarding',
+            subtitle: 'Welcome back!',
+          },
         });
       }
       await queryClient.invalidateQueries();
