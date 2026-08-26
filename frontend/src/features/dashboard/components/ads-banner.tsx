@@ -3,7 +3,7 @@ import { Sparkles } from 'lucide-react';
 
 const ads = [
   {
-    title: 'Grow Your SME with M-Pesa & Biashara',
+    title: 'Grow Your SME with M-Pesa & OmniTrack',
     image: 'https://i.pinimg.com/736x/12/c7/e2/12c7e2bffeb946a611862b2d29f53073.jpg',
     badge: 'Featured',
     bgClass: 'bg-gradient-to-br from-indigo-600 via-violet-800 to-slate-950',
@@ -84,7 +84,7 @@ export function AdsBanner() {
               </h3>
 
               <div className="text-[10px] font-medium text-white/50">
-                Biashara Showcase
+                OmniTrack Showcase
               </div>
             </div>
           </button>

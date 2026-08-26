@@ -18,7 +18,7 @@ export function Brand({
     <div className={cn('flex items-center gap-2.5', className)}>
       <img
         src={logo}
-        alt="Biashara logo"
+        alt="OmniTrack logo"
         className={cn('shrink-0 rounded-xl object-contain', imgSize)}
       />
       {!compact && (
@@ -29,7 +29,7 @@ export function Brand({
               onDark ? 'text-white' : 'text-foreground',
             )}
           >
-            Biashara
+            OmniTrack
           </p>
           <p
             className={cn(
@@ -37,7 +37,7 @@ export function Brand({
               onDark ? 'text-white/70' : 'text-foreground-5',
             )}
           >
-            Your business manager
+            Smart SME Solutions
           </p>
         </div>
       )}

@@ -67,7 +67,7 @@ export function buildNotifications(data: DashboardData): NotificationItem[] {
       icon: CheckCircle2,
       tone: 'success',
       title: 'Platform Active',
-      text: 'Your Biashara platform is fully synchronized and running smoothly.',
+      text: 'Your OmniTrack platform is fully synchronized and running smoothly.',
       time: 'System',
       link: '/dashboard',
     },

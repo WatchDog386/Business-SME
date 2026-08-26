@@ -210,7 +210,7 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
         </div>
 
         <p className="pt-5 text-center text-[11px] text-foreground-5">
-          Biashara · Settings
+          OmniTrack · Settings
         </p>
       </div>
     </div>

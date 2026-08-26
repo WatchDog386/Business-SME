@@ -79,7 +79,7 @@ export function AdminGate() {
           <NavLink to="/admin" className="shrink-0" aria-label="Admin home">
             <img
               src={logo}
-              alt="Biashara"
+              alt="OmniTrack"
               className="h-14 w-14 rounded-2xl object-contain"
             />
           </NavLink>
