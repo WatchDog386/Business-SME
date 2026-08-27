@@ -90,7 +90,7 @@ export function AdminOverviewPage() {
             value={String(summary.totalBusinesses)}
             hint="Registered on your platform"
             imageUrl="https://i.pinimg.com/1200x/77/71/4d/77714db652c343cfabf1c51a20e403ff.jpg"
-            gradient="from-blue-900 via-blue-950 to-indigo-950"
+            gradient="from-brand-700 via-brand-900 to-brand-950"
           />
           <BankCard
             icon={<TrendingUp className="h-4 w-4" aria-hidden />}
@@ -178,7 +178,7 @@ export function AdminOverviewPage() {
           icon={<Building2 className="h-4.5 w-4.5" aria-hidden />}
           label="Manage businesses"
           hint="Plans, owners & members"
-          iconClass="bg-blue-900 text-white"
+          iconClass="bg-brand-700 text-white"
         />
         <QuickLink
           to="/admin/payments"

@@ -140,7 +140,7 @@ export function AdminBusinessesPage() {
                         ? 'bg-surface-2 text-foreground-4'
                         : b.subscription_plan === 'GROWTH'
                           ? 'bg-emerald-500 text-white'
-                          : 'bg-blue-600 text-white',
+                          : 'bg-brand-600 text-white',
                     )}
                   >
                     {b.subscription_plan}

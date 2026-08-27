@@ -102,22 +102,22 @@ const PAYMENT_OPTIONS: Array<{ value: CheckoutMethod; label: string; icon: React
   { value: 'PAYPAL', label: 'PayPal', icon: <DollarSign className="h-4 w-4" /> },
 ];
 
-/** Sleek per-plan identities — blue / green / red-into-black gradients. */
+/** Sleek per-plan identities — brand green / green / red-into-black gradients. */
 const PLAN_TONES: Record<
   PlanTone,
   { card: string; selected: string; badge: string; title: string; tagline: string; price: string; period: string; feature: string; checkIcon: string }
 > = {
   blue: {
-    card: 'border-blue-800 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-950 hover:border-blue-600',
+    card: 'border-brand-800 bg-gradient-to-br from-brand-950 via-brand-900 to-slate-950 hover:border-brand-600',
     selected:
-      'border-blue-500 bg-gradient-to-br from-blue-700 via-blue-800 to-slate-950 ring-2 ring-blue-500/70',
-    badge: 'bg-gradient-to-r from-sky-500 to-blue-500',
+      'border-brand-500 bg-gradient-to-br from-brand-700 via-brand-800 to-slate-950 ring-2 ring-brand-500/70',
+    badge: 'bg-gradient-to-r from-emerald-500 to-brand-600',
     title: 'text-white',
-    tagline: 'text-blue-100/85',
+    tagline: 'text-emerald-100/85',
     price: 'text-white',
-    period: 'text-blue-200/75',
-    feature: 'text-blue-400',
-    checkIcon: 'text-sky-300',
+    period: 'text-emerald-200/75',
+    feature: 'text-emerald-400',
+    checkIcon: 'text-emerald-300',
   },
   green: {
     card: 'border-emerald-800 bg-gradient-to-br from-emerald-900 via-emerald-950 to-slate-950 hover:border-emerald-700',

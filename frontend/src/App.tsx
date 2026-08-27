@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { applyTheme, getTheme } from '@/lib/theme';
+import { applyTheme, getTheme, isLightOnlyRoute } from '@/lib/theme';
 import { AppShell } from '@/components/layout/app-shell';
 import { SplashPage } from '@/features/auth/splash-page';
 import { LoginPage } from '@/features/auth/login-page';
@@ -30,12 +30,16 @@ import { AdminPaymentsPage } from '@/features/admin/admin-payments-page';
 import { AdminUsersPage } from '@/features/admin/admin-users-page';
 import { AdminSettingsPage } from '@/features/admin/admin-settings-page';
 
-/** Re-applies the theme on every route change so it survives navigation. */
+/** Re-applies the theme on every route change; splash/auth/success stay light. */
 function ThemeScope() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    applyTheme(getTheme());
+    if (isLightOnlyRoute(pathname)) {
+      document.documentElement.classList.remove('dark');
+    } else {
+      applyTheme(getTheme());
+    }
   }, [pathname]);
 
   return null;

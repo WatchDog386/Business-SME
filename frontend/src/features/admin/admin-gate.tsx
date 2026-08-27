@@ -18,8 +18,8 @@ import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
 
 const NAV_ITEMS = [
-  { to: '/admin', label: 'Overview', icon: LayoutDashboard, iconColor: 'text-blue-600', end: true },
-  { to: '/admin/businesses', label: 'Businesses', icon: Building2, iconColor: 'text-blue-900' },
+  { to: '/admin', label: 'Overview', icon: LayoutDashboard, iconColor: 'text-brand-600', end: true },
+  { to: '/admin/businesses', label: 'Businesses', icon: Building2, iconColor: 'text-brand-700' },
   { to: '/admin/payments', label: 'Payments', icon: Wallet, iconColor: 'text-emerald-600' },
   { to: '/admin/users', label: 'Users', icon: Users, iconColor: 'text-amber-600' },
   { to: '/admin/settings', label: 'Settings', icon: Settings, iconColor: 'text-zinc-600' },
@@ -95,7 +95,7 @@ export function AdminGate() {
               onClick={() => setMenuOpen((v) => !v)}
               className={cn(
                 'flex h-10 w-10 items-center justify-center rounded-full border border-edge transition-colors hover:bg-surface-2 active:bg-surface-3',
-                menuOpen ? 'border-edge-2 text-blue-900' : 'text-blue-900',
+                menuOpen ? 'border-edge-2 text-brand-700' : 'text-brand-700',
               )}
               aria-label="Account menu"
               aria-expanded={menuOpen}

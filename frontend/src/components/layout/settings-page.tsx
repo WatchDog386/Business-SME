@@ -26,7 +26,7 @@ const tints = {
   accent: 'bg-accent text-white',
   success: 'bg-emerald-500 text-white',
   warning: 'bg-amber-500 text-white',
-  info: 'bg-blue-600 text-white',
+  info: 'bg-brand-600 text-white',
   purple: 'bg-purple-600 text-white',
   rose: 'bg-rose-500 text-white',
   cyan: 'bg-cyan-600 text-white',

@@ -11,7 +11,27 @@ export function getTheme(): Theme {
   return stored === 'dark' ? 'dark' : 'light';
 }
 
+/** Routes that must always render in light mode, even when user prefers dark. */
+export const LIGHT_ONLY_ROUTES = [
+  '/',
+  '/splash',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/auth-success',
+] as const;
+
+export function isLightOnlyRoute(pathname: string): boolean {
+  return (LIGHT_ONLY_ROUTES as readonly string[]).includes(pathname);
+}
+
 export function applyTheme(theme: Theme): void {
+  // Force light on splash / auth / success pages — dark mode never applies there.
+  if (typeof window !== 'undefined' && isLightOnlyRoute(window.location.pathname)) {
+    document.documentElement.classList.remove('dark');
+    return;
+  }
   document.documentElement.classList.toggle('dark', theme === 'dark');
 }
 

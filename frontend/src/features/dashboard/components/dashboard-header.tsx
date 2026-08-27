@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Search, Settings } from 'lucide-react';
+import { Bell, ChevronRight, LayoutGrid, Package, Scissors, Search, Settings, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
@@ -19,9 +19,10 @@ function greeting(): string {
 }
 
 const quickLinks = [
-  { label: 'Products', to: '/products' },
-  { label: 'Services', to: '/services' },
-  { label: 'Customers', to: '/customers' },
+  { label: 'All', to: null as string | null, icon: LayoutGrid, iconClass: 'bg-brand-700 text-white', hint: 'Overview' },
+  { label: 'Products', to: '/products', icon: Package, iconClass: 'bg-emerald-600 text-white', hint: 'Inventory & stock' },
+  { label: 'Services', to: '/services', icon: Scissors, iconClass: 'bg-amber-500 text-white', hint: 'Service catalog' },
+  { label: 'Customers', to: '/customers', icon: Users, iconClass: 'bg-accent text-white', hint: 'Contacts & balances' },
 ];
 
 export function DashboardHeader() {
@@ -43,7 +44,7 @@ export function DashboardHeader() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMenuOpen(true)}
-            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-medium text-white transition-transform active:scale-95 shadow-md shadow-indigo-500/30"
+            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-600 to-brand-800 text-sm font-medium text-white transition-transform active:scale-95 shadow-md shadow-brand-600/30"
             aria-label="Open menu"
           >
             {user?.avatarUrl ? (
@@ -68,7 +69,7 @@ export function DashboardHeader() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/notifications')}
-            className="relative flex h-12 w-12 items-center justify-center rounded-full text-foreground-2 transition-colors hover:bg-surface-2 hover:text-indigo-600"
+            className="relative flex h-12 w-12 items-center justify-center rounded-full text-foreground-2 transition-colors hover:bg-surface-2 hover:text-accent"
             aria-label={
               notificationCount > 0
                 ? `Notifications (${notificationCount} unread)`
@@ -92,10 +93,10 @@ export function DashboardHeader() {
         </div>
       </header>
 
-      {/* Search bar */}
+      {/* Search bar — dull outstanding field like admin toolbar */}
       <button
         onClick={() => setSearchOpen(true)}
-        className="flex w-full items-center gap-2.5 rounded-full border border-edge bg-surface px-4 py-2.5 text-left shadow-soft transition-colors hover:border-accent-border active:bg-surface-2"
+        className="flex w-full items-center gap-2.5 rounded-full border border-edge bg-field px-4 py-3 text-left shadow-sm transition-colors hover:border-edge-2 hover:bg-surface-3 active:bg-surface-3"
         aria-label="Search products, customers and sales"
       >
         <Search className="h-4 w-4 shrink-0 text-foreground-4" aria-hidden />
@@ -104,27 +105,30 @@ export function DashboardHeader() {
         </span>
       </button>
 
-      {/* Quick browse chips */}
-      <div className="scrollbar-none flex items-center justify-center gap-2">
-        {/* All — stays on the dashboard, solid green to show it's active */}
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="min-w-[86px] shrink-0 rounded-full border border-transparent bg-accent px-4 py-1.5 text-center text-[13px] font-medium text-white transition-all active:scale-95"
-        >
-          All
-        </button>
-        {quickLinks.map((link) => (
-          <button
-            key={link.label}
-            onClick={() => navigate(link.to)}
-            className={cn(
-              'min-w-[86px] shrink-0 rounded-full border border-edge bg-surface px-4 py-1.5 text-center text-[13px] font-medium text-foreground-2 transition-all active:scale-95',
-              'hover:border-accent hover:bg-accent hover:text-white',
-            )}
-          >
-            {link.label}
-          </button>
-        ))}
+      {/* Quick browse — horizontal icon buttons like admin QuickLink (rounded-2xl bg-surface-3) */}
+      <div className="flex gap-3 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-1">
+        {quickLinks.map((link) => {
+          const Icon = link.icon;
+          const isAll = link.to === null;
+          return (
+            <button
+              key={link.label}
+              onClick={() => (isAll ? window.scrollTo({ top: 0, behavior: 'smooth' }) : navigate(link.to!))}
+              className="group flex shrink-0 snap-start items-center justify-between gap-3 rounded-2xl bg-surface-3 p-4 text-left transition-colors hover:bg-surface-2 active:scale-[0.99] min-w-[170px]"
+            >
+              <span className="flex items-center gap-3">
+                <span className={cn('flex h-9 w-9 items-center justify-center rounded-xl shadow-sm', link.iconClass)}>
+                  <Icon className="h-4.5 w-4.5" aria-hidden />
+                </span>
+                <span>
+                  <span className="block text-[13px] font-medium text-foreground">{link.label}</span>
+                  <span className="block text-[11px] text-foreground-4">{link.hint}</span>
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-foreground-5 transition-transform group-hover:translate-x-0.5 group-hover:text-accent" aria-hidden />
+            </button>
+          );
+        })}
       </div>
 
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />

@@ -12,7 +12,7 @@ const ads = [
     title: 'Unlock Business Loans Instantly',
     image: 'https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&w=800&q=80',
     badge: 'Partner Offer',
-    bgClass: 'bg-gradient-to-br from-blue-600 via-indigo-800 to-slate-950',
+    bgClass: 'bg-gradient-to-br from-brand-600 via-brand-800 to-slate-950',
   },
   {
     title: 'Zero-Paper Tax & Compliance',

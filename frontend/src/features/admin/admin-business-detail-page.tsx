@@ -24,7 +24,7 @@ import {
 const HERO_PLAN_PILL: Record<string, string> = {
   FREE: 'border border-white/15 bg-white/15 text-white/85 backdrop-blur',
   GROWTH: 'bg-emerald-500 text-white',
-  SCALE: 'bg-blue-500 text-white',
+  SCALE: 'bg-brand-600 text-white',
 };
 
 function GradientStat({
@@ -172,7 +172,7 @@ export function AdminBusinessDetailPage() {
           icon={<Package className="h-3.5 w-3.5" aria-hidden />}
           label="Products"
           value={String(stats.products)}
-          gradient="from-blue-900 via-blue-950 to-indigo-950"
+          gradient="from-brand-700 via-brand-900 to-brand-950"
         />
         <GradientStat
           icon={<Store className="h-3.5 w-3.5" aria-hidden />}
