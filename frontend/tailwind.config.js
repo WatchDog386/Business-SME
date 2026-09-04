@@ -82,10 +82,10 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Roboto', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
-        display: ['Roboto', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
-        poppins: ['Roboto', 'system-ui', 'sans-serif'],
-        quicksand: ['Roboto', 'system-ui', 'sans-serif'],
+        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'],
+        display: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'],
+        poppins: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        quicksand: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       boxShadow: {
         soft: '0 1px 3px 0 rgb(20 40 30 / 0.04), 0 4px 12px -4px rgb(20 40 30 / 0.06)',

@@ -17,8 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PageLoader } from '@/components/ui/spinner';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
@@ -145,13 +145,7 @@ export function ProductsPage() {
         </Alert>
       )}
 
-      {isLoading && (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-2xl" />
-          ))}
-        </div>
-      )}
+      {isLoading && <PageLoader inline message="Loading" />}
 
       {data && data.items.length === 0 && (
         <EmptyState
@@ -362,13 +356,7 @@ function ProductHistory({ productId }: { productId: string }) {
   });
 
   if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-10 rounded-xl" />
-        ))}
-      </div>
-    );
+    return <PageLoader inline message="Loading" />;
   }
 
   if (error) return <Alert variant="error">{apiErrorMessage(error)}</Alert>;

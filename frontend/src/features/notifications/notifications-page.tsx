@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bell } from 'lucide-react';
 import { dashboardApi } from '@/api/endpoints';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
 import { apiErrorMessage } from '@/api/client';
 import { cn } from '@/lib/utils';
@@ -60,13 +60,7 @@ export function NotificationsPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-12 w-48 rounded-xl" />
-        <Skeleton className="h-9 rounded-full" />
-        <Skeleton className="h-64 rounded-3xl" />
-      </div>
-    );
+    return <PageLoader inline message="Loading" />;
   }
 
   if (error || !data) {

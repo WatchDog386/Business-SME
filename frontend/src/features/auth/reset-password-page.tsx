@@ -45,7 +45,6 @@ export function ResetPasswordPage() {
     return (
       <AuthLayout
         title="Password updated"
-        subtitle="You can now log in with your new password."
       >
         <div className="space-y-4">
           <Alert variant="success">
@@ -62,7 +61,6 @@ export function ResetPasswordPage() {
   return (
     <AuthLayout
       title="Set a new password"
-      subtitle="Enter the reset token and your new password."
     >
       <form
         className="space-y-4"

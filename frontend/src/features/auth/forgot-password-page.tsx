@@ -46,7 +46,6 @@ export function ForgotPasswordPage() {
   return (
     <AuthLayout
       title="Forgot your password?"
-      subtitle="Enter your email and we will send you a reset link."
     >
       <form
         className="space-y-4"

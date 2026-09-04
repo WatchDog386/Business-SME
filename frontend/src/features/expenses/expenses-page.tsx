@@ -9,10 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
+import { PageLoader } from '@/components/ui/spinner';
 import { formatKES, formatDate } from '@/lib/utils';
 import { ExpenseForm } from './expense-form';
 import type { Expense } from '@/api/types';
@@ -116,13 +116,7 @@ export function ExpensesPage() {
         </Alert>
       )}
 
-      {isLoading && (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-2xl" />
-          ))}
-        </div>
-      )}
+      {isLoading && <PageLoader inline message="Loading" />}
 
       {data && data.items.length === 0 && (
         <EmptyState

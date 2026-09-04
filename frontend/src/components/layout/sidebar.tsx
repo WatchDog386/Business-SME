@@ -9,6 +9,7 @@ import {
   Banknote,
   BarChart3,
   ShieldCheck,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ export function Sidebar() {
     { to: '/services', label: 'Services', icon: Scissors },
     { to: '/expenses', label: 'Expenses', icon: Wallet },
     { to: '/account', label: 'Account', icon: Banknote },
+    { to: '/staff', label: 'Staff', icon: UserPlus },
     { to: '/reports', label: 'Reports', icon: BarChart3 },
     ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
   ];

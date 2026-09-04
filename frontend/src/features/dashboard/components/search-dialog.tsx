@@ -46,10 +46,10 @@ import { cn } from '@/lib/utils';
 type Scope = 'all' | 'products' | 'services' | 'customers';
 
 const scopes: Array<{ id: Scope; label: string; icon: LucideIcon; iconColor: string }> = [
-  { id: 'all', label: 'All', icon: LayoutGrid, iconColor: 'text-brand-600' },
-  { id: 'products', label: 'Products', icon: Package, iconColor: 'text-purple-600' },
+  { id: 'all', label: 'All', icon: LayoutGrid, iconColor: 'text-emerald-600' },
+  { id: 'products', label: 'Products', icon: Package, iconColor: 'text-emerald-600' },
   { id: 'services', label: 'Services', icon: Scissors, iconColor: 'text-emerald-600' },
-  { id: 'customers', label: 'Customers', icon: Users, iconColor: 'text-amber-600' },
+  { id: 'customers', label: 'Customers', icon: Users, iconColor: 'text-emerald-600' },
 ];
 
 const productIconMap: Array<[RegExp, LucideIcon]> = [

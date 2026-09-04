@@ -1,109 +1,151 @@
-import { useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
+import add1 from '../../../assets/add.png';
+import add2 from '../../../assets/add2.png';
+import add3 from '../../../assets/add3.png';
+import add4 from '../../../assets/add4.png';
 
-const ads = [
-  {
-    title: 'Grow Your SME with M-Pesa & OmniTrack',
-    image: 'https://i.pinimg.com/736x/12/c7/e2/12c7e2bffeb946a611862b2d29f53073.jpg',
-    badge: 'Featured',
-    bgClass: 'bg-gradient-to-br from-indigo-600 via-violet-800 to-slate-950',
-  },
-  {
-    title: 'Unlock Business Loans Instantly',
-    image: 'https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&w=800&q=80',
-    badge: 'Partner Offer',
-    bgClass: 'bg-gradient-to-br from-brand-600 via-brand-800 to-slate-950',
-  },
-  {
-    title: 'Zero-Paper Tax & Compliance',
-    image: 'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=800&q=80',
-    badge: 'Compliance Pro',
-    bgClass: 'bg-gradient-to-br from-amber-600 via-orange-800 to-yellow-950',
-  },
-];
+const images = [add1, add2, add3, add4];
 
-const SLIDE_GAP = 12; // px between slides
+const CARD_HEIGHT = 280;
+const SLIDE_GAP = 0;
+
+interface BannerCardProps {
+  image: string;
+  index: number;
+  isActive: boolean;
+  onClick: () => void;
+}
+
+function BannerCard({ image, index, isActive, onClick }: BannerCardProps) {
+  const titles = [
+    'Boost Your Sales',
+    'Smart Inventory',
+    'Instant Reports',
+    'Team Insights',
+  ];
+  const subtitles = [
+    'Track daily revenue and grow faster',
+    'Never run out of stock again',
+    'Profit & loss at your fingertips',
+    'Know who\'s selling what',
+  ];
+  const accentColors = [
+    'bg-accent/10 border-accent/20',
+    'bg-emerald-500/10 border-emerald-500/20',
+    'bg-amber-500/10 border-amber-500/20',
+    'bg-sky-500/10 border-sky-500/20',
+  ];
+
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        'relative flex-shrink-0 rounded-2xl border overflow-hidden transition-all duration-500 cursor-pointer',
+        'hover:shadow-xl hover:-translate-y-1',
+        isActive ? 'ring-2 ring-accent scale-[1.02]' : '',
+        `w-full h-[${CARD_HEIGHT}px]`,
+        accentColors[index]
+      )}
+      style={{ boxShadow: isActive ? '0 20px 40px -12px rgb(0 177 64 / 0.3)' : undefined }}
+    >
+      <div className="absolute inset-0 z-0">
+        <img
+          src={image}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+      </div>
+
+      <div className="relative z-10 p-5 h-full flex flex-col justify-between">
+        <div className="pt-2">
+          <h3 className="text-lg font-semibold text-white leading-tight">{titles[index]}</h3>
+          <p className="mt-1 text-sm text-white/80 leading-relaxed">{subtitles[index]}</p>
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-white/10">
+          <span className="text-xs text-white/60 uppercase tracking-wide">Featured</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function AdsBanner() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
-  // Sync the active dot while the user scrolls/swipes manually
-  const handleScroll = () => {
+  useEffect(() => {
+    if (isHovered) return;
+    const id = setInterval(() => {
+      setCurrentIndex((i) => (i + 1) % images.length);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [images.length, isHovered]);
+
+  useEffect(() => {
     const el = trackRef.current;
-    if (!el || el.clientWidth === 0) return;
-    const step = el.clientWidth + SLIDE_GAP;
-    const idx = Math.min(
-      ads.length - 1,
-      Math.max(0, Math.round(el.scrollLeft / step)),
-    );
-    setCurrentIndex(idx);
-  };
+    if (!el) return;
+    el.scrollTo({ left: currentIndex * el.clientWidth, behavior: 'smooth' });
+  }, [currentIndex]);
 
-  // Centre the chosen slide (flush at the ends)
   const scrollToIndex = (idx: number) => {
     const el = trackRef.current;
     if (!el) return;
-    el.scrollTo({ left: idx * (el.clientWidth + SLIDE_GAP), behavior: 'smooth' });
     setCurrentIndex(idx);
+    el.scrollTo({ left: idx * el.clientWidth, behavior: 'smooth' });
   };
 
   return (
-    <div className="space-y-3">
-      <h2 className="text-[14px] font-medium tracking-tight text-foreground">Featured updates</h2>
-
-      {/* Full-width cards — same footprint as the featured summary card */}
-      <div
-        ref={trackRef}
-        onScroll={handleScroll}
-        className="flex snap-x snap-mandatory items-stretch overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {ads.map((ad, idx) => (
-          <button
-            key={ad.title}
-            onClick={() => scrollToIndex(idx)}
-            aria-label={ad.title}
-            style={{ width: '100%', marginRight: SLIDE_GAP }}
-            className={`relative h-44 shrink-0 snap-center overflow-hidden rounded-3xl text-left shadow-lift sm:h-52 ${ad.bgClass}`}
-          >
-            {/* Full-clarity image with a light scrim for legibility */}
-            <img
-              src={ad.image}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/15" />
-
-            <div className="relative z-10 flex h-full flex-col justify-between p-5 sm:p-6">
-              <span className="flex w-fit items-center gap-1 rounded-full bg-white/20 px-3 py-0.5 text-xs font-medium uppercase tracking-wider text-white backdrop-blur">
-                <Sparkles className="h-3.5 w-3.5 text-amber-300" /> {ad.badge}
-              </span>
-
-              <h3 className="text-sm sm:text-base font-medium tracking-tight text-white">
-                {ad.title}
-              </h3>
-
-              <div className="text-[10px] font-medium text-white/50">
-                OmniTrack Showcase
-              </div>
-            </div>
-          </button>
-        ))}
+    <section className="space-y-4" aria-label="Featured updates">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold tracking-tight text-foreground">Featured updates</h2>
+        <span className="text-xs text-foreground-4">Swipe to explore</span>
       </div>
 
-      {/* Centered dots below card */}
-      <div className="flex justify-center gap-2 pt-1">
-        {ads.map((_, idx) => (
+      <div
+        ref={trackRef}
+        className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{
+          scrollSnapType: 'x mandatory',
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onTouchStart={() => setIsHovered(true)}
+        onTouchEnd={() => setIsHovered(false)}
+      >
+        <div className="flex" style={{ gap: SLIDE_GAP }}>
+          {images.map((img, idx) => (
+            <BannerCard
+              key={idx}
+              image={img}
+              index={idx}
+              isActive={idx === currentIndex % images.length}
+              onClick={() => scrollToIndex(idx)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-center gap-2 pt-2" role="tablist" aria-label="Featured updates pagination">
+        {images.map((_, idx) => (
           <button
             key={idx}
             onClick={() => scrollToIndex(idx)}
-            className={`h-2 rounded-full transition-all duration-300 ${
-              idx === currentIndex ? 'w-6 bg-accent' : 'w-2 bg-foreground-5'
-            }`}
-            aria-label={`Go to slide ${idx + 1}`}
+            className={cn(
+              'h-2 rounded-full transition-all duration-300',
+              idx === currentIndex % images.length
+                ? 'w-8 bg-accent'
+                : 'w-2 bg-foreground-5 hover:bg-foreground-4'
+            )}
+            aria-label={`Go to feature ${idx + 1}`}
+            role="tab"
+            aria-selected={idx === currentIndex % images.length}
           />
         ))}
       </div>
-    </div>
+    </section>
   );
 }

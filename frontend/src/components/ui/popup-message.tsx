@@ -42,15 +42,20 @@ export function PopupMessage({
             </div>
           )}
           {type === 'loading' && (
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft text-accent shadow-inner">
-              <Loader2 className="h-9 w-9 animate-spin" />
+            <div className="flex flex-col items-center gap-2">
+              <h3 className="text-sm font-medium text-foreground tracking-tight">{title}</h3>
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft text-accent shadow-inner">
+                <Loader2 className="h-9 w-9 animate-spin" />
+              </div>
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <h3 className="text-base font-medium text-foreground tracking-tight">{title}</h3>
-            {message && <p className="text-xs text-foreground-4 leading-relaxed">{message}</p>}
-          </div>
+          {type !== 'loading' && (
+            <div className="space-y-1.5">
+              <h3 className="text-base font-medium text-foreground tracking-tight">{title}</h3>
+              {message && <p className="text-xs text-foreground-4 leading-relaxed">{message}</p>}
+            </div>
+          )}
 
           {type !== 'loading' && onClose && (
             <button

@@ -13,7 +13,7 @@ import { useAuthStore } from '@/stores/auth';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { PageTitle, SectionCard, formatKES } from './admin-shared';
 
 export function AdminSettingsPage() {
@@ -27,7 +27,6 @@ export function AdminSettingsPage() {
     <div className="max-w-2xl space-y-5">
       <PageTitle
         title="Settings"
-        subtitle="Your owner account and platform configuration."
       />
 
       {/* Owner account */}
@@ -55,7 +54,7 @@ export function AdminSettingsPage() {
       <SectionCard title="Payment gateway">
         <div className="px-4 py-4">
           {settingsQuery.isLoading ? (
-            <Skeleton className="h-12 rounded-xl" />
+            <PageLoader inline message="Loading" />
           ) : (
             <div className="space-y-2.5">
               <div className="flex items-center justify-between rounded-xl bg-surface-2 px-4 py-3">

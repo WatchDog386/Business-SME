@@ -6,6 +6,7 @@ import { Sidebar } from './sidebar';
 import { MobileNav } from './mobile-nav';
 import { Topbar } from './topbar';
 import { PageLoader } from '@/components/ui/spinner';
+import { AIAssistantFloatingButton } from '@/components/ai-assistant/ai-floating-button';
 import { cn } from '@/lib/utils';
 
 export function AppShell() {
@@ -22,7 +23,7 @@ export function AppShell() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <PageLoader />
+        <PageLoader message="Loading..." />
       </div>
     );
   }
@@ -52,6 +53,7 @@ export function AppShell() {
         </main>
       </div>
       <MobileNav />
+      <AIAssistantFloatingButton />
     </div>
   );
 }

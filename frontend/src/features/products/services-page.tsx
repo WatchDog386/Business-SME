@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PageLoader } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
@@ -78,13 +78,7 @@ export function ServicesPage() {
         </Alert>
       )}
 
-      {isLoading && (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-2xl" />
-          ))}
-        </div>
-      )}
+      {isLoading && <PageLoader inline message="Loading" />}
 
       {data && data.length === 0 && (
         <EmptyState

@@ -3,6 +3,9 @@ export interface ParsedTransaction {
   code: string | null;
   name: string | null;
   phone: string | null;
+  date: string | null;
+  time: string | null;
+  datetime: string | null;
 }
 
 const AMOUNT_RE = /(?:ksh|kes|shs?|tzs?|ugx)[\s.]*([0-9][0-9,]*(?:\.\d{1,2})?)/i;
@@ -10,6 +13,8 @@ const CODE_RE = /\b([A-Z][A-Z0-9]{8,11})\b/;
 const PAID_TO_RE = /paid\s+to\s+([A-Za-z][A-Za-z'. ]+?)(?=\s+on\s|\s+for\s|[.,\n]|$)/i;
 const FROM_RE = /(?:received|from)\s+([A-Z][A-Z'. ]+?)(?=\s+on\s|[.,\n]|$)/;
 const PHONE_RE = /(\+?2547\d{8}|\+?2541\d{8}|07\d{8}|01\d{8})/;
+const DATE_RE = /on\s+(\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})/i;
+const TIME_RE = /at\s+(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)/i;
 
 function titleCaseName(raw: string): string {
   return raw
@@ -32,6 +37,9 @@ export function parseTransactionSms(text: string): ParsedTransaction {
     code: null,
     name: null,
     phone: null,
+    date: null,
+    time: null,
+    datetime: null,
   };
   if (!text) return result;
 
@@ -58,6 +66,16 @@ export function parseTransactionSms(text: string): ParsedTransaction {
 
   const phone = text.match(PHONE_RE);
   if (phone) result.phone = phone[1];
+
+  const dateMatch = text.match(DATE_RE);
+  if (dateMatch) result.date = dateMatch[1].trim();
+
+  const timeMatch = text.match(TIME_RE);
+  if (timeMatch) result.time = timeMatch[1].trim().toUpperCase();
+
+  if (result.date || result.time) {
+    result.datetime = [result.date, result.time].filter(Boolean).join(' at ');
+  }
 
   return result;
 }

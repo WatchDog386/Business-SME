@@ -8,13 +8,10 @@ import phone2Img from '@/assets/phone2.png';
 import phone3Img from '@/assets/phone3.png';
 
 const phoneSlides = [phoneImg, phone2Img, phone3Img];
-
-// Per-slide zoom so every artwork renders at the same visual size
-// (phone2.png is near-square, so it needs less zoom than the taller phone.png)
 const phoneScales = [1.25, 0.88, 1];
-
-// Per-slide vertical nudge (positive pushes the artwork down, cropping its bottom)
 const phoneYOffsets = ['0%', '0%', '0%'];
+
+const HERO_BG = 'https://i.pinimg.com/736x/f5/d1/5e/f5d15e2d21e515bf537d9aa6ff7969ac.jpg';
 
 export function FeaturedCard({ data }: { data: DashboardData }) {
   const { today } = data;
@@ -25,7 +22,6 @@ export function FeaturedCard({ data }: { data: DashboardData }) {
   const [slide, setSlide] = useState(0);
   const navigate = useNavigate();
 
-  // Cycle the hero artwork every 5 seconds
   useEffect(() => {
     const id = setInterval(
       () => setSlide((s) => (s + 1) % phoneSlides.length),
@@ -41,9 +37,18 @@ export function FeaturedCard({ data }: { data: DashboardData }) {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-brand-700 via-brand-900 to-[#04211a] p-5 shadow-lift sm:p-6">
-      {/* Phone mockups as oversized background, sliding in every 5 seconds */}
+    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[url('https://i.pinimg.com/736x/f5/d1/5e/f5d15e2d21e515bf537d9aa6ff7969ac.jpg')] bg-no-repeat bg-center bg-[length:cover] p-5 shadow-lift sm:p-6">
+      {/* Hero background image */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+        <img
+          src={HERO_BG}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </div>
+
+      {/* Phone mockups as oversized background, sliding in every 5 seconds */}
+      <div className="pointer-events-none absolute inset-0 z-2 overflow-hidden">
         {phoneSlides.map((src, i) => {
           const pos = (i - slide + phoneSlides.length) % phoneSlides.length;
           return (
@@ -101,7 +106,7 @@ export function FeaturedCard({ data }: { data: DashboardData }) {
               className={cn(
                 'font-semibold tabular-nums transition-all duration-200',
                 hidden ? 'blur-sm select-none opacity-80' : '',
-                isProfitable ? 'text-emerald-400' : 'text-red-300',
+                isProfitable ? 'text-amber-400' : 'text-sky-400',
               )}
             >
               {formatKES(today.netProfit)}

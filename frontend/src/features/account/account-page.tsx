@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { dashboardApi } from '@/api/endpoints';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
 import { apiErrorMessage } from '@/api/client';
 import { cn, formatKES } from '@/lib/utils';
@@ -22,17 +22,7 @@ export function AccountPage() {
   });
 
   if (isLoading) {
-    return (
-      <div className="space-y-5">
-        <Skeleton className="h-40 rounded-3xl" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
-          ))}
-        </div>
-        <Skeleton className="h-32 rounded-2xl" />
-      </div>
-    );
+    return <PageLoader inline message="Loading" />;
   }
 
   if (error || !data) {

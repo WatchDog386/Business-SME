@@ -15,7 +15,7 @@ import {
   Users,
 } from 'lucide-react';
 import { adminApi } from '@/api/endpoints';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import {
   PaymentLine,
   formatKES,
@@ -66,18 +66,7 @@ export function AdminBusinessDetailPage() {
   });
 
   if (isLoading) {
-    return (
-      <div className="space-y-5">
-        <Skeleton className="h-5 w-40 rounded-full" />
-        <Skeleton className="h-[110px] rounded-2xl" />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[92px] rounded-2xl" />
-          ))}
-        </div>
-        <Skeleton className="h-40 rounded-2xl" />
-      </div>
-    );
+    return <PageLoader inline message="Loading" />;
   }
 
   if (error || !data) {

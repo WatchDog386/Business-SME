@@ -13,9 +13,7 @@ import { customersApi, salesApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
-import { EmptyState } from '@/components/ui/empty-state';
 import { PageLoader } from '@/components/ui/spinner';
 import { Dialog } from '@/components/ui/dialog';
 import { formatKES, formatDate, formatDateTime } from '@/lib/utils';
@@ -37,7 +35,7 @@ export function CustomerDetailPage() {
     queryFn: () => salesApi.list({ customerId: id, limit: 20 }),
   });
 
-  if (customerQuery.isLoading) return <PageLoader />;
+  if (customerQuery.isLoading) return <PageLoader inline message="Loading" />;
 
   if (customerQuery.error || !customerQuery.data) {
     return (
@@ -50,124 +48,103 @@ export function CustomerDetailPage() {
   const customer = customerQuery.data;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 pb-10">
+      <div className="relative flex h-12 items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-sm font-medium text-foreground-5 hover:text-accent"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-foreground transition-colors hover:bg-surface-3"
+          aria-label="Back"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back
+          <ArrowLeft className="h-5 w-5" />
         </button>
+        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">Customer</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4" />
+          <Button variant="outline" size="sm" className="rounded-full" onClick={() => setEditOpen(true)}>
+            <Pencil className="h-3.5 w-3.5" />
             Edit
           </Button>
-          <Button onClick={() => navigate(`/sales/new?customer=${customer.id}`)}>
-            <Plus className="h-4 w-4" />
+          <Button size="sm" className="rounded-full bg-accent text-white hover:bg-accent-strong" onClick={() => navigate(`/sales/new?customer=${customer.id}`)}>
+            <Plus className="h-3.5 w-3.5" />
             Record sale
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-lg font-medium text-accent-text">
-              {customer.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h1 className="text-base font-medium text-foreground">
-                {customer.name}
-              </h1>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground-5">
-                {customer.phone && (
-                  <span className="flex items-center gap-1">
-                    <Phone className="h-3 w-3" /> {customer.phone}
-                  </span>
-                )}
-                {customer.email && (
-                  <span className="flex items-center gap-1">
-                    <Mail className="h-3 w-3" /> {customer.email}
-                  </span>
-                )}
-                {customer.address && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> {customer.address}
-                  </span>
-                )}
-              </div>
+      {/* Customer header — flat, polished */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-4 px-1">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft text-lg font-medium text-accent">
+            {customer.name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h2 className="text-base font-semibold tracking-tight text-foreground">{customer.name}</h2>
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground-5">
+              {customer.phone && (
+                <span className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" /> {customer.phone}
+                </span>
+              )}
+              {customer.email && (
+                <span className="flex items-center gap-1">
+                  <Mail className="h-3 w-3" /> {customer.email}
+                </span>
+              )}
+              {customer.address && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> {customer.address}
+                </span>
+              )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Total spent" value={formatKES(customer.total_spent)} />
-            <Stat
-              label="Owes you"
-              value={formatKES(customer.outstanding_balance)}
-              tone={customer.outstanding_balance > 0 ? 'danger' : 'default'}
-            />
-            <Stat label="Visits" value={String(customer.visit_count)} />
-            <Stat
-              label="Last visit"
-              value={customer.last_visit_at ? formatDate(customer.last_visit_at) : '—'}
-            />
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 px-1">
+          <Stat label="Total spent" value={formatKES(customer.total_spent)} />
+          <Stat label="Owes you" value={formatKES(customer.outstanding_balance)} tone={customer.outstanding_balance > 0 ? 'danger' : 'default'} />
+          <Stat label="Visits" value={String(customer.visit_count)} />
+          <Stat label="Last visit" value={customer.last_visit_at ? formatDate(customer.last_visit_at) : '—'} />
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Sales history</CardTitle>
-          <Link
-            to={`/sales?customer=${customer.id}`}
-            className="text-sm font-medium text-accent hover:text-accent-strong"
-          >
+      {/* Purchase history — flat, professional */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-[13px] font-medium tracking-tight text-foreground">Purchase history</h2>
+          <Link to={`/sales?customer=${customer.id}`} className="text-xs font-medium text-accent hover:text-accent-strong">
             View all
           </Link>
-        </CardHeader>
-        <CardContent>
-          {salesQuery.isLoading && <PageLoader />}
-          {salesQuery.data && salesQuery.data.items.length === 0 && (
-            <EmptyState
-              icon={ShoppingCart}
-              title="No sales yet"
-              description="This customer hasn't bought anything yet. Record their first sale."
-              actionLabel="Record a sale"
-              onAction={() => navigate(`/sales/new?customer=${customer.id}`)}
-            />
-          )}
-          {salesQuery.data && salesQuery.data.items.length > 0 && (
-            <ul className="divide-y divide-edge">
-              {salesQuery.data.items.map((sale) => (
-                <li key={sale.id}>
-                  <Link
-                    to={`/sales/${sale.id}`}
-                    className="flex items-center justify-between gap-3 py-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        #{sale.id.slice(0, 8).toUpperCase()}
-                      </p>
-                      <p className="text-xs text-foreground-5">
-                        {formatDateTime(sale.created_at)} · {sale.payment_method}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">
-                        {formatKES(sale.total)}
-                      </span>
-                      <Badge variant={statusVariant(sale.payment_status)}>
-                        {statusLabel(sale.payment_status)}
-                      </Badge>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+        {salesQuery.isLoading && <PageLoader inline message="Loading" />}
+        {salesQuery.data && salesQuery.data.items.length === 0 && (
+          <div className="px-1 py-8 text-center">
+            <ShoppingCart className="mx-auto h-8 w-8 text-foreground-5" aria-hidden />
+            <p className="mt-2 text-sm font-medium text-foreground">No purchases yet</p>
+            <p className="mt-1 text-xs text-foreground-4">This customer hasn't bought anything yet.</p>
+            <Button size="sm" className="mt-4 rounded-full bg-accent text-white" onClick={() => navigate(`/sales/new?customer=${customer.id}`)}>
+              Record a sale
+            </Button>
+          </div>
+        )}
+        {salesQuery.data && salesQuery.data.items.length > 0 && (
+          <ul className="divide-y divide-edge">
+            {salesQuery.data.items.map((sale) => (
+              <li key={sale.id}>
+                <Link to={`/sales/${sale.id}`} className="flex items-center justify-between gap-3 px-1 py-3 hover:bg-surface-2 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium tabular-nums text-foreground">#{sale.id.slice(0, 8).toUpperCase()}</p>
+                    <p className="text-xs text-foreground-5">
+                      {formatDateTime(sale.created_at)} · {sale.payment_method}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium tabular-nums text-foreground">{formatKES(sale.total)}</span>
+                    <Badge variant={statusVariant(sale.payment_status)}>{statusLabel(sale.payment_status)}</Badge>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <Dialog
         open={editOpen}

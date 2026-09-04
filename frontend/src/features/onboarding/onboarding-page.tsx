@@ -251,7 +251,6 @@ export function OnboardingPage() {
         isOpen={mutation.isPending}
         type="loading"
         title="Setting up your business..."
-        message="Configuring your dashboard and tools."
       />
       <PopupMessage
         isOpen={Boolean(error)}

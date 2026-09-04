@@ -13,7 +13,7 @@ import {
 import { adminApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Alert } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import {
   ConfirmButton,
   EmptyRow,
@@ -66,13 +66,14 @@ export function AdminOverviewPage() {
     <div className="space-y-5">
       <PageTitle
         title="Overview"
-        subtitle="Everything happening across your platform at a glance."
       />
 
       {!summary ? (
-        <div>
-          <Skeleton className="h-[170px] w-full rounded-[22px]" />
-        </div>
+        summaryQuery.isLoading ? (
+          <PageLoader inline message="Loading" />
+        ) : (
+          <div className="h-[170px] w-full rounded-[22px] border border-dashed border-edge bg-surface-2" />
+        )
       ) : (
         <div className="space-y-3">
           <div

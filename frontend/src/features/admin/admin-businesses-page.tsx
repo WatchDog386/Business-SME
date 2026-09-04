@@ -9,7 +9,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { adminApi } from '@/api/endpoints';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { PageTitle } from './admin-shared';
 
@@ -78,11 +78,7 @@ export function AdminBusinessesPage() {
       </div>
 
       {businessesQuery.isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-2xl" />
-          ))}
-        </div>
+        <PageLoader inline message="Loading" />
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-edge bg-surface-3 px-6 py-12 text-center">
           <p className="text-sm text-foreground-4">No businesses match your filters.</p>

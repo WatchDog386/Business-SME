@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { ShieldCheck } from 'lucide-react';
 import { adminApi } from '@/api/endpoints';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { EmptyRow, PageTitle } from './admin-shared';
 
 export function AdminUsersPage() {
@@ -14,15 +14,10 @@ export function AdminUsersPage() {
     <div className="space-y-4">
       <PageTitle
         title="Platform users"
-        subtitle="Every account registered on your app."
       />
 
       {usersQuery.isLoading ? (
-        <div className="space-y-1">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 rounded-xl" />
-          ))}
-        </div>
+        <PageLoader inline message="Loading" />
       ) : (
         <ul className="divide-y divide-edge">
           {(usersQuery.data ?? []).map((u) => (

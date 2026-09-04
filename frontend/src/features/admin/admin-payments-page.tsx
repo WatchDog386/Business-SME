@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/api/endpoints';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import {
   ConfirmButton,
@@ -42,7 +42,6 @@ export function AdminPaymentsPage() {
     <div className="space-y-4">
       <PageTitle
         title="Subscription fees"
-        subtitle="All money collected from businesses on your platform."
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,7 +72,7 @@ export function AdminPaymentsPage() {
       </div>
 
       {paymentsQuery.isLoading ? (
-        <Skeleton className="h-48 rounded-2xl" />
+        <PageLoader inline message="Loading" />
       ) : (
         <SectionCard>
           <ul className="divide-y divide-edge">

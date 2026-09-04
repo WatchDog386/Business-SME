@@ -165,7 +165,10 @@ export function RegisterPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries();
-      navigate('/onboarding', { replace: true });
+      navigate('/auth-success', {
+        replace: true,
+        state: { redirectTo: '/onboarding', subtitle: 'Account verified!' },
+      });
     },
     onError: (err) => {
       setVerifying(false);
@@ -265,7 +268,8 @@ export function RegisterPage() {
     void performVerify(enteredOtp);
   };
 
-  if (token) return <Navigate to="/dashboard" replace />;
+  // Strict flow: register -> loading/success -> onboarding. Prevent premature dashboard jump.
+  if (token && !mutation.isPending && !mutation.isSuccess && !verifying) return <Navigate to="/dashboard" replace />;
 
   return (
     <AuthLayout

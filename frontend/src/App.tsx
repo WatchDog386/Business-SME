@@ -10,6 +10,7 @@ import { ResetPasswordPage } from '@/features/auth/reset-password-page';
 import { SuccessPage } from '@/features/auth/success-page';
 import { OnboardingPage } from '@/features/onboarding/onboarding-page';
 import { DashboardPage } from '@/features/dashboard/dashboard-page';
+import { AIAssistantPage } from '@/features/ai-assistant/ai-assistant-page';
 import { CustomersPage } from '@/features/customers/customers-page';
 import { CustomerDetailPage } from '@/features/customers/customer-detail-page';
 import { ProductsPage } from '@/features/products/products-page';
@@ -22,6 +23,7 @@ import { AccountPage } from '@/features/account/account-page';
 import { ReportsPage } from '@/features/reports/reports-page';
 import { ProfilePage } from '@/features/profile/profile-page';
 import { NotificationsPage } from '@/features/notifications/notifications-page';
+import { StaffPage } from '@/features/business/staff-page';
 import { AdminGate } from '@/features/admin/admin-gate';
 import { AdminOverviewPage } from '@/features/admin/admin-page';
 import { AdminBusinessesPage } from '@/features/admin/admin-businesses-page';
@@ -81,6 +83,8 @@ export default function App() {
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/staff" element={<StaffPage />} />
+      <Route path="/ai-assistant" element={<AIAssistantPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

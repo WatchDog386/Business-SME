@@ -31,9 +31,9 @@ export function DateRangeField({
   onToChange: (value: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <div>
-        <Label htmlFor="report-from" className="text-xs">
+    <div className="flex items-center justify-center gap-2">
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor="report-from" className="text-[11px] font-medium text-foreground-4">
           From
         </Label>
         <Input
@@ -41,11 +41,11 @@ export function DateRangeField({
           type="date"
           value={from}
           onChange={(event) => onFromChange(event.target.value)}
-          className="w-auto"
+          className="h-9 w-auto rounded-full bg-field px-3 text-xs"
         />
       </div>
-      <div>
-        <Label htmlFor="report-to" className="text-xs">
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor="report-to" className="text-[11px] font-medium text-foreground-4">
           To
         </Label>
         <Input
@@ -54,7 +54,7 @@ export function DateRangeField({
           value={to}
           min={from || undefined}
           onChange={(event) => onToChange(event.target.value)}
-          className="w-auto"
+          className="h-9 w-auto rounded-full bg-field px-3 text-xs"
         />
       </div>
     </div>

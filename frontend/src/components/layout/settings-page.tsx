@@ -12,6 +12,7 @@ import {
   Settings,
   Sun,
   Moon,
+  Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,7 @@ interface Item {
 
 const businessItems: Item[] = [
   { to: '/reports', icon: BarChart3, label: 'Reports', description: 'Sales insights & analytics', tint: 'purple' },
+  { to: '/staff', icon: Users, label: 'Team Members', description: 'Invite & manage staff', tint: 'info' },
   { to: '/products', icon: Package, label: 'Products', description: 'Inventory & stock levels', tint: 'warning' },
   { to: '/services', icon: Scissors, label: 'Services', description: 'Your service catalog', tint: 'rose' },
   { to: '/expenses', icon: Wallet, label: 'Expenses', description: 'Track your spending', tint: 'success' },

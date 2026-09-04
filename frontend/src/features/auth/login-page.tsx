@@ -41,6 +41,8 @@ export function LoginPage() {
       authApi.login(values.email, values.password),
     onSuccess: async (result) => {
       setAuth(result.accessToken, result.user);
+      // Invalidate first so dashboard bootstrap has fresh data, then go to loading/success
+      await queryClient.invalidateQueries();
       try {
         const businesses = await businessesApi.mine();
         setBusinesses(businesses);
@@ -62,17 +64,17 @@ export function LoginPage() {
           },
         });
       }
-      await queryClient.invalidateQueries();
     },
     onError: (err) => setError(apiErrorMessage(err)),
   });
 
-  if (token) return <Navigate to="/dashboard" replace />;
+  // Strict flow: login -> loading/success -> dashboard. Don't jump to dashboard
+  // ahead of success page — only redirect if already authenticated before this visit.
+  if (token && !mutation.isPending && !mutation.isSuccess) return <Navigate to="/dashboard" replace />;
 
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="See how your business is doing today."
     >
       <form
         className="space-y-4"
