@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Scissors, Clock } from 'lucide-react';
+import { Plus, Search, Scissors, Clock, ChevronRight, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { servicesApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,72 @@ import { Alert } from '@/components/ui/alert';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLoader } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
-import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { formatKES } from '@/lib/utils';
 import { ServiceForm } from './service-form';
 import type { Service } from '@/api/types';
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-2 ml-1 text-[14px] font-medium tracking-tight text-foreground">
+      {children}
+    </p>
+  );
+}
+
+function ServiceRow({
+  service,
+  onEdit,
+  onDelete,
+}: {
+  service: Service;
+  onEdit: (service: Service) => void;
+  onDelete: (service: Service) => void;
+}) {
+  return (
+    <button
+      onClick={() => onEdit(service)}
+      className="relative flex w-full items-center gap-3 px-1 py-3 text-center transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3 group"
+    >
+      <span className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] bg-rose-500/10 text-rose-600 dark:text-rose-400">
+        <Scissors className="h-4.5 w-4.5" aria-hidden />
+      </span>
+
+      <span className="min-w-0 flex-1 flex flex-col items-center">
+        <span className="block truncate text-sm font-medium text-foreground leading-snug w-full text-center">
+          {service.name}
+        </span>
+        <span className="block truncate text-xs leading-snug text-foreground-4 w-full text-center">
+          {service.description ?? 'No description'}
+        </span>
+      </span>
+
+      <div className="flex items-center gap-2 shrink-0">
+        {service.duration_minutes && (
+          <Badge variant="secondary" className="inline-flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {service.duration_minutes} min
+          </Badge>
+        )}
+
+        <div className="text-center hidden sm:block">
+          <p className="text-sm font-semibold text-foreground">{formatKES(service.price)}</p>
+          <p className="text-[11px] text-foreground-5">price</p>
+        </div>
+
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(service); }}
+          className="p-1.5 rounded-lg text-foreground-4 hover:bg-surface-3 hover:text-red-500 transition-colors"
+          title="Delete service"
+        >
+          <AlertTriangle className="h-3.5 w-3.5" />
+        </button>
+
+        <ChevronRight className="h-4 w-4 shrink-0 text-foreground-5 group-hover:text-foreground transition-colors" aria-hidden />
+      </div>
+    </button>
+  );
+}
 
 export function ServicesPage() {
   const queryClient = useQueryClient();
@@ -46,100 +107,83 @@ export function ServicesPage() {
     onError: (err) => setDeleteError(apiErrorMessage(err)),
   });
 
-  return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Services"
-        description="Work you charge for — like haircuts, braiding and treatments."
-        actions={
-          <Button onClick={() => setFormOpen(true)}>
+  const header = (
+    <>
+      {/* Header - Search dialog style */}
+      <div className="relative flex h-14 shrink-0 items-center px-2">
+        <button
+          onClick={() => window.history.back()}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-edge bg-surface text-foreground transition-colors hover:bg-surface-2 active:bg-surface-3"
+          aria-label="Back"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h2 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">
+          Services
+        </h2>
+        <div className="absolute right-0">
+          <Button onClick={() => setFormOpen(true)} className="h-9 px-3 gap-1.5">
             <Plus className="h-4 w-4" />
             Add service
           </Button>
-        }
-      />
-
-      <div className="relative sm:max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-5" aria-hidden />
-        <Input
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-            window.setTimeout(() => setDebouncedSearch(event.target.value), 300);
-          }}
-          placeholder="Search services..."
-          className="pl-9"
-        />
+        </div>
       </div>
 
-      {error && (
-        <Alert variant="error" title="Could not load services">
-          {apiErrorMessage(error)}
-        </Alert>
-      )}
+      <div className="px-4 pb-3">
+        <div className="flex h-11 items-center gap-2.5 rounded-full border border-edge bg-field px-4 focus-within:border-edge-2">
+          <Search className="h-4 w-4 shrink-0 text-foreground-4" aria-hidden />
+          <Input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              window.setTimeout(() => setDebouncedSearch(event.target.value), 300);
+            }}
+            placeholder="Search services..."
+            className="h-full min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:font-medium placeholder:text-foreground-4"
+            autoComplete="off"
+          />
+        </div>
+      </div>
+    </>
+  );
 
+  const emptyState = (
+    <EmptyState
+      icon={Scissors}
+      title={debouncedSearch ? 'No services found' : 'No services yet'}
+      description={
+        debouncedSearch
+          ? 'Try a different search term.'
+          : 'Add the services you offer so you can sell them in seconds.'
+      }
+      actionLabel={debouncedSearch ? undefined : 'Add a service'}
+      onAction={() => setFormOpen(true)}
+    />
+  );
+
+  const serviceList = data && data.length > 0 ? (
+    <Card className="bg-surface mx-4">
+      <SectionLabel>All Services</SectionLabel>
+      <div className="divide-y divide-edge/50">
+        {data.map((service) => (
+          <ServiceRow
+            key={service.id}
+            service={service}
+            onEdit={setEditService}
+            onDelete={setConfirmDelete}
+          />
+        ))}
+      </div>
+    </Card>
+  ) : null;
+
+  return (
+    <div className="space-y-5">
+      {header}
+      {error && <Alert variant="error" title="Could not load services">{apiErrorMessage(error)}</Alert>}
       {isLoading && <PageLoader inline message="Loading" />}
-
-      {data && data.length === 0 && (
-        <EmptyState
-          icon={Scissors}
-          title={debouncedSearch ? 'No services found' : 'No services yet'}
-          description={
-            debouncedSearch
-              ? 'Try a different search term.'
-              : 'Add the services you offer so you can sell them in seconds.'
-          }
-          actionLabel={debouncedSearch ? undefined : 'Add a service'}
-          onAction={() => setFormOpen(true)}
-        />
-      )}
-
-      {data && data.length > 0 && (
-        <Card>
-          <ul className="divide-y divide-edge">
-            {data.map((service) => (
-              <li key={service.id} className="px-4 py-3 sm:px-5">
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {service.name}
-                    </p>
-                    <p className="truncate text-xs text-foreground-5">
-                      {service.description ?? 'No description'}
-                    </p>
-                  </div>
-                  {service.duration_minutes && (
-                    <Badge variant="secondary" className="hidden sm:inline-flex">
-                      <Clock className="h-3 w-3" />
-                      {service.duration_minutes} min
-                    </Badge>
-                  )}
-                  <p className="text-sm font-medium text-foreground">
-                    {formatKES(service.price)}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditService(service)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-danger hover:bg-danger-soft"
-                      onClick={() => setConfirmDelete(service)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
+      {data && data.length === 0 && emptyState}
+      {serviceList}
 
       <Dialog
         open={formOpen}

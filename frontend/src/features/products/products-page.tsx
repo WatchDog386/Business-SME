@@ -9,6 +9,10 @@ import {
   Minus,
   Target,
   AlertTriangle,
+  ChevronRight,
+  Shield,
+  AlertCircle,
+  ArrowLeft,
 } from 'lucide-react';
 import { categoriesApi, productsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
@@ -20,14 +24,128 @@ import { Alert } from '@/components/ui/alert';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLoader } from '@/components/ui/spinner';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
-import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { formatKES } from '@/lib/utils';
 import { ProductForm } from './product-form';
 import { StockActionForm, type StockActionType } from './stock-action-form';
 import type { Product } from '@/api/types';
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
+
+const stockStatusConfig = {
+  IN_STOCK: { icon: Shield, color: 'bg-emerald-500 text-white', label: 'In Stock' },
+  LOW_STOCK: { icon: AlertTriangle, color: 'bg-amber-500 text-white', label: 'Low Stock' },
+  OUT_OF_STOCK: { icon: AlertCircle, color: 'bg-red-500 text-white', label: 'Out of Stock' },
+};
+
+const trackConfig = {
+  true: { icon: Shield, tint: 'success', desc: 'Stock tracking enabled' },
+  false: { icon: Package, tint: 'cyan', desc: 'Not tracking stock' },
+};
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-2 ml-1 text-[14px] font-medium tracking-tight text-foreground">
+      {children}
+    </p>
+  );
+}
+
+function ProductRow({
+  product,
+  onEdit,
+  onStockAction,
+  onHistory,
+  onDelete,
+}: {
+  product: Product;
+  onEdit: (product: Product) => void;
+  onStockAction: (product: Product, type: StockActionType) => void;
+  onHistory: (product: Product) => void;
+  onDelete: (product: Product) => void;
+}) {
+  const status = product.stock_status ?? 'IN_STOCK';
+  const statusInfo = stockStatusConfig[status];
+  const StatusIcon = statusInfo.icon;
+  const tracking = trackConfig[product.track_inventory.toString() as keyof typeof trackConfig];
+  const TrackingIcon = tracking.icon;
+
+  return (
+    <button
+      onClick={() => onEdit(product)}
+      className="relative flex w-full items-center gap-3 px-1 py-3 text-center transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3 group"
+    >
+      <span className={cn(
+        'flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px]',
+        tracking.tint ? `bg-${tracking.tint}-500/10 text-${tracking.tint}-600 dark:text-${tracking.tint}-400` : 'bg-surface-3 text-foreground-2'
+      )}>
+        <TrackingIcon className="h-4.5 w-4.5" aria-hidden />
+      </span>
+
+      <span className="min-w-0 flex-1 flex flex-col items-center">
+        <span className="block truncate text-sm font-medium text-foreground leading-snug w-full text-center">
+          {product.name}
+        </span>
+        <span className="block truncate text-xs leading-snug text-foreground-4 w-full text-center">
+          {product.sku ?? 'No SKU'} · {product.category_name ?? 'No category'} · Cost {formatKES(product.cost_price)}
+        </span>
+      </span>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="text-center hidden sm:block">
+          <p className="text-sm font-semibold text-foreground">{formatKES(product.selling_price)}</p>
+          <p className="text-[11px] text-foreground-5">selling price</p>
+        </div>
+
+        <Badge variant={statusVariant(status)} className="hidden sm:inline-flex items-center gap-1">
+          <StatusIcon className="h-3 w-3" />
+          {statusInfo.label}
+        </Badge>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onStockAction(product, 'restock'); }}
+            className="p-1.5 rounded-lg text-foreground-4 hover:bg-surface-3 hover:text-accent transition-colors"
+            title="Add stock"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onStockAction(product, 'adjust'); }}
+            className="p-1.5 rounded-lg text-foreground-4 hover:bg-surface-3 hover:text-emerald-500 transition-colors"
+            title="Set stock level"
+          >
+            <Target className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onStockAction(product, 'damage'); }}
+            className="p-1.5 rounded-lg text-foreground-4 hover:bg-surface-3 hover:text-red-500 transition-colors"
+            title="Record damaged stock"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onHistory(product); }}
+            className="p-1.5 rounded-lg text-foreground-4 hover:bg-surface-3 hover:text-foreground transition-colors"
+            title="Movement history"
+          >
+            <History className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(product); }}
+            className="p-1.5 rounded-lg text-foreground-4 hover:bg-surface-3 hover:text-red-500 transition-colors"
+            title="Delete product"
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <ChevronRight className="h-4 w-4 shrink-0 text-foreground-5 group-hover:text-foreground transition-colors" aria-hidden />
+      </div>
+    </button>
+  );
+}
 
 export function ProductsPage() {
   const queryClient = useQueryClient();
@@ -47,6 +165,10 @@ export function ProductsPage() {
     product: Product;
     type: StockActionType;
   } | null>(null);
+
+  const handleStockAction = (product: Product, type: StockActionType) => {
+    setStockAction({ product, type });
+  };
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -84,22 +206,31 @@ export function ProductsPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
-  return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Products"
-        description="What you sell — with prices, stock levels and stock value."
-        actions={
-          <Button onClick={() => setFormOpen(true)}>
+  const header = (
+    <>
+      {/* Header - Search dialog style */}
+      <div className="relative flex h-14 shrink-0 items-center px-2">
+        <button
+          onClick={() => window.history.back()}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-edge bg-surface text-foreground transition-colors hover:bg-surface-2 active:bg-surface-3"
+          aria-label="Back"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h2 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">
+          Products
+        </h2>
+        <div className="absolute right-0">
+          <Button onClick={() => setFormOpen(true)} className="h-9 px-3 gap-1.5">
             <Plus className="h-4 w-4" />
             Add product
           </Button>
-        }
-      />
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <div className="relative sm:col-span-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-5" aria-hidden />
+      <div className="px-4 pb-3">
+        <div className="flex h-11 items-center gap-2.5 rounded-full border border-edge bg-field px-4 focus-within:border-edge-2">
+          <Search className="h-4 w-4 shrink-0 text-foreground-4" aria-hidden />
           <Input
             value={search}
             onChange={(event) => {
@@ -108,15 +239,20 @@ export function ProductsPage() {
               window.setTimeout(() => setDebouncedSearch(event.target.value), 300);
             }}
             placeholder="Search products..."
-            className="pl-9"
+            className="h-full min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:font-medium placeholder:text-foreground-4"
+            autoComplete="off"
           />
         </div>
+      </div>
+
+      <div className="flex items-center justify-center gap-1.5 px-4 pb-3">
         <Select
           value={categoryFilter}
           onChange={(event) => {
             setCategoryFilter(event.target.value);
             setPage(1);
           }}
+          className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-medium transition-colors bg-transparent text-foreground-3 hover:bg-surface-2"
           placeholder="All categories"
         >
           {categoriesQuery.data?.map((category) => (
@@ -131,6 +267,7 @@ export function ProductsPage() {
             setStockFilter(event.target.value);
             setPage(1);
           }}
+          className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-medium transition-colors bg-transparent text-foreground-3 hover:bg-surface-2"
           placeholder="All stock statuses"
         >
           <option value="IN_STOCK">In stock</option>
@@ -138,133 +275,73 @@ export function ProductsPage() {
           <option value="OUT_OF_STOCK">Out of stock</option>
         </Select>
       </div>
+    </>
+  );
 
-      {error && (
-        <Alert variant="error" title="Could not load products">
-          {apiErrorMessage(error)}
-        </Alert>
+  const emptyState = (
+    <EmptyState
+      icon={Package}
+      title={debouncedSearch ? 'No products found' : 'No products yet'}
+      description={
+        debouncedSearch
+          ? 'Try a different search or filter.'
+          : 'Add the products you sell so you can start recording sales and tracking stock.'
+      }
+      actionLabel={debouncedSearch ? undefined : 'Add a product'}
+      onAction={() => setFormOpen(true)}
+    />
+  );
+
+  const productList = data && data.items.length > 0 ? (
+    <Card className="bg-surface mx-4">
+      <SectionLabel>All Products</SectionLabel>
+      <div className="divide-y divide-edge/50">
+        {data.items.map((product) => (
+          <ProductRow
+            key={product.id}
+            product={product}
+            onEdit={setEditProduct}
+            onStockAction={handleStockAction}
+            onHistory={setHistoryProduct}
+            onDelete={setConfirmDelete}
+          />
+        ))}
+      </div>
+      {data.total > PAGE_SIZE && (
+        <div className="flex items-center justify-between border-t border-edge px-1 py-3">
+          <p className="text-xs text-foreground-5">
+            Page {page} of {totalPages} · {data.total} products
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       )}
+    </Card>
+  ) : null;
 
+  return (
+    <div className="space-y-5">
+      {header}
+      {error && <Alert variant="error" title="Could not load products">{apiErrorMessage(error)}</Alert>}
       {isLoading && <PageLoader inline message="Loading" />}
-
-      {data && data.items.length === 0 && (
-        <EmptyState
-          icon={Package}
-          title={debouncedSearch ? 'No products found' : 'No products yet'}
-          description={
-            debouncedSearch
-              ? 'Try a different search or filter.'
-              : 'Add the products you sell so you can start recording sales and tracking stock.'
-          }
-          actionLabel={debouncedSearch ? undefined : 'Add a product'}
-          onAction={() => setFormOpen(true)}
-        />
-      )}
-
-      {data && data.items.length > 0 && (
-        <Card>
-          <ul className="divide-y divide-edge">
-            {data.items.map((product) => (
-              <li key={product.id} className="px-4 py-3 sm:px-5">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {product.name}
-                    </p>
-                    <p className="text-xs text-foreground-5">
-                      {product.sku ?? 'No SKU'} · {product.category_name ?? 'No category'} ·{' '}
-                      cost {formatKES(product.cost_price)}
-                    </p>
-                  </div>
-                  <div className="hidden text-right sm:block">
-                    <p className="text-sm font-medium text-foreground">
-                      {formatKES(product.selling_price)}
-                    </p>
-                    <p className="text-xs text-foreground-5">selling price</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-foreground">
-                      {product.track_inventory ? product.stock_quantity : '—'}
-                    </p>
-                    <p className="text-xs text-foreground-5">
-                      {product.track_inventory
-                        ? `${formatKES(product.stock_quantity * product.cost_price)} value`
-                        : 'not tracked'}
-                    </p>
-                  </div>
-                  <Badge variant={statusVariant(product.stock_status ?? 'IN_STOCK')}>
-                    {statusLabel(product.stock_status ?? 'IN_STOCK')}
-                  </Badge>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setStockAction({ product, type: 'restock' })}
-                      title="Add stock"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setStockAction({ product, type: 'adjust' })}
-                      title="Set stock level"
-                    >
-                      <Target className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setStockAction({ product, type: 'damage' })}
-                      title="Record damaged stock"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setHistoryProduct(product)}
-                      title="Movement history"
-                    >
-                      <History className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="mt-2 flex gap-3 sm:hidden">
-                  <p className="text-xs text-foreground-5">
-                    Sells for {formatKES(product.selling_price)}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-          {data.total > PAGE_SIZE && (
-            <div className="flex items-center justify-between border-t border-edge px-4 py-3">
-              <p className="text-xs text-foreground-5">
-                Page {page} of {totalPages} · {data.total} products
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
-      )}
+      {data && data.items.length === 0 && emptyState}
+      {productList}
 
       <Dialog
         open={formOpen}

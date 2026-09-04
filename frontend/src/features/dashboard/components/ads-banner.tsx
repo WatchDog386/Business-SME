@@ -36,6 +36,24 @@ function BannerCard({ image, index, isActive, onClick }: BannerCardProps) {
     'bg-amber-500/10 border-amber-500/20',
     'bg-sky-500/10 border-sky-500/20',
   ];
+  const gradientColors = [
+    'from-emerald-600/70 via-emerald-700/50 to-emerald-900/80',
+    'from-emerald-600/70 via-emerald-700/50 to-emerald-900/80',
+    'from-amber-600/70 via-amber-700/50 to-amber-900/80',
+    'from-sky-600/70 via-sky-700/50 to-sky-900/80',
+  ];
+  const ringColors = [
+    'ring-emerald-400',
+    'ring-emerald-400',
+    'ring-amber-400',
+    'ring-sky-400',
+  ];
+  const shadowColors = [
+    '0 20px 40px -12px rgb(0 177 64 / 0.4)',
+    '0 20px 40px -12px rgb(16 185 129 / 0.4)',
+    '0 20px 40px -12px rgb(217 119 6 / 0.4)',
+    '0 20px 40px -12px rgb(2 132 199 / 0.4)',
+  ];
 
   return (
     <div
@@ -43,11 +61,11 @@ function BannerCard({ image, index, isActive, onClick }: BannerCardProps) {
       className={cn(
         'relative flex-shrink-0 rounded-2xl border overflow-hidden transition-all duration-500 cursor-pointer',
         'hover:shadow-xl hover:-translate-y-1',
-        isActive ? 'ring-2 ring-accent scale-[1.02]' : '',
+        isActive ? `ring-2 ${ringColors[index]} scale-[1.02]` : '',
         `w-full h-[${CARD_HEIGHT}px]`,
         accentColors[index]
       )}
-      style={{ boxShadow: isActive ? '0 20px 40px -12px rgb(0 177 64 / 0.3)' : undefined }}
+      style={{ boxShadow: isActive ? shadowColors[index] : undefined }}
     >
       <div className="absolute inset-0 z-0">
         <img
@@ -55,7 +73,7 @@ function BannerCard({ image, index, isActive, onClick }: BannerCardProps) {
           alt=""
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div className={`absolute inset-0 bg-gradient-to-t ${gradientColors[index]}`} />
       </div>
 
       <div className="relative z-10 p-5 h-full flex flex-col justify-between">
