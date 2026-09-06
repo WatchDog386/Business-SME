@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, LayoutGrid, Package, Search, Settings, Users } from 'lucide-react';
+import { Bell, LayoutGrid, Package, Search, Users, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth';
 import { useActiveBusiness } from '@/stores/business';
@@ -91,10 +91,10 @@ export function DashboardHeader() {
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-accent hover:bg-surface-3 hover:text-accent transition-colors active:bg-surface-3"
-            aria-label="Settings"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-brand-700 hover:bg-surface-2 active:bg-surface-3 transition-colors"
+            aria-label="Menu"
           >
-            <Settings className="h-6 w-6 text-accent" strokeWidth={2.5} aria-hidden />
+            <Menu className="h-5 w-5" aria-hidden />
           </button>
         </div>
       </header>

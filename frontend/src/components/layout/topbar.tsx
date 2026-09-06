@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ChevronsUpDown,
   Plus,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useActiveBusiness, useBusinessStore } from '@/stores/business';
@@ -9,12 +10,25 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { ThemeToggle } from './theme-toggle';
+import { SettingsPage } from './settings-page';
 
 export function Topbar() {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
     <header className="hidden sm:flex sticky top-0 z-30 h-16 items-center justify-between gap-3 border-b border-edge bg-surface-2/90 px-6 backdrop-blur">
       <BusinessSwitcher />
-      <ThemeToggle />
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-foreground hover:bg-surface-3 transition-colors active:bg-surface-3"
+          aria-label="Menu"
+        >
+          <MoreHorizontal className="h-6 w-6" strokeWidth={2.5} aria-hidden />
+        </button>
+        <ThemeToggle />
+      </div>
+      <SettingsPage open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
   );
 }
