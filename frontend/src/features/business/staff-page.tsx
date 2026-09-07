@@ -17,12 +17,10 @@ import {
   Clock,
   Star,
   MessageSquare,
-  Building2,
   UserCheck,
   Trash2,
   Edit,
   Eye,
-  Info,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useActiveBusiness } from '@/stores/business';
@@ -36,8 +34,11 @@ import { Alert } from '@/components/ui/alert';
 import { PopupMessage } from '@/components/ui/popup-message';
 import { cn } from '@/lib/utils';
 import { formatDate, timeAgo } from '@/lib/utils';
+import {
+  PageTitle,
+} from '@/features/admin/admin-shared';
 
-const ROLE_OPTIONS: Array<{ value: UserRole; label: string; icon: React.ReactNode; description: string; color: string; bgColor: string; borderColor: string; permissions: string[] }> = [
+const ROLE_OPTIONS: Array<{ value: UserRole; label: string; icon: React.ReactNode; description: string; color: string; bgColor: string; borderColor: string; gradient: string; permissions: string[] }> = [
   {
     value: 'OWNER',
     label: 'Owner',
@@ -46,6 +47,7 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; icon: React.ReactNod
     color: 'text-brand-600',
     bgColor: 'bg-brand-50',
     borderColor: 'border-brand-200',
+    gradient: 'from-brand-700 via-brand-900 to-brand-950',
     permissions: ['All permissions', 'Manage billing & subscription', 'Delete business', 'Transfer ownership', 'Manage all staff roles'],
   },
   {
@@ -56,6 +58,7 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; icon: React.ReactNod
     color: 'text-emerald-600',
     bgColor: 'bg-emerald-50',
     borderColor: 'border-emerald-200',
+    gradient: 'from-emerald-800 via-green-900 to-emerald-950',
     permissions: ['Manage products & services', 'Record & view all sales', 'Manage expenses', 'Manage customers', 'Invite & manage staff (except Owner)', 'View all reports'],
   },
   {
@@ -66,6 +69,7 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; icon: React.ReactNod
     color: 'text-sky-600',
     bgColor: 'bg-sky-50',
     borderColor: 'border-sky-200',
+    gradient: 'from-sky-700 via-blue-900 to-sky-950',
     permissions: ['Record sales', 'View assigned products', 'View assigned customers', 'Basic sales reports'],
   },
   {
@@ -76,106 +80,40 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; icon: React.ReactNod
     color: 'text-amber-600',
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200',
+    gradient: 'from-amber-700 via-orange-800 to-orange-950',
     permissions: ['View all financial reports', 'Manage expenses', 'View sales & payments', 'Export financial data', 'Manage tax settings'],
   },
 ];
 
 const STATUS_CONFIG = {
-  ACTIVE: { label: 'Active', color: 'text-emerald-600 bg-emerald-50 border-emerald-200', icon: <Activity className="h-3 w-3" /> },
-  PENDING: { label: 'Pending', color: 'text-amber-600 bg-amber-50 border-amber-200', icon: <Clock className="h-3 w-3" /> },
-  INACTIVE: { label: 'Inactive', color: 'text-slate-600 bg-slate-50 border-slate-200', icon: <UserX className="h-3 w-3" /> },
-  INVITED: { label: 'Invited', color: 'text-sky-600 bg-sky-50 border-sky-200', icon: <UserPlus className="h-3 w-3" /> },
+  ACTIVE: { label: 'Active', gradient: 'from-emerald-600 to-emerald-800', icon: <Activity className="h-3 w-3" /> },
+  PENDING: { label: 'Pending', gradient: 'from-amber-600 to-amber-800', icon: <Clock className="h-3 w-3" /> },
+  INACTIVE: { label: 'Inactive', gradient: 'from-slate-500 to-slate-700', icon: <UserX className="h-3 w-3" /> },
+  INVITED: { label: 'Invited', gradient: 'from-sky-600 to-sky-800', icon: <UserPlus className="h-3 w-3" /> },
 } as const;
 
-const MOCK_STAFF: BusinessMember[] = [
-  {
-    id: '1',
-    role: 'OWNER',
-    status: 'ACTIVE',
-    createdAt: '2024-01-15T10:30:00Z',
-    user: {
-      id: 'user-1',
-      fullName: 'James Mwangi',
-      email: 'james.mwangi@biashara.co.ke',
-      phone: '+254712345678',
-    },
-  },
-  {
-    id: '2',
-    role: 'MANAGER',
-    status: 'ACTIVE',
-    createdAt: '2024-02-20T14:15:00Z',
-    user: {
-      id: 'user-2',
-      fullName: 'Grace Wanjiku',
-      email: 'grace.wanjiku@biashara.co.ke',
-      phone: '+254723456789',
-    },
-  },
-  {
-    id: '3',
-    role: 'EMPLOYEE',
-    status: 'ACTIVE',
-    createdAt: '2024-03-10T09:00:00Z',
-    user: {
-      id: 'user-3',
-      fullName: 'Peter Ochieng',
-      email: 'peter.ochieng@biashara.co.ke',
-      phone: '+254734567890',
-    },
-  },
-  {
-    id: '4',
-    role: 'EMPLOYEE',
-    status: 'ACTIVE',
-    createdAt: '2024-04-05T11:30:00Z',
-    user: {
-      id: 'user-4',
-      fullName: 'Mary Njeri',
-      email: 'mary.njeri@biashara.co.ke',
-      phone: '+254745678901',
-    },
-  },
-  {
-    id: '5',
-    role: 'ACCOUNTANT',
-    status: 'PENDING',
-    createdAt: '2024-05-12T16:45:00Z',
-    user: {
-      id: 'user-5',
-      fullName: 'David Kiprop',
-      email: 'david.kiprop@biashara.co.ke',
-      phone: '+254756789012',
-    },
-  },
+const AVATAR_IMAGES = [
+  'https://i.pinimg.com/1200x/77/71/4d/77714db652c343cfabf1c51a20e403ff.jpg',
+  'https://i.pinimg.com/736x/0a/50/bc/0a50bc5d50f5ebff9a626f1307780287.jpg',
+  'https://i.pinimg.com/736x/56/b9/90/56b9904ab763d88bbc1fe87cb9e827b4.jpg',
+  'https://i.pinimg.com/736x/0f/31/8d/0f318da21f16078d14d65da44f8628bb.jpg',
+  'https://i.pinimg.com/736x/3a/2f/1c/3a2f1c8e8f9b0c4d5e6f7a8b9c0d1e2f.jpg',
+  'https://i.pinimg.com/736x/1a/2b/3c/1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d.jpg',
 ];
-
-function RoleBadge({ role, compact = false, showIcon = true }: { role: UserRole; compact?: boolean; showIcon?: boolean }) {
-  const config = ROLE_OPTIONS.find((r) => r.value === role);
-  if (!config) return null;
-  return (
-    <span className={cn(
-      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border transition-colors',
-      compact ? 'px-2 py-0' : '',
-      `${config.color} ${config.bgColor} ${config.borderColor}`
-    )}>
-      {showIcon && config.icon}
-      {config.label}
-    </span>
-  );
-}
 
 function StatusBadge({ status }: { status: string }) {
   const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.INACTIVE;
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border', config.color)}>
-      {config.icon}
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white">
+      <span className={`flex h-3 w-3 items-center justify-center bg-gradient-to-r ${config.gradient} rounded-full`}>
+        {config.icon}
+      </span>
       {config.label}
     </span>
   );
 }
 
-function StaffAvatar({ name, size = 'md', src }: { name: string; size?: 'sm' | 'md' | 'lg' | 'xl'; src?: string }) {
+function StaffAvatar({ name, size = 'md', src, index = 0 }: { name: string; size?: 'sm' | 'md' | 'lg' | 'xl'; src?: string; index?: number }) {
   const sizes = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-12 w-12 text-base', xl: 'h-16 w-16 text-lg' };
   const initials = name
     .split(' ')
@@ -184,13 +122,52 @@ function StaffAvatar({ name, size = 'md', src }: { name: string; size?: 'sm' | '
     .toUpperCase()
     .slice(0, 2);
 
+  const bgImage = AVATAR_IMAGES[index % AVATAR_IMAGES.length];
+
   return (
-    <div className={cn('flex items-center justify-center rounded-full bg-accent-soft text-accent font-medium overflow-hidden', sizes[size])}>
+    <div
+      className={cn('flex items-center justify-center rounded-full overflow-hidden relative', sizes[size])}
+      style={{
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-black/10 to-transparent" aria-hidden />
       {src ? (
-        <img src={src} alt={name} className="h-full w-full object-cover" />
+        <img src={src} alt={name} className="h-full w-full object-cover relative z-10" />
       ) : (
-        initials
+        <span className="relative z-10 text-white font-bold drop-shadow-md">{initials}</span>
       )}
+    </div>
+  );
+}
+
+function GradientStat({
+  icon,
+  label,
+  value,
+  gradient,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  gradient: string;
+}) {
+  return (
+    <div
+      className={`relative flex h-[104px] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-3.5 shadow-lg ${gradient}`}
+    >
+      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" aria-hidden />
+      <div className="relative flex items-start justify-between gap-2">
+        <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">{label}</p>
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/15 text-white backdrop-blur">
+          {icon}
+        </span>
+      </div>
+      <p className="relative text-2xl font-black leading-none tracking-tight tabular-nums text-white drop-shadow-[0_1px_5px_rgba(0,0,0,0.55)]">
+        {value}
+      </p>
     </div>
   );
 }
@@ -201,50 +178,65 @@ function StaffRow({
   onRemove,
   onRoleChange,
   onViewDetails,
+  index,
 }: {
   member: BusinessMember & { user: BusinessMember['user'] & { avatarUrl?: string } };
   currentUserId: string;
   onRemove: (id: string) => void;
   onRoleChange: (id: string, role: UserRole) => void;
   onViewDetails: (member: BusinessMember) => void;
+  index: number;
 }) {
   const isSelf = member.user.id === currentUserId;
   const isOwner = member.role === 'OWNER';
   const [showDropdown, setShowDropdown] = useState(false);
+  const roleConfig = ROLE_OPTIONS.find((r) => r.value === member.role);
+
+  const bgImage = AVATAR_IMAGES[index % AVATAR_IMAGES.length];
 
   return (
     <div className="relative">
       <div
         className={cn(
-          'flex items-center justify-between gap-3 rounded-2xl bg-surface p-4 transition-all duration-200 border border-edge',
-          'hover:bg-surface-2 hover:border-edge-2 hover:shadow-soft',
-          isSelf && 'ring-1 ring-accent/20'
+          'relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-white/10 p-4 transition-all duration-200 shadow-xl',
+          'hover:border-white/20 hover:shadow-2xl',
+          isSelf && 'ring-1 ring-accent/30',
+          isOwner && 'ring-1 ring-brand-500/30'
         )}
         onClick={() => !isSelf && onViewDetails(member)}
-        style={{ cursor: isSelf ? 'default' : 'pointer' }}
+        style={{
+          cursor: isSelf ? 'default' : 'pointer',
+          backgroundImage: `url(${bgImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
       >
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <StaffAvatar name={member.user.fullName} size="md" src={member.user.avatarUrl} />
+        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/50" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" aria-hidden />
+        <div className="absolute inset-0 ring-1 ring-white/10 rounded-2xl" aria-hidden />
+        
+        <div className="relative flex items-center gap-3 min-w-0 flex-1">
+          <StaffAvatar name={member.user.fullName} size="md" src={member.user.avatarUrl} index={index} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="truncate font-medium text-foreground">{member.user.fullName}</p>
+              <p className="truncate font-medium text-white drop-shadow-sm">{member.user.fullName}</p>
               {isSelf && (
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-accent-soft text-accent border border-accent-soft">
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/15 text-white border border-white/10 backdrop-blur-sm">
                   <UserCheck className="h-3 w-3" />
                   You
                 </span>
               )}
               {isOwner && !isSelf && (
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-brand-50 text-brand-600 border border-brand-200">
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-brand-500/20 text-brand-300 border border-brand-500/30 backdrop-blur-sm">
                   <Star className="h-3 w-3" />
                   Owner
                 </span>
               )}
             </div>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
-              <p className="truncate text-sm text-foreground-4">{member.user.email}</p>
+              <p className="truncate text-sm text-white/70">{member.user.email}</p>
               {member.user.phone && (
-                <span className="flex items-center gap-1 text-sm text-foreground-4">
+                <span className="flex items-center gap-1 text-sm text-white/70">
                   <MessageSquare className="h-3.5 w-3.5" />
                   {member.user.phone}
                 </span>
@@ -253,15 +245,21 @@ function StaffRow({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <RoleBadge role={member.role} compact />
+        <div className="relative flex items-center gap-2 shrink-0">
+          <span className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border transition-colors',
+            'bg-white/10 border-white/10 text-white/90 backdrop-blur-sm'
+          )}>
+            {roleConfig?.icon}
+            {roleConfig?.label}
+          </span>
           <StatusBadge status={member.status} />
 
           {!isOwner && !isSelf && (
             <div className="relative">
               <button
                 onClick={(e) => { e.stopPropagation(); setShowDropdown(!showDropdown); }}
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-foreground-4 hover:bg-surface-2 hover:text-foreground transition-colors"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors backdrop-blur-sm"
                 aria-label="More options"
               >
                 <MoreVertical className="h-4 w-4" />
@@ -269,17 +267,17 @@ function StaffRow({
               {showDropdown && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
-                  <div className="absolute right-0 top-full mt-1.5 z-50 flex w-48 flex-col rounded-2xl bg-surface border border-edge shadow-xl overflow-hidden animate-fade-in">
+                  <div className="absolute right-0 top-full mt-1.5 z-50 flex w-48 flex-col rounded-2xl bg-slate-900/95 border border-white/10 shadow-2xl overflow-hidden animate-fade-in backdrop-blur-xl">
                     <button
                       onClick={(e) => { e.stopPropagation(); onViewDetails(member); setShowDropdown(false); }}
-                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-surface-2 transition-colors"
+                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/90 hover:bg-white/10 transition-colors"
                     >
                       <Eye className="h-4 w-4" />
                       View Details
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setShowDropdown(false); }}
-                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-surface-2 transition-colors"
+                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/90 hover:bg-white/10 transition-colors"
                     >
                       <Edit className="h-4 w-4" />
                       Edit Profile
@@ -288,16 +286,16 @@ function StaffRow({
                       <button
                         key={role.value}
                         onClick={(e) => { e.stopPropagation(); onRoleChange(member.id, role.value); setShowDropdown(false); }}
-                        className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-surface-2 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/90 hover:bg-white/10 transition-colors"
                       >
                         {role.icon}
                         {role.label}
                       </button>
                     ))}
-                    <hr className="my-1 border-edge" />
+                    <hr className="my-1 border-white/10" />
                     <button
                       onClick={(e) => { e.stopPropagation(); onRemove(member.id); setShowDropdown(false); }}
-                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
                       Remove from Team
@@ -322,56 +320,68 @@ function StaffDetailModal({ member, onClose, onRoleChange, onRemove, currentUser
 }) {
   const isSelf = member.user.id === currentUserId;
   const isOwner = member.role === 'OWNER';
+  const roleConfig = ROLE_OPTIONS.find((r) => r.value === member.role);
+  const statusConfig = STATUS_CONFIG[member.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.INACTIVE;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="relative w-full max-w-lg rounded-3xl bg-surface border border-edge shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between p-5 border-b border-edge">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+      <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900/95 shadow-2xl animate-scale-in backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent" aria-hidden />
+        
+        <div className="relative flex items-start justify-between p-5 border-b border-white/10">
           <div className="flex items-center gap-3">
             <StaffAvatar name={member.user.fullName} size="xl" src={member.user.avatarUrl} />
             <div>
-              <h2 className="text-lg font-medium text-foreground">{member.user.fullName}</h2>
-              <p className="text-sm text-foreground-4">{member.user.email}</p>
+              <h2 className="text-lg font-medium text-white">{member.user.fullName}</h2>
+              <p className="text-sm text-white/60">{member.user.email}</p>
             </div>
           </div>
-          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-foreground-4 hover:bg-surface-2 hover:text-foreground transition-colors">
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/50 hover:bg-white/10 hover:text-white transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="p-5 space-y-5">
+        <div className="relative p-5 space-y-5">
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-surface-3 p-3">
-              <p className="text-xs text-foreground-5 uppercase tracking-wide">Role</p>
+            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
+              <p className="text-xs text-white/40 uppercase tracking-wide">Role</p>
               <div className="flex items-center gap-2 mt-1">
-                <RoleBadge role={member.role} showIcon />
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-white/10 border border-white/10 text-white/90 backdrop-blur-sm">
+                  {roleConfig?.icon}
+                  {roleConfig?.label}
+                </span>
               </div>
             </div>
-            <div className="rounded-xl bg-surface-3 p-3">
-              <p className="text-xs text-foreground-5 uppercase tracking-wide">Status</p>
+            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
+              <p className="text-xs text-white/40 uppercase tracking-wide">Status</p>
               <div className="flex items-center gap-2 mt-1">
-                <StatusBadge status={member.status} />
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white">
+                  <span className={`flex h-3 w-3 items-center justify-center bg-gradient-to-r ${statusConfig.gradient} rounded-full`}>
+                    {statusConfig.icon}
+                  </span>
+                  {statusConfig.label}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl bg-surface-3 p-3">
-            <p className="text-xs text-foreground-5 uppercase tracking-wide">Member Since</p>
-            <p className="text-sm font-medium text-foreground mt-1">
+          <div className="rounded-xl bg-white/5 p-3 border border-white/10">
+            <p className="text-xs text-white/40 uppercase tracking-wide">Member Since</p>
+            <p className="text-sm font-medium text-white mt-1">
               {formatDate(member.createdAt)} ({timeAgo(member.createdAt)})
             </p>
           </div>
 
           {member.user.phone && (
-            <div className="rounded-xl bg-surface-3 p-3">
-              <p className="text-xs text-foreground-5 uppercase tracking-wide">Phone</p>
-              <p className="text-sm font-medium text-foreground mt-1">{member.user.phone}</p>
+            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
+              <p className="text-xs text-white/40 uppercase tracking-wide">Phone</p>
+              <p className="text-sm font-medium text-white mt-1">{member.user.phone}</p>
             </div>
           )}
 
           {!isSelf && !isOwner && (
-            <div className="space-y-3 pt-2 border-t border-edge">
-              <p className="text-xs text-foreground-5 uppercase tracking-wide">Change Role</p>
+            <div className="space-y-3 pt-2 border-t border-white/10">
+              <p className="text-xs text-white/40 uppercase tracking-wide">Change Role</p>
               <div className="grid grid-cols-2 gap-2">
                 {ROLE_OPTIONS.filter((r) => r.value !== 'OWNER' && r.value !== member.role).map((role) => (
                   <button
@@ -379,16 +389,14 @@ function StaffDetailModal({ member, onClose, onRoleChange, onRemove, currentUser
                     onClick={() => { onRoleChange(member.id, role.value); onClose(); }}
                     className={cn(
                       'relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3 text-center transition-all',
-                      member.role === role.value
-                        ? 'border-accent bg-accent-soft'
-                        : 'border-edge hover:border-edge-2 hover:bg-surface-2'
+                      'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
                     )}
                   >
-                    <div className={cn('flex h-8 w-8 items-center justify-center rounded-xl', role.bgColor)}>
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${role.gradient}`}>
                       {role.icon}
                     </div>
-                    <span className="text-sm font-medium text-foreground">{role.label}</span>
-                    <span className="text-[10px] text-foreground-4 text-center">{role.description}</span>
+                    <span className="text-sm font-medium text-white">{role.label}</span>
+                    <span className="text-[10px] text-white/50 text-center">{role.description}</span>
                   </button>
                 ))}
               </div>
@@ -396,10 +404,10 @@ function StaffDetailModal({ member, onClose, onRoleChange, onRemove, currentUser
           )}
 
           {!isSelf && !isOwner && (
-            <div className="pt-2 border-t border-edge">
+            <div className="pt-2 border-t border-white/10">
               <button
                 onClick={() => { onRemove(member.id); onClose(); }}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
                 Remove from Team
@@ -408,7 +416,7 @@ function StaffDetailModal({ member, onClose, onRoleChange, onRemove, currentUser
           )}
 
           {isSelf && (
-            <div className="pt-2 border-t border-edge text-center text-sm text-foreground-4">
+            <div className="pt-2 border-t border-white/10 text-center text-sm text-white/50">
               You cannot remove yourself or change your own role.
             </div>
           )}
@@ -439,18 +447,20 @@ function InviteModal({ isOpen, onClose, onInvite, isPending, error }: {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in sm:items-center" onClick={onClose}>
-      <div className="relative w-full max-w-md rounded-t-3xl border-t border-edge bg-surface p-6 pb-8 shadow-2xl animate-slide-up sm:max-w-lg sm:rounded-3xl sm:border sm:shadow-2xl sm:animate-scale-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-medium tracking-tight text-foreground">Invite Team Member</h2>
-          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-foreground-4 hover:bg-surface-2 hover:text-foreground transition-colors">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in sm:items-center" onClick={onClose}>
+      <div className="relative w-full max-w-md rounded-t-3xl border-t border-white/10 bg-slate-900/95 p-6 pb-8 shadow-2xl animate-slide-up sm:max-w-lg sm:rounded-3xl sm:border sm:shadow-2xl sm:animate-scale-in backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent" aria-hidden />
+        
+        <div className="relative flex items-center justify-between mb-5">
+          <h2 className="text-base font-medium tracking-tight text-white">Invite Team Member</h2>
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/50 hover:bg-white/10 hover:text-white transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="relative space-y-5">
           <div className="space-y-1.5">
-            <Label htmlFor="inviteEmail" className="text-sm font-medium text-foreground">
+            <Label htmlFor="inviteEmail" className="text-sm font-medium text-white">
               Email Address
             </Label>
             <Input
@@ -459,7 +469,7 @@ function InviteModal({ isOpen, onClose, onInvite, isPending, error }: {
               placeholder="staff@business.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-12 px-5 text-sm rounded-2xl border-edge bg-field focus:border-accent focus:ring-accent/20"
+              className="h-12 px-5 text-sm rounded-2xl border-white/10 bg-white/5 text-white placeholder-white/30 focus:border-accent focus:ring-accent/20 focus:bg-white/10 disabled:opacity-50"
               autoFocus
               required
               disabled={isPending}
@@ -467,7 +477,7 @@ function InviteModal({ isOpen, onClose, onInvite, isPending, error }: {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-foreground">Role</Label>
+            <Label className="text-sm font-medium text-white">Role</Label>
             <div className="grid grid-cols-2 gap-3">
               {ROLE_OPTIONS.filter((r) => r.value !== 'OWNER').map((r) => (
                 <button
@@ -477,15 +487,15 @@ function InviteModal({ isOpen, onClose, onInvite, isPending, error }: {
                   className={cn(
                     'relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all',
                     role === r.value
-                      ? 'border-accent bg-accent-soft'
-                      : 'border-edge hover:border-edge-2 hover:bg-surface-3'
+                      ? 'border-accent bg-accent/10'
+                      : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
                   )}
                 >
-                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', r.bgColor)}>
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${r.gradient}`}>
                     {r.icon}
                   </div>
-                  <span className="text-sm font-medium text-foreground">{r.label}</span>
-                  <span className="text-[11px] text-foreground-4 text-center">{r.description}</span>
+                  <span className="text-sm font-medium text-white">{r.label}</span>
+                  <span className="text-[11px] text-white/50 text-center">{r.description}</span>
                   {role === r.value && (
                     <Check className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-white" />
                   )}
@@ -495,18 +505,18 @@ function InviteModal({ isOpen, onClose, onInvite, isPending, error }: {
           </div>
 
           {(error || localError) && (
-            <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-600 animate-fade-in">
+            <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400 animate-fade-in">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               {error || localError}
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} className="rounded-2xl h-12" disabled={isPending}>
+            <Button type="button" variant="outline" onClick={onClose} className="rounded-2xl h-12 border-white/10 text-white hover:bg-white/10" disabled={isPending}>
               Cancel
             </Button>
-            <Button type="submit" loading={isPending} className="rounded-2xl h-12 bg-brand-700 hover:bg-brand-800">
-              <Mail className="h-4 w-4 me-2" />
+            <Button type="submit" loading={isPending} className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-brand-600 px-6 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-60">
+              <Mail className="h-4 w-4" />
               Send Invitation
             </Button>
           </div>
@@ -518,15 +528,16 @@ function InviteModal({ isOpen, onClose, onInvite, isPending, error }: {
 
 function EmptyState({ onInvite }: { onInvite: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-2xl bg-surface border border-edge p-8 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-soft text-accent">
-        <Users className="h-8 w-8" />
+    <div className="relative flex flex-col items-center gap-4 rounded-2xl p-8 text-center border border-white/10 bg-slate-900/50 backdrop-blur-sm">
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent rounded-2xl" aria-hidden />
+      <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 border border-white/10">
+        <Users className="h-8 w-8 text-white/80" />
       </div>
-      <div>
-        <h3 className="text-lg font-medium text-foreground">No team members yet</h3>
-        <p className="text-sm text-foreground-4 mt-1">Invite your first staff member to start collaborating</p>
+      <div className="relative">
+        <h3 className="text-lg font-medium text-white">No team members yet</h3>
+        <p className="text-sm text-white/50 mt-1">Invite your first staff member to start collaborating</p>
       </div>
-      <Button onClick={onInvite} className="gap-2 mt-2">
+      <Button onClick={onInvite} className="gap-2 mt-2 flex h-10 shrink-0 items-center gap-2 rounded-full bg-brand-600 px-4 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98]">
         <UserPlus className="h-4 w-4" />
         Invite Staff
       </Button>
@@ -536,24 +547,22 @@ function EmptyState({ onInvite }: { onInvite: () => void }) {
 
 function StatsCards({ members }: { members: BusinessMember[] }) {
   const stats = [
-    { label: 'Total Staff', value: members.length, icon: Users, color: 'accent' },
-    { label: 'Active', value: members.filter(m => m.status === 'ACTIVE').length, icon: Activity, color: 'success' },
-    { label: 'Pending', value: members.filter(m => m.status === 'PENDING' || m.status === 'INVITED').length, icon: Clock, color: 'warning' },
-    { label: 'Roles', value: new Set(members.map(m => m.role)).size, icon: Shield, color: 'info' },
+    { label: 'Total Staff', value: members.length, icon: Users, gradient: 'from-brand-700 via-brand-900 to-brand-950' },
+    { label: 'Active', value: members.filter(m => m.status === 'ACTIVE').length, icon: Activity, gradient: 'from-emerald-800 via-green-900 to-emerald-950' },
+    { label: 'Pending', value: members.filter(m => m.status === 'PENDING' || m.status === 'INVITED').length, icon: Clock, gradient: 'from-amber-700 via-orange-800 to-orange-950' },
+    { label: 'Roles', value: new Set(members.map(m => m.role)).size, icon: Shield, gradient: 'from-purple-700 via-purple-900 to-fuchsia-950' },
   ];
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {stats.map((stat, i) => (
-        <div key={stat.label} className={cn('rounded-2xl p-4 border border-edge bg-surface transition-all hover:shadow-soft animate-fade-up', `style={{ animationDelay: '${i * 80}ms' }}`)}>
-          <div className="flex items-center justify-between">
-            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', `bg-${stat.color}-50 text-${stat.color}-600`)}>
-              <stat.icon className="h-4.5 w-4.5" />
-            </div>
-            <span className="text-2xl font-bold text-foreground">{stat.value}</span>
-          </div>
-          <p className="text-xs text-foreground-4 mt-2">{stat.label}</p>
-        </div>
+      {stats.map((stat) => (
+        <GradientStat
+          key={stat.label}
+          icon={<stat.icon className="h-3.5 w-3.5" aria-hidden />}
+          label={stat.label}
+          value={String(stat.value)}
+          gradient={stat.gradient}
+        />
       ))}
     </div>
   );
@@ -569,14 +578,13 @@ export function StaffPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [selectedMember, setSelectedMember] = useState<BusinessMember | null>(null);
-  const [useMockData, setUseMockData] = useState(false);
 
   const { data: members, isLoading, error } = useQuery({
     queryKey: ['business', active.id, 'members'],
     queryFn: () => businessesApi.members(),
   });
 
-  const displayMembers = useMockData ? MOCK_STAFF : (members ?? []);
+  const displayMembers = members ?? [];
   const currentUserId = user?.id;
 
   const inviteMutation = useMutation({
@@ -616,36 +624,24 @@ export function StaffPage() {
   };
 
   return (
-    <div className="space-y-6 pb-8 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-medium tracking-tight text-foreground">Team Members</h1>
-          <p className="text-sm text-foreground-4 mt-0.5">Manage who has access to {active.name}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setUseMockData(!useMockData)}
-            className="gap-2 rounded-xl h-10 px-4"
-          >
-            <Building2 className="h-4 w-4" />
-            {useMockData ? 'Live Data' : 'Demo Data'}
-          </Button>
-          <Button onClick={() => { setInviteError(null); setInviteOpen(true); }} className="gap-2 rounded-xl h-10 px-4 bg-brand-700 hover:bg-brand-800">
-            <UserPlus className="h-4 w-4" />
-            Invite Staff
-          </Button>
-        </div>
+    <div className="space-y-5 pb-8 animate-fade-in">
+      <PageTitle
+        title="Team Members"
+        subtitle={`Manage who has access to ${active.name}`}
+      />
+
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[13px] font-medium tracking-tight text-foreground">Team Overview</h2>
+        <Button
+          onClick={() => { setInviteError(null); setInviteOpen(true); }}
+          className="flex h-10 shrink-0 items-center gap-2 rounded-full bg-brand-600 px-4 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-60"
+        >
+          <UserPlus className="h-4 w-4" />
+          Invite Staff
+        </Button>
       </div>
 
-      {useMockData && (
-        <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 flex items-center gap-2 animate-fade-in">
-          <Info className="h-4 w-4 text-sky-600 shrink-0" />
-          <p className="text-sm text-sky-700">Viewing demo data. Click "Live Data" to switch back.</p>
-        </div>
-      )}
-
-      {error && !useMockData && (
+      {error && (
         <Alert variant="error" title="Failed to load team" className="rounded-xl border-destructive/20 bg-destructive/5">
           {apiErrorMessage(error)}
         </Alert>
@@ -653,22 +649,25 @@ export function StaffPage() {
 
       <StatsCards members={displayMembers} />
 
-      {isLoading && !useMockData ? (
+      {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="animate-pulse flex items-center gap-3 rounded-2xl bg-surface p-4 border border-edge">
-              <div className="h-10 w-10 rounded-full bg-surface-2" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-3/4 bg-surface-2 rounded" />
-                <div className="h-3 w-1/2 bg-surface-2 rounded" />
+          {[1, 2, 3, 4].map((_, idx) => (
+            <div key={idx} className="animate-pulse relative overflow-hidden rounded-2xl border border-white/10 p-4">
+              <div className="absolute inset-0 bg-slate-900/50" aria-hidden />
+              <div className="relative flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-white/10" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-3/4 bg-white/10 rounded" />
+                  <div className="h-3 w-1/2 bg-white/10 rounded" />
+                </div>
+                <div className="h-6 w-20 rounded-full bg-white/10" />
               </div>
-              <div className="h-6 w-20 rounded-full bg-surface-2" />
             </div>
           ))}
         </div>
       ) : (
         <div className="space-y-3">
-          {displayMembers.map((member) => (
+          {displayMembers.map((member, index) => (
             <StaffRow
               key={member.id}
               member={member}
@@ -676,6 +675,7 @@ export function StaffPage() {
               onRemove={(id) => removeMutation.mutate(id)}
               onRoleChange={(id, role) => roleChangeMutation.mutate({ id, role })}
               onViewDetails={handleViewDetails}
+              index={index}
             />
           ))}
           {displayMembers.length === 0 && <EmptyState onInvite={() => { setInviteError(null); setInviteOpen(true); }} />}

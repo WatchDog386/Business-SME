@@ -27,4 +27,10 @@ export default () => ({
       ? process.env.DB_SYNCHRONIZE === 'true'
       : true,
   },
+  ai: {
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-1.5-pro',
+    systemApiBase: process.env.AI_SYSTEM_API_BASE || 'http://localhost:4000',
+    businessId: process.env.AI_BUSINESS_ID || '',
+  },
 });

@@ -12,8 +12,6 @@ interface AIAssistantProps {
   onClose?: () => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_AI_ASSISTANT_URL || "http://127.0.0.1:8000";
-
 export function AIAssistant({ isOpen = false, onClose }: AIAssistantProps) {
   if (!isOpen) {
     return null;
@@ -58,7 +56,7 @@ export function AIAssistant({ isOpen = false, onClose }: AIAssistantProps) {
     setInput("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/v1/chat/completions`, {
+      const response = await fetch("/api/v1/ai/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -66,7 +64,7 @@ export function AIAssistant({ isOpen = false, onClose }: AIAssistantProps) {
         body: JSON.stringify({
           messages: [...messages, userMessage],
           temperature: 0.7,
-          max_tokens: 1024,
+          maxTokens: 1024,
         }),
       });
 
@@ -82,7 +80,7 @@ export function AIAssistant({ isOpen = false, onClose }: AIAssistantProps) {
       setError("Failed to connect to AI assistant. Please check if the backend is running.");
       setMessages((prev) => [...prev, { 
         role: "assistant", 
-        content: "Sorry, I'm having trouble connecting to the AI assistant. Please make sure the AI backend is running on port 8000." 
+        content: "Sorry, I'm having trouble connecting to the AI assistant. Please make sure the backend is running." 
       }]);
     } finally {
       setIsLoading(false);
