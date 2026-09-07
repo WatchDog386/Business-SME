@@ -18,7 +18,7 @@ async function createApp() {
 
   app.setGlobalPrefix('api/v1');
   app.enableCors({
-    origin: config.get<string[]>('corsOrigin') ?? true,
+    origin: (config.get('corsOrigin') as string[] | undefined) ?? true,
     credentials: true,
   });
   app.useGlobalPipes(
