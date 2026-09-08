@@ -12,6 +12,12 @@
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "@scarf/scarf": true
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@nestjs/common": "^11.0.0",

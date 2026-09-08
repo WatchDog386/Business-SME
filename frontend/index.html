@@ -14,9 +14,55 @@
     <link rel="apple-touch-icon" href="/logo.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>OmniTrack — Smart SME Solutions for Kenya.</title>
+    <style>
+      #splash-screen {
+        position: fixed;
+        inset: 0;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+      }
+      #splash-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #splash-screen img {
+        width: 180px;
+        height: 180px;
+      }
+      @media (prefers-color-scheme: dark) {
+        #splash-screen {
+          background: #ffffff;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash-screen" aria-hidden="true">
+      <img src="/logo.png" alt="" />
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const root = document.getElementById('root');
+        const splash = document.getElementById('splash-screen');
+        const observer = new MutationObserver(() => {
+          if (root.hasChildNodes()) {
+            splash.classList.add('hidden');
+            observer.disconnect();
+          }
+        });
+        observer.observe(root, { childList: true });
+        setTimeout(() => {
+          splash.classList.add('hidden');
+          observer.disconnect();
+        }, 3000);
+      });
+    </script>
   </body>
 </html>
