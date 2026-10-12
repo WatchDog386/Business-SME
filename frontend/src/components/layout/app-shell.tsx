@@ -37,18 +37,18 @@ export function AppShell() {
   const isDesktop = useIsDesktop();
   const [theme] = useTheme();
 
-  // Inside the app the phone's status bar matches the page (white, or #121212
-  // in dark mode) instead of the Optimas blue kept for the opening splash
+  // Inside the app the phone's status bar matches the page (sky glow, or
+  // #16202F in dark mode); the opening splash alone keeps the Optimas blue
   useEffect(() => {
     const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (!meta) return;
-    const splashBlue = meta.content;
     // Phone pages have a soft sky glow at the top: the status bar matches it
     const glow = !isDesktop;
     document.body.classList.toggle('app-glow', glow);
     meta.content = theme === 'dark' ? (glow ? '#16202F' : '#121212') : glow ? '#D7E7FF' : '#FFFFFF';
     return () => {
-      meta.content = splashBlue;
+      // Back on sign-in pages, which are pure white
+      meta.content = '#FFFFFF';
       document.body.classList.remove('app-glow');
     };
   }, [theme, isDesktop]);

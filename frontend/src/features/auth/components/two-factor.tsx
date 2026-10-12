@@ -35,11 +35,21 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/** Same as the phone "Sign in" button (teal, 20px), and the charcoal pill on desktop. */
+const signInButton =
+  'h-14 w-full rounded-2xl bg-[#3A8F91] text-[20px] font-medium text-white shadow-none transition-colors hover:bg-[#2F7F81] active:bg-[#2F7F81] max-lg:fixed max-lg:inset-x-6 max-lg:bottom-[calc(4rem+env(safe-area-inset-bottom))] max-lg:z-10 max-lg:mx-auto max-lg:w-auto max-lg:max-w-sm lg:h-12 lg:rounded-full lg:bg-[#4a4a4a] lg:text-base lg:font-bold lg:uppercase lg:tracking-wide lg:shadow-lg lg:shadow-neutral-900/20 lg:hover:bg-[#3a3a3a]';
+
+/** One wave across the boxes once all six digits are in, before checking the code. */
+const WAVE_STAGGER = 0.07;
+const WAVE_DURATION = 0.42;
+const WAVE_MS = Math.round((5 * WAVE_STAGGER + WAVE_DURATION) * 1000);
+
 /**
  * Six boxes, one per digit. A single invisible input sits on top so typing,
  * pasting and the phone's "fill code" suggestion all work. Digits pop in,
- * the current box glows with a blinking caret, and the row shakes on a
- * wrong code (bump `shake` to trigger it).
+ * the current box glows with a blinking caret, a wave runs across the row
+ * when the code is complete, and the row shakes on a wrong code (bump
+ * `shake` to trigger it).
  */
 function CodeField({
   value,
@@ -57,12 +67,16 @@ function CodeField({
   const inputRef = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
   const controls = useAnimationControls();
+  const wave = useAnimationControls();
+  const waveTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!shake) return;
     void controls.start({ x: [0, -12, 12, -8, 8, -4, 4, 0], transition: { duration: 0.45 } });
     inputRef.current?.focus();
   }, [shake, controls]);
+
+  useEffect(() => () => window.clearTimeout(waveTimer.current), []);
 
   const active = Math.min(value.length, 5);
 
@@ -85,21 +99,33 @@ function CodeField({
           onChange={(e) => {
             const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
             onChange(digits);
-            if (digits.length === 6) onComplete(digits);
+            window.clearTimeout(waveTimer.current);
+            if (digits.length === 6) {
+              // Typed or pasted: let the wave finish, then check the code
+              void wave.start((i: number) => ({
+                y: [0, -10, 0],
+                scale: [1, 1.08, 1],
+                transition: { delay: i * WAVE_STAGGER, duration: WAVE_DURATION, ease: 'easeInOut' },
+              }));
+              waveTimer.current = window.setTimeout(() => onComplete(digits), WAVE_MS);
+            }
           }}
           aria-label="6-digit code"
           // Invisible but on top, so taps and paste land here
           className="absolute inset-0 z-10 h-full w-full cursor-text !opacity-0 caret-transparent"
         />
-        <div className="grid grid-cols-6 gap-2" aria-hidden>
+        {/* Fixed square boxes, centred: they no longer stretch to the screen width */}
+        <div className="flex justify-center gap-2" aria-hidden>
           {Array.from({ length: 6 }, (_, i) => {
             const digit = value[i];
             const isActive = focused && !disabled && i === active && value.length < 6;
             return (
               <motion.div
                 key={i}
+                custom={i}
+                animate={wave}
                 className={cn(
-                  'relative flex h-14 items-center justify-center rounded-2xl border-2 bg-white text-2xl font-semibold tabular-nums text-slate-900 transition-colors',
+                  'relative flex h-14 w-11 shrink-0 items-center min-[380px]:w-12 justify-center rounded-2xl border-2 bg-white text-[28px] font-medium tabular-nums text-slate-800 transition-colors',
                   isActive ? 'border-brand-600' : digit ? 'border-brand-200' : 'border-slate-200',
                   disabled && 'opacity-60',
                 )}
@@ -204,22 +230,17 @@ export function TwoFactorVerify({
             placeholder="xxxx-xxxx"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="h-12 text-center font-mono text-lg tracking-widest"
+            className="h-12 rounded-full px-5 text-center font-mono text-sm tracking-widest"
           />
         </div>
       ) : (
         <CodeField value={code} onChange={setCode} onComplete={(v) => void submit(v)} disabled={pending} shake={shake} />
       )}
 
-      {/* Stays clear until it's actually verifying; empty codes are ignored in submit() */}
-      <Button type="submit" size="lg" className={cn('mt-3', primaryButton)} loading={pending}>
-        Verify and continue
-      </Button>
-
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center justify-between text-sm lg:order-last">
         <button
           type="button"
-          className="auth-link font-medium text-brand-600"
+          className="auth-link font-medium text-[#2F7F81] hover:text-[#256A6C]"
           onClick={() => {
             setUseRecovery((v) => !v);
             setCode('');
@@ -232,6 +253,11 @@ export function TwoFactorVerify({
           Start over
         </button>
       </div>
+
+      {/* Matches the Sign in button; empty codes are ignored in submit() */}
+      <Button type="submit" size="lg" className={signInButton} loading={pending}>
+        Verify and continue
+      </Button>
     </form>
   );
 }
