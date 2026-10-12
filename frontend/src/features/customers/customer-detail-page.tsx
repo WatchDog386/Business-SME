@@ -9,16 +9,17 @@ import {
   MapPin,
 } from 'lucide-react';
 import { customersApi, salesApi } from '@/api/endpoints';
-import type { Customer } from '@/api/types';
 import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
 import { PageLoader } from '@/components/ui/spinner';
+import { Dialog } from '@/components/ui/dialog';
 import { formatKES, formatDate, formatDateTime } from '@/lib/utils';
 import { invoiceNo } from '@/features/isp/document-actions';
 import { useState } from 'react';
+import { SubscriberForm } from '@/features/isp/subscriber-form';
 import { ClientAppAccess } from './client-app-access';
 import { ContactButtons, LogCallSheet } from '@/features/isp/contact';
 import { CallHistory, SubscriptionCard } from '@/features/isp/subscription';
@@ -26,6 +27,7 @@ import { CallHistory, SubscriptionCard } from '@/features/isp/subscription';
 export function CustomerDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const [editOpen, setEditOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
 
   const customerQuery = useQuery({
@@ -57,7 +59,7 @@ export function CustomerDetailPage() {
         onBack={() => navigate(-1)}
         right={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="rounded-full" onClick={() => navigate(`/subscribers/${customer.id}/edit`)}>
+            <Button variant="outline" size="sm" className="rounded-full" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3.5 w-3.5" />
               Edit
             </Button>
@@ -106,7 +108,6 @@ export function CustomerDetailPage() {
 
       {/* WiFi package + quick contact */}
       <SubscriptionCard customerId={customer.id} />
-      <AccountDetails customer={customer} />
       <div className="flex items-center justify-between gap-3 px-1 py-2">
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-foreground">Contact {customer.name.split(' ')[0]}</p>
@@ -171,6 +172,14 @@ export function CustomerDetailPage() {
       </section>
       <LogCallSheet open={logOpen} onOpenChange={setLogOpen} customerId={customer.id} customerName={customer.name} />
 
+      <Dialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="Edit customer"
+        description="Update this customer's details."
+      >
+        {editOpen && <SubscriberForm customerId={customer.id} onDone={() => setEditOpen(false)} onCancel={() => setEditOpen(false)} />}
+      </Dialog>
     </div>
   );
 }
@@ -198,50 +207,5 @@ function Stat({
         {value}
       </p>
     </div>
-  );
-}
-
-const SERVICE_LABEL = { HOTSPOT: 'Hotspot', PPPOE: 'PPPoE', STATIC: 'Static IP' } as const;
-const DAY_LABEL: Record<string, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
-
-/** The subscriber's account record: login, location, service and billing details. */
-function AccountDetails({ customer }: { customer: Customer }) {
-  const rows: [string, string | null][] = [
-    ['Account number', customer.account_number],
-    ['Username', customer.username],
-    ['Service type', customer.service_type ? SERVICE_LABEL[customer.service_type] : null],
-    ['Router / NAS', customer.router],
-    ['MAC address', customer.mac_address],
-    ['Location', customer.location],
-    ['House / building', customer.address],
-    ['Other phones', customer.extra_phones?.length ? customer.extra_phones.join(', ') : null],
-    ['KRA PIN', customer.kra_pin],
-    ['SMS group', customer.sms_group],
-    ['New installation', customer.new_installation ? 'Yes' : 'No'],
-    ['Discount', customer.discount ? formatKES(customer.discount) : null],
-    ['Wallet credit', formatKES(customer.wallet_balance ?? 0)],
-    [
-      'Access hours',
-      customer.access_hours && Object.keys(customer.access_hours).length
-        ? Object.entries(customer.access_hours)
-            .map(([d, h]) => `${DAY_LABEL[d] ?? d} ${h.from}–${h.to}`)
-            .join(', ')
-        : null,
-    ],
-    ['Remarks', customer.notes],
-  ];
-  const shown = rows.filter(([, v]) => v);
-  return (
-    <section className="space-y-2">
-      <h2 className="px-1 text-[13px] font-medium tracking-tight text-foreground">Account details</h2>
-      <dl className="grid gap-x-6 px-1 sm:grid-cols-2">
-        {shown.map(([label, value]) => (
-          <div key={label} className="flex items-baseline justify-between gap-4 py-1.5">
-            <dt className="shrink-0 text-[12px] text-foreground-4">{label}</dt>
-            <dd className="min-w-0 break-words text-right text-[13px] font-medium text-foreground">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
   );
 }

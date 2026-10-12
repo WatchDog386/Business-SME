@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, X } from 'lucide-react';
 import { customersApi, productsApi, salesApi, subscriptionsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import type { AccessHours, Customer, ServiceType, SubscriberInput } from '@/api/types';
-import { AppBar } from '@/components/layout/app-bar';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,22 +53,19 @@ function hoursFrom(saved: AccessHours | null | undefined): Record<string, DayHou
   );
 }
 
-/** Section card with the accent bar heading, like the billing system's. */
-function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+/** A plain group heading inside the sheet; fields stack like the other forms. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-edge bg-surface p-4 lg:p-6">
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="border-l-[3px] border-brand-600 pl-2.5 text-[15px] font-semibold tracking-tight text-foreground">{title}</h2>
-        {note && <p className="text-right text-[11px] text-foreground-4">{note}</p>}
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">{children}</div>
+    <section className="space-y-4">
+      <h3 className="pt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-4">{title}</h3>
+      {children}
     </section>
   );
 }
 
-function Field({ label, htmlFor, hint, wide, children }: { label: string; htmlFor?: string; hint?: string; wide?: boolean; children: React.ReactNode }) {
+function Field({ label, htmlFor, hint, children }: { label: string; htmlFor?: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className={cn(wide && 'lg:col-span-2')}>
+    <div>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {hint && <p className="mt-1 text-[11px] text-foreground-4">{hint}</p>}
@@ -81,12 +76,20 @@ function Field({ label, htmlFor, hint, wide, children }: { label: string; htmlFo
 /**
  * Add or edit a subscriber with every account detail an ISP keeps: profile,
  * contacts, location, wallet, service login, and (when adding) the first
- * package and how it was paid. Route: /subscribers/new and /subscribers/:id/edit.
+ * package and how it was paid. Sits in the same sheet as before.
  */
-export function SubscriberFormPage() {
-  const { id } = useParams();
+export function SubscriberForm({
+  customerId,
+  onDone,
+  onCancel,
+}: {
+  /** Set to edit that subscriber; leave out to add a new one. */
+  customerId?: string;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const id = customerId;
   const editing = Boolean(id);
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const optionsQuery = useQuery({ queryKey: ['customer-options'], queryFn: () => customersApi.options() });
@@ -239,36 +242,24 @@ export function SubscriberFormPage() {
       }
       return customer.id;
     },
-    onSuccess: async (customerId) => {
+    onSuccess: async () => {
       await Promise.all(
         ['subscriptions', 'subscribers', 'customers', 'customer-options', 'sales', 'dashboard'].map((key) =>
           queryClient.invalidateQueries({ queryKey: [key] }),
         ),
       );
-      navigate(editing ? `/customers/${customerId}` : '/subscribers', { replace: true });
+      onDone();
     },
     onError: (err) => {
       idempotencyKey.current = uuid();
       setError(err instanceof Error && !('response' in err) ? err.message : apiErrorMessage(err));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
   });
 
   if (editing && customerQuery.isLoading) return <PageLoader inline message="Loading" />;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 pb-10">
-      <AppBar title={editing ? 'Edit subscriber' : 'Add subscriber'} />
-      <p className="-mt-2 text-center text-[12px] text-foreground-4 lg:text-left">
-        {editing
-          ? 'Update the account details. Change the package by renewing from the client page.'
-          : 'Create the customer profile and initial service in one go.'}
-      </p>
-
-      {error && <Alert variant="error">{error}</Alert>}
-
       <form
-        id="subscriber-form"
         className="space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
@@ -277,6 +268,7 @@ export function SubscriberFormPage() {
         }}
         noValidate
       >
+        {error && <Alert variant="error">{error}</Alert>}
         <Section title="Customer profile">
           <Field label="Account number" htmlFor="sf-account">
             <Input
@@ -308,7 +300,7 @@ export function SubscriberFormPage() {
             <Input id="sf-phone" type="tel" inputMode="tel" placeholder="0712345678" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
 
-          <div className="lg:col-span-2">
+          <div>
             <Label>Additional phone numbers</Label>
             <div className="space-y-2">
               {extraPhones.map((p, i) => (
@@ -410,7 +402,7 @@ export function SubscriberFormPage() {
         </Section>
 
         <Section title={editing ? 'Service' : 'Initial service'}>
-          <div className="lg:col-span-2">
+          <div>
             <Label>Service type</Label>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Service type">
               {SERVICE_TYPES.map((t) => (
@@ -508,15 +500,15 @@ export function SubscriberFormPage() {
             </>
           )}
 
-          <Field label="Remarks" htmlFor="sf-remarks" wide>
+          <Field label="Remarks" htmlFor="sf-remarks">
             <Textarea id="sf-remarks" rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
           </Field>
 
           {/* Allowed hours per day: ticked days only connect inside their window */}
-          <div className="lg:col-span-2">
+          <div>
             <Label>Access hours (optional)</Label>
             <p className="mb-2 text-[11px] text-foreground-4">Tick a day to limit it to the hours set. Unticked days have no limit.</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            <div className="grid grid-cols-2 gap-2">
               {DAYS.map((d) => {
                 const h = hours[d.id];
                 const set = (patch: Partial<DayHours>) => setHours((all) => ({ ...all, [d.id]: { ...all[d.id], ...patch } }));
@@ -537,15 +529,14 @@ export function SubscriberFormPage() {
           </div>
         </Section>
 
-        <div className="flex gap-3">
-          <Button type="submit" size="lg" className="flex-1 lg:flex-none" loading={mutation.isPending}>
-            {editing ? 'Save changes' : 'Create customer & service'}
-          </Button>
-          <Button type="button" variant="outline" size="lg" onClick={() => navigate(-1)}>
+        <div className="flex justify-end gap-3 pt-1">
+          <Button variant="outline" type="button" onClick={onCancel}>
             Cancel
+          </Button>
+          <Button type="submit" loading={mutation.isPending}>
+            {editing ? 'Save changes' : 'Add subscriber'}
           </Button>
         </div>
       </form>
-    </div>
   );
 }
