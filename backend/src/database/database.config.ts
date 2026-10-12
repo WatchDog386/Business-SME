@@ -16,6 +16,25 @@ export function dataSourceOptions(
   };
 
   if (isPostgres) {
+    const rawUrl = config.get<string>('database.url');
+    if (rawUrl) {
+      // Fail fast with a readable message instead of endless
+      // "getaddrinfo ENOTFOUND ..." retries when the connection
+      // string is truncated or has unencoded special characters.
+      let host: string | null = null;
+      try {
+        host = new URL(rawUrl).hostname || null;
+      } catch {
+        host = null;
+      }
+      if (!host) {
+        throw new Error(
+          'DATABASE_URL is not a valid PostgreSQL connection string. ' +
+            'Expected format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE ' +
+            '(URL-encode @ # ? / : in the password).',
+        );
+      }
+    }
     return {
       ...common,
       type: 'postgres' as const,
