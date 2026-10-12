@@ -41,6 +41,12 @@ export class SubscriptionsController {
     return this.subscriptions.create(business.id, dto);
   }
 
+  @Get('subscribers')
+  @ApiOperation({ summary: 'Every client with account details and package status (Active / Inactive / Pending)' })
+  subscribers(@CurrentBusiness() business: { id: string }) {
+    return this.subscriptions.subscribers(business.id);
+  }
+
   @Get('stats')
   @ApiOperation({ summary: 'Active, expiring-soon and expired subscriber counts' })
   stats(@CurrentBusiness() business: { id: string }) {

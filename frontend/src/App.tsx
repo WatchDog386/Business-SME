@@ -26,6 +26,7 @@ import { ProfilePage } from '@/features/profile/profile-page';
 import { NotificationsPage } from '@/features/notifications/notifications-page';
 import { StaffPage } from '@/features/business/staff-page';
 import { SubscribersPage } from '@/features/isp/subscribers-page';
+import { SubscriberFormPage } from '@/features/isp/subscriber-form-page';
 import { CallsPage } from '@/features/isp/calls-page';
 import { WelcomePage, hasOnboarded } from '@/features/onboarding/welcome-page';
 import { NotFoundPage } from '@/features/misc/not-found-page';
@@ -95,6 +96,8 @@ export default function App() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/staff" element={<StaffPage />} />
         <Route path="/subscribers" element={<SubscribersPage />} />
+        <Route path="/subscribers/new" element={<SubscriberFormPage />} />
+        <Route path="/subscribers/:id/edit" element={<SubscriberFormPage />} />
         <Route path="/calls" element={<CallsPage />} />
       </Route>
 

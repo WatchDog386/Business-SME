@@ -43,6 +43,12 @@ export class CustomersController {
     return this.customersService.list(business.id, query);
   }
 
+  @Get('options')
+  @ApiOperation({ summary: 'Known locations, SMS groups, routers and the next account number' })
+  options(@CurrentBusiness() business: { id: string }) {
+    return this.customersService.options(business.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a single customer' })
   get(

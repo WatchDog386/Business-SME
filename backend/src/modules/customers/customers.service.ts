@@ -10,6 +10,29 @@ import { AuditService } from '../audit/audit.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import { PaginatedResult } from '../../common/dto/pagination.dto';
 
+/** Maps the subscriber fields that were sent onto entity columns. */
+function subscriberColumns(dto: UpdateCustomerDto): Partial<Customer> {
+  const out: Partial<Customer> = {};
+  const text = (v: string | undefined) => (v === undefined ? undefined : v.trim() || null);
+  if (dto.accountNumber !== undefined) out.account_number = text(dto.accountNumber);
+  if (dto.username !== undefined) out.username = text(dto.username);
+  if (dto.extraPhones !== undefined) out.extra_phones = dto.extraPhones.map((p) => p.trim()).filter(Boolean);
+  if (dto.kraPin !== undefined) out.kra_pin = text(dto.kraPin)?.toUpperCase() ?? null;
+  if (dto.location !== undefined) out.location = text(dto.location);
+  if (dto.smsGroup !== undefined) out.sms_group = text(dto.smsGroup);
+  if (dto.newInstallation !== undefined) out.new_installation = dto.newInstallation;
+  if (dto.discount !== undefined) out.discount = dto.discount;
+  if (dto.walletBalance !== undefined) out.wallet_balance = dto.walletBalance;
+  if (dto.serviceType !== undefined) out.service_type = dto.serviceType;
+  if (dto.router !== undefined) out.router = text(dto.router);
+  if (dto.macAddress !== undefined) out.mac_address = text(dto.macAddress)?.toUpperCase().replace(/-/g, ':') ?? null;
+  // Blank means "keep the current password"
+  if (dto.servicePassword) out.service_password = dto.servicePassword;
+  if (dto.burstProductId !== undefined) out.burst_product_id = dto.burstProductId;
+  if (dto.accessHours !== undefined) out.access_hours = dto.accessHours;
+  return out;
+}
+
 @Injectable()
 export class CustomersService {
   constructor(
@@ -39,6 +62,12 @@ export class CustomersService {
               search: `%${query.search}%`,
             })
             .orWhere('customer.email LIKE :search', {
+              search: `%${query.search}%`,
+            })
+            .orWhere('customer.account_number LIKE :search', {
+              search: `%${query.search}%`,
+            })
+            .orWhere('customer.username LIKE :search', {
               search: `%${query.search}%`,
             });
         }),
@@ -72,15 +101,22 @@ export class CustomersService {
     dto: CreateCustomerDto,
     actorId: string,
   ): Promise<Customer> {
+    const accountNumber = dto.accountNumber?.trim() || (await this.nextAccountNumber(businessId));
+    await this.assertAccountFree(businessId, accountNumber);
     const customer = this.repo.create({
       businessId,
       name: dto.name,
       phone: dto.phone ?? null,
-      email: dto.email ?? null,
+      email: dto.email || null,
       address: dto.address ?? null,
       notes: dto.notes ?? null,
+      ...subscriberColumns(dto),
+      account_number: accountNumber,
+      username: dto.username?.trim() || accountNumber,
+      new_installation: dto.newInstallation ?? false,
     });
     await this.repo.save(customer);
+    delete (customer as Partial<Customer>).service_password;
     await this.auditService.log({
       businessId,
       userId: actorId,
@@ -99,21 +135,26 @@ export class CustomersService {
     actorId: string,
   ): Promise<Customer> {
     const customer = await this.get(businessId, id);
+    if (dto.accountNumber !== undefined && dto.accountNumber.trim() !== customer.account_number) {
+      await this.assertAccountFree(businessId, dto.accountNumber.trim(), id);
+    }
     Object.assign(customer, {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
-      ...(dto.email !== undefined ? { email: dto.email } : {}),
+      ...(dto.email !== undefined ? { email: dto.email || null } : {}),
       ...(dto.address !== undefined ? { address: dto.address } : {}),
       ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+      ...subscriberColumns(dto),
     });
     await this.repo.save(customer);
+    delete (customer as Partial<Customer>).service_password;
     await this.auditService.log({
       businessId,
       userId: actorId,
       action: 'CUSTOMER_UPDATED',
       entity: 'customer',
       entityId: id,
-      metadata: { ...dto },
+      metadata: { ...dto, servicePassword: dto.servicePassword ? '(changed)' : undefined },
     });
     return customer;
   }
@@ -137,6 +178,12 @@ export class CustomersService {
       });
     }
 
+    await this.repo.manager
+      .createQueryBuilder()
+      .delete()
+      .from('subscriptions')
+      .where('"businessId" = :businessId AND "customerId" = :id', { businessId, id })
+      .execute();
     await this.repo.remove(customer);
     await this.auditService.log({
       businessId,
@@ -145,6 +192,48 @@ export class CustomersService {
       entity: 'customer',
       entityId: id,
     });
+  }
+
+  /** Next free numeric account number: one above the highest so far, starting at 1001. */
+  async nextAccountNumber(businessId: string): Promise<string> {
+    const row = await this.repo
+      .createQueryBuilder('c')
+      .select(`MAX(CAST(c.account_number AS INTEGER))`, 'max')
+      .where('c.businessId = :businessId', { businessId })
+      .andWhere(`c.account_number ~ '^[0-9]{1,9}$'`)
+      .getRawOne<{ max: number | null }>();
+    return String(Math.max(Number(row?.max ?? 0) + 1, 1001));
+  }
+
+  /** Known locations, SMS groups and routers, for the subscriber form's pickers. */
+  async options(businessId: string) {
+    const distinct = async (column: 'location' | 'sms_group' | 'router') =>
+      (
+        await this.repo
+          .createQueryBuilder('c')
+          .select(`DISTINCT c.${column}`, 'v')
+          .where('c.businessId = :businessId', { businessId })
+          .andWhere(`c.${column} IS NOT NULL AND c.${column} <> ''`)
+          .orderBy('v', 'ASC')
+          .getRawMany<{ v: string }>()
+      ).map((r) => r.v);
+    const [locations, smsGroups, routers, nextAccountNumber] = await Promise.all([
+      distinct('location'),
+      distinct('sms_group'),
+      distinct('router'),
+      this.nextAccountNumber(businessId),
+    ]);
+    return { locations, smsGroups, routers, nextAccountNumber };
+  }
+
+  private async assertAccountFree(businessId: string, accountNumber: string, exceptId?: string) {
+    const taken = await this.repo.findOne({ where: { businessId, account_number: accountNumber } });
+    if (taken && taken.id !== exceptId) {
+      throw new ConflictException({
+        code: 'ACCOUNT_NUMBER_TAKEN',
+        message: `Account number ${accountNumber} already belongs to ${taken.name}.`,
+      });
+    }
   }
 
   /** Adjust customer totals after a sale or refund. `delta` is signed. */

@@ -7,6 +7,9 @@ import type {
   DocKind,
   DocumentShare,
   SubscriberStats,
+  SubscriberInput,
+  SubscriberRow,
+  CustomerOptions,
   Subscription,
   SubscriptionStatus,
   MfaChallenge,
@@ -135,23 +138,10 @@ export const customersApi = {
   list: (params: { page?: number; limit?: number; search?: string }) =>
     api<Paginated<Customer>>({ method: 'GET', url: '/customers', params }),
   get: (id: string) => api<Customer>({ method: 'GET', url: `/customers/${id}` }),
-  create: (data: {
-    name: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-    notes?: string;
-  }) => api<Customer>({ method: 'POST', url: '/customers', data }),
-  update: (
-    id: string,
-    data: {
-      name?: string;
-      phone?: string;
-      email?: string;
-      address?: string;
-      notes?: string;
-    },
-  ) => api<Customer>({ method: 'PATCH', url: `/customers/${id}`, data }),
+  create: (data: SubscriberInput & { name: string }) => api<Customer>({ method: 'POST', url: '/customers', data }),
+  update: (id: string, data: SubscriberInput) => api<Customer>({ method: 'PATCH', url: `/customers/${id}`, data }),
+  /** Known locations, SMS groups, routers and the next free account number. */
+  options: () => api<CustomerOptions>({ method: 'GET', url: '/customers/options' }),
   remove: (id: string) =>
     api<{ success: boolean }>({ method: 'DELETE', url: `/customers/${id}` }),
 };
@@ -355,6 +345,8 @@ export const subscriptionsApi = {
   list: (status?: SubscriptionStatus) =>
     api<Subscription[]>({ method: 'GET', url: '/subscriptions', params: status ? { status } : undefined }),
   stats: () => api<SubscriberStats>({ method: 'GET', url: '/subscriptions/stats' }),
+  /** Every client with account details and Active / Inactive / Pending status. */
+  register: () => api<SubscriberRow[]>({ method: 'GET', url: '/subscriptions/subscribers' }),
   forCustomer: (customerId: string) =>
     api<Subscription | null>({ method: 'GET', url: `/subscriptions/customer/${customerId}` }),
   /** Add an already-connected subscriber without a sale. */

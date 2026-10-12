@@ -166,6 +166,41 @@ export class SubscriptionsService {
       .filter((s) => !status || s.status === status);
   }
 
+  /**
+   * The subscriber register: every client, newest first, with their account
+   * details and package. Active = package running, Inactive = package ran
+   * out, Pending = no package yet.
+   */
+  async subscribers(businessId: string) {
+    const [customers, subs] = await Promise.all([
+      this.customerRepo.find({ where: { businessId }, order: { created_at: 'DESC' } }),
+      this.repo.find({ where: { businessId } }),
+    ]);
+    const byCustomer = new Map(subs.map((s) => [s.customerId, s]));
+    const now = Date.now();
+    return customers.map((c) => {
+      const s = byCustomer.get(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        username: c.username,
+        accountNumber: c.account_number,
+        phone: c.phone,
+        location: c.location,
+        serviceType: c.service_type,
+        router: c.router,
+        wallet: c.wallet_balance,
+        debt: c.outstanding_balance,
+        createdAt: c.created_at,
+        packageName: s?.package_name ?? null,
+        price: s?.price ?? null,
+        expiresAt: s?.expires_at ?? null,
+        daysLeft: s ? Math.ceil((s.expires_at.getTime() - now) / DAY) : null,
+        status: !s ? 'PENDING' : s.expires_at.getTime() > now ? 'ACTIVE' : 'INACTIVE',
+      };
+    });
+  }
+
   async stats(businessId: string) {
     const now = new Date();
     const soon = new Date(now.getTime() + EXPIRING_DAYS * DAY);

@@ -96,6 +96,78 @@ export interface Customer {
   last_visit_at: string | null;
   created_at: string;
   updated_at: string;
+  // Subscriber account (ISP billing)
+  account_number: string | null;
+  username: string | null;
+  extra_phones: string[] | null;
+  kra_pin: string | null;
+  location: string | null;
+  sms_group: string | null;
+  new_installation: boolean;
+  discount: number;
+  wallet_balance: number;
+  service_type: ServiceType | null;
+  router: string | null;
+  mac_address: string | null;
+  burst_product_id: string | null;
+  access_hours: AccessHours | null;
+}
+
+export type ServiceType = 'HOTSPOT' | 'PPPOE' | 'STATIC';
+/** Allowed hours per weekday (mon…sun); missing day = no limit that day. */
+export type AccessHours = Record<string, { from: string; to: string }>;
+
+/** Fields sent when adding or editing a subscriber. */
+export interface SubscriberInput {
+  name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  accountNumber?: string;
+  username?: string;
+  extraPhones?: string[];
+  kraPin?: string;
+  location?: string;
+  smsGroup?: string;
+  newInstallation?: boolean;
+  discount?: number;
+  walletBalance?: number;
+  serviceType?: ServiceType;
+  router?: string;
+  macAddress?: string;
+  servicePassword?: string;
+  burstProductId?: string | null;
+  accessHours?: AccessHours | null;
+}
+
+export interface CustomerOptions {
+  locations: string[];
+  smsGroups: string[];
+  routers: string[];
+  nextAccountNumber: string;
+}
+
+export type SubscriberStatus = 'ACTIVE' | 'INACTIVE' | 'PENDING';
+
+/** One row of the subscriber register. */
+export interface SubscriberRow {
+  id: string;
+  name: string;
+  username: string | null;
+  accountNumber: string | null;
+  phone: string | null;
+  location: string | null;
+  serviceType: ServiceType | null;
+  router: string | null;
+  wallet: number;
+  debt: number;
+  createdAt: string;
+  packageName: string | null;
+  price: number | null;
+  expiresAt: string | null;
+  daysLeft: number | null;
+  status: SubscriberStatus;
 }
 
 export type StockStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';

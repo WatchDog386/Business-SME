@@ -1,24 +1,22 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { AlertCircle, CheckCircle2, Clock, Search, Wifi, X } from 'lucide-react';
-import { subscriptionsApi } from '@/api/endpoints';
+import { Eye, Pencil, Search, Trash2, Wifi } from 'lucide-react';
+import { customersApi, subscriptionsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
-import type { SubscriptionStatus, UserRole } from '@/api/types';
-import { Dialog } from '@/components/ui/dialog';
+import type { SubscriberRow, SubscriberStatus, UserRole } from '@/api/types';
 import { Alert } from '@/components/ui/alert';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { PageLoader } from '@/components/ui/spinner';
 import { cn, formatKES } from '@/lib/utils';
 import { useActiveBusiness } from '@/stores/business';
 import { useRole } from '@/hooks/use-role';
-import { CHARCOAL, FiberHeroCard, LIME, ProfileHeader, RoundFilters } from '@/components/brand/fiber-card';
-import { AddSubscriberForm } from './add-subscriber-form';
+import { CHARCOAL, FiberHeroCard, LIME, ProfileHeader } from '@/components/brand/fiber-card';
 import { ContactButtons, LogCallSheet } from './contact';
-import { StatusPill, daysText } from './subscription';
 
-type Filter = SubscriptionStatus | 'ALL';
+type Filter = 'ALL' | SubscriberStatus | 'DUE3' | 'DUE7';
 
 const ROLE_LABEL: Record<UserRole, string> = {
   OWNER: 'Admin',
@@ -28,11 +26,31 @@ const ROLE_LABEL: Record<UserRole, string> = {
   CLIENT: 'Client',
 };
 
-const RING: Record<SubscriptionStatus, string> = {
-  ACTIVE: 'bg-emerald-500',
-  EXPIRING: 'bg-amber-500',
-  EXPIRED: 'bg-red-500',
+const SERVICE_LABEL = { HOTSPOT: 'Hotspot', PPPOE: 'PPPoE', STATIC: 'Static IP' } as const;
+
+const STATUS: Record<SubscriberStatus, { label: string; pill: string }> = {
+  ACTIVE: { label: 'Active', pill: 'bg-emerald-50 text-emerald-700 [.dark_&]:bg-emerald-500/15 [.dark_&]:text-emerald-300' },
+  INACTIVE: { label: 'Inactive', pill: 'bg-red-50 text-red-700 [.dark_&]:bg-red-500/15 [.dark_&]:text-red-300' },
+  PENDING: { label: 'Pending', pill: 'bg-amber-50 text-amber-700 [.dark_&]:bg-amber-500/15 [.dark_&]:text-amber-300' },
 };
+
+/** Stat tiles double as the filter, like the billing system's cards and tabs. */
+const TILES: { id: Filter; label: string; note: string; dot: string }[] = [
+  { id: 'ALL', label: 'Total', note: 'All subscribers', dot: 'bg-brand-600' },
+  { id: 'ACTIVE', label: 'Active', note: 'Package running', dot: 'bg-emerald-500' },
+  { id: 'INACTIVE', label: 'Inactive', note: 'Package ran out', dot: 'bg-red-500' },
+  { id: 'PENDING', label: 'Pending', note: 'No package yet', dot: 'bg-amber-500' },
+  { id: 'DUE3', label: 'Due in 3 days', note: 'Renew soon', dot: 'bg-orange-500' },
+  { id: 'DUE7', label: 'Due in 7 days', note: 'Renewal attention', dot: 'bg-sky-500' },
+];
+
+function matches(s: SubscriberRow, filter: Filter): boolean {
+  if (filter === 'ALL') return true;
+  if (filter === 'DUE3' || filter === 'DUE7') {
+    return s.status === 'ACTIVE' && s.daysLeft !== null && s.daysLeft <= (filter === 'DUE3' ? 3 : 7);
+  }
+  return s.status === filter;
+}
 
 function initials(name: string) {
   return name
@@ -45,65 +63,125 @@ function initials(name: string) {
     .slice(0, 2);
 }
 
-/** Every client's WiFi package, soonest expiry first. Same layout as the Clients page; renew from the client's page. */
+function dueText(s: SubscriberRow): string {
+  if (!s.expiresAt || s.daysLeft === null) return 'No package';
+  const date = new Date(s.expiresAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
+  if (s.daysLeft < 0) return `Expired ${date}`;
+  if (s.daysLeft === 0) return 'Due today';
+  return `Due ${date}`;
+}
+
+function StatusPill({ status }: { status: SubscriberStatus }) {
+  return <span className={cn('inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold', STATUS[status].pill)}>{STATUS[status].label}</span>;
+}
+
+/** The subscriber register: every client with account, package, router, wallet, debt and status. */
 export function SubscribersPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const business = useActiveBusiness();
   const { role } = useRole();
+  const canDelete = role === 'OWNER' || role === 'MANAGER';
   const [filter, setFilter] = useState<Filter>('ALL');
   const [search, setSearch] = useState('');
   const [logFor, setLogFor] = useState<{ id: string; name: string } | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const { data, isLoading, error } = useQuery({ queryKey: ['subscriptions'], queryFn: () => subscriptionsApi.list() });
+  const [deleting, setDeleting] = useState<SubscriberRow | null>(null);
+  const { data, isLoading, error } = useQuery({ queryKey: ['subscribers'], queryFn: () => subscriptionsApi.register() });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => customersApi.remove(id),
+    onSuccess: async () => {
+      setDeleting(null);
+      await Promise.all(['subscribers', 'subscriptions', 'customers'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })));
+    },
+  });
 
   const all = data ?? [];
-  const counts = {
-    ALL: all.length,
-    ACTIVE: all.filter((s) => s.status === 'ACTIVE').length,
-    EXPIRING: all.filter((s) => s.status === 'EXPIRING').length,
-    EXPIRED: all.filter((s) => s.status === 'EXPIRED').length,
-  };
-  const monthly = all.filter((s) => s.status !== 'EXPIRED').reduce((sum, s) => sum + s.price, 0);
+  const count = (f: Filter) => all.filter((s) => matches(s, f)).length;
+  const monthly = all.filter((s) => s.status === 'ACTIVE').reduce((sum, s) => sum + (s.price ?? 0), 0);
   const term = search.trim().toLowerCase();
   const visible = all.filter(
     (s) =>
-      (filter === 'ALL' || s.status === filter) &&
-      (!term || s.customer?.name.toLowerCase().includes(term) || s.packageName.toLowerCase().includes(term)),
+      matches(s, filter) &&
+      (!term ||
+        [s.name, s.username, s.accountNumber, s.phone, s.location, s.packageName, s.router].some((v) => v?.toLowerCase().includes(term))),
   );
-  // Faces row: clients to chase first (expiring, then expired)
-  const dueSoon = all.filter((s) => s.status !== 'ACTIVE').sort((a, b) => b.daysLeft - a.daysLeft);
+
+  const actions = (s: SubscriberRow) => (
+    <div className="flex items-center gap-1.5">
+      <ActionButton label="View" onClick={() => navigate(`/customers/${s.id}`)} icon={Eye} />
+      <ActionButton label="Edit" onClick={() => navigate(`/subscribers/${s.id}/edit`)} icon={Pencil} />
+      {canDelete && <ActionButton label="Delete" onClick={() => setDeleting(s)} icon={Trash2} danger />}
+    </div>
+  );
 
   return (
     <div className="space-y-5 pb-10">
       <ProfileHeader roleLabel={role ? ROLE_LABEL[role] : undefined} />
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
+      <motion.div className="lg:hidden" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
         <FiberHeroCard
           label="Subscribers"
-          value={data ? counts.ALL : '—'}
-          note={`${counts.ACTIVE} active`}
-          maskedValue={counts.ALL}
+          value={data ? all.length : '—'}
+          note={`${count('ACTIVE')} active`}
+          maskedValue={all.length}
           footerLeft={business?.name ?? 'Optimas'}
           footerRight={`${formatKES(monthly)}/mo`}
           icon={Wifi}
-          action={{ label: 'Add subscriber', onClick: () => setAddOpen(true) }}
+          action={{ label: 'Add subscriber', onClick: () => navigate('/subscribers/new') }}
         />
       </motion.div>
 
-      <RoundFilters<Filter>
-        value={filter}
-        onChange={setFilter}
-        items={[
-          { id: 'ALL', label: 'Everyone', icon: Wifi, count: counts.ALL, iconClass: 'text-brand-600', hoverClass: 'hover:bg-brand-50', selectedClass: 'bg-brand-50 border-brand-500' },
-          { id: 'ACTIVE', label: 'Active', icon: CheckCircle2, count: counts.ACTIVE, iconClass: 'text-emerald-600', hoverClass: 'hover:bg-emerald-50', selectedClass: 'bg-emerald-50 border-emerald-500' },
-          { id: 'EXPIRING', label: 'Expiring', icon: Clock, count: counts.EXPIRING, iconClass: 'text-amber-500', hoverClass: 'hover:bg-amber-50', selectedClass: 'bg-amber-50 border-amber-500' },
-          { id: 'EXPIRED', label: 'Expired', icon: AlertCircle, count: counts.EXPIRED, iconClass: 'text-red-600', hoverClass: 'hover:bg-red-50', selectedClass: 'bg-red-50 border-red-500' },
-        ]}
-      />
+      <div className="hidden items-end justify-between gap-4 lg:flex">
+        <div>
+          <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-brand-600">Subscriber CRM</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Subscribers</h1>
+          <p className="mt-1 text-sm text-foreground-4">Account details, packages, renewals and balances for every client.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/subscribers/new')}
+          className="flex h-11 items-center gap-2 rounded-full px-5 text-[14px] font-semibold"
+          style={{ backgroundColor: LIME, color: CHARCOAL }}
+        >
+          <Wifi className="h-4 w-4" aria-hidden /> Add subscriber
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 lg:grid-cols-6 lg:gap-3">
+        {TILES.map((t) => {
+          const selected = filter === t.id;
+          return (
+            <motion.button
+              key={t.id}
+              type="button"
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setFilter(t.id)}
+              aria-pressed={selected}
+              className={cn(
+                'rounded-2xl border p-3 text-left transition-colors',
+                selected ? 'border-brand-500 bg-brand-50 [.dark_&]:bg-white/10' : 'border-edge bg-surface hover:bg-surface-2',
+              )}
+            >
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-foreground-4">
+                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', t.dot)} aria-hidden />
+                <span className="truncate">{t.label}</span>
+              </span>
+              <span className="mt-1 block text-[22px] font-semibold tabular-nums text-foreground">{data ? count(t.id) : '—'}</span>
+              <span className="hidden truncate text-[11px] text-foreground-4 sm:block">{t.note}</span>
+            </motion.button>
+          );
+        })}
+      </div>
 
       <div className="relative">
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-5" aria-hidden />
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search client or package" className="h-12 pl-11" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, account, phone, location, package or router"
+          className="h-12 pl-11"
+        />
       </div>
 
       {error && (
@@ -113,138 +191,158 @@ export function SubscribersPage() {
       )}
       {isLoading && <PageLoader inline message="Loading" />}
 
-      {/* Renew soon: tap a face to open that client */}
-      {!isLoading && !term && filter === 'ALL' && dueSoon.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center justify-between px-1">
-            <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Renew soon</h2>
-            <span className="text-[12px] font-medium text-foreground-4">{dueSoon.length} clients</span>
-          </div>
-          <div className="scrollbar-none -mx-1 flex gap-4 overflow-x-auto px-1">
-            {dueSoon.slice(0, 12).map((s, i) => (
-              <motion.button
-                key={s.id}
-                type="button"
-                onClick={() => navigate(`/customers/${s.customerId}`)}
-                className="flex w-14 shrink-0 flex-col items-center gap-1.5"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.04 * i, type: 'spring', stiffness: 400, damping: 26 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <span
-                  className="relative flex h-12 w-12 items-center justify-center rounded-full text-[15px] font-semibold"
-                  style={{ backgroundColor: CHARCOAL, color: LIME }}
-                >
-                  {initials(s.customer?.name ?? '?')}
-                  <span className={cn('absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-white', RING[s.status])} aria-hidden />
-                </span>
-                <span className="w-full truncate text-center text-[11px] font-medium text-foreground-2">
-                  {(s.customer?.name ?? 'Client').split(' ')[0]}
-                </span>
-              </motion.button>
-            ))}
-          </div>
-        </section>
-      )}
-
       {data && visible.length === 0 && (
         <div className="flex flex-col items-center py-10 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: CHARCOAL, color: LIME }}>
             <Wifi className="h-6 w-6" aria-hidden />
           </span>
-          <p className="mt-4 text-[15px] font-semibold text-foreground">
-            {term || filter !== 'ALL' ? 'No subscribers found' : 'No subscribers yet'}
-          </p>
+          <p className="mt-4 text-[15px] font-semibold text-foreground">{term || filter !== 'ALL' ? 'No subscribers found' : 'No subscribers yet'}</p>
           <p className="mt-1 text-[13px] text-foreground-4">
-            {term || filter !== 'ALL' ? 'Try a different search or filter.' : 'Add a subscriber or sell a WiFi package to start one.'}
+            {term || filter !== 'ALL' ? 'Try a different search or filter.' : 'Tap "Add subscriber" to record your first client.'}
           </p>
         </div>
       )}
 
       {data && visible.length > 0 && (
-        <section>
-          <div className="mb-2 flex items-center justify-between px-1">
-            <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Subscribers</h2>
-            <span className="text-[12px] font-medium text-foreground-4">{visible.length}</span>
-          </div>
-          <ul className="stagger-list space-y-1">
+        <>
+          <p className="px-1 text-[13px] font-medium text-foreground-3">
+            {visible.length} matching subscriber{visible.length === 1 ? '' : 's'}
+          </p>
+
+          {/* Phones: flat rows */}
+          <ul className="stagger-list space-y-1 lg:hidden">
             {visible.map((s) => (
-              <li key={s.id} className="py-1">
-                <div className="flex items-center gap-3">
-                  <Link
-                    to={`/customers/${s.customerId}`}
-                    className="-mx-1 flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1.5 transition-[transform,background-color] active:scale-[0.99] active:bg-surface-3"
-                  >
+              <li key={s.id} className="py-1.5">
+                <div className="flex items-start gap-3">
+                  <Link to={`/customers/${s.id}`} className="flex min-w-0 flex-1 items-start gap-3 active:opacity-70">
                     <span
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold"
                       style={{ backgroundColor: CHARCOAL, color: LIME }}
                     >
-                      {initials(s.customer?.name ?? '?')}
+                      {initials(s.name)}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-semibold text-foreground">{s.customer?.name ?? 'Client'}</span>
+                      <span className="block truncate text-[14px] font-semibold text-foreground">{s.name}</span>
                       <span className="block truncate text-[12px] text-foreground-4">
-                        {s.packageName} · {formatKES(s.price)}/mo
+                        {[s.accountNumber && `#${s.accountNumber}`, s.phone, s.location].filter(Boolean).join(' · ') || '—'}
                       </span>
-                      <span
-                        className={cn(
-                          'block text-[11px] font-medium',
-                          s.status === 'EXPIRED' ? 'text-red-600' : s.status === 'EXPIRING' ? 'text-amber-600' : 'text-foreground-4',
-                        )}
-                      >
-                        {daysText(s.daysLeft)}
+                      <span className="block truncate text-[12px] text-foreground-3">
+                        {s.packageName ?? 'No package'}
+                        {s.serviceType && ` · ${SERVICE_LABEL[s.serviceType]}`}
+                        {s.router && ` · ${s.router}`}
+                      </span>
+                      <span className={cn('block text-[11px] font-medium', s.status === 'INACTIVE' ? 'text-red-600' : s.daysLeft !== null && s.daysLeft <= 3 ? 'text-amber-600' : 'text-foreground-4')}>
+                        {dueText(s)}
+                        {s.debt > 0 && ` · Owes ${formatKES(s.debt)}`}
+                        {s.wallet > 0 && ` · Wallet ${formatKES(s.wallet)}`}
                       </span>
                     </span>
                   </Link>
-                  <span className="shrink-0">
-                    <StatusPill status={s.status} />
-                  </span>
+                  <StatusPill status={s.status} />
                 </div>
-                {s.status !== 'ACTIVE' && (
-                  <div className="mt-1.5 pl-14">
+                <div className="mt-2 flex flex-wrap items-center gap-2 pl-14">
+                  {actions(s)}
+                  {s.status !== 'ACTIVE' && (
                     <ContactButtons
                       size="sm"
-                      phone={s.customer?.phone}
-                      message={`Hello ${s.customer?.name ?? ''}, this is Optimas. Your ${s.packageName} ${s.status === 'EXPIRED' ? 'has expired' : 'expires soon'}. Renew via M-Pesa to stay connected.`}
-                      onLog={() => s.customer && setLogFor({ id: s.customer.id, name: s.customer.name })}
+                      phone={s.phone}
+                      message={`Hello ${s.name}, this is Optimas. ${s.status === 'PENDING' ? 'Your WiFi is ready to activate.' : `Your ${s.packageName} has expired.`} Pay via M-Pesa to get connected.`}
+                      onLog={() => setLogFor({ id: s.id, name: s.name })}
                     />
-                  </div>
-                )}
+                  )}
+                </div>
               </li>
             ))}
           </ul>
-        </section>
-      )}
 
-      {/* Add subscriber: same panel style as "Add client" and "Add staff" */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setAddOpen(false)}
-            className="absolute -right-1 -top-1 flex h-9 items-center gap-1.5 rounded-full pl-1.5 pr-3.5 text-[12px] font-semibold"
-            style={{ backgroundColor: LIME, color: CHARCOAL }}
-          >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full text-white" style={{ backgroundColor: CHARCOAL }}>
-              <X className="h-3.5 w-3.5" aria-hidden />
-            </span>
-            Close
-          </button>
-          <div className="flex flex-col items-center pb-5 pt-4 text-center">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: CHARCOAL, color: LIME }}>
-              <Wifi className="h-7 w-7" aria-hidden />
-            </span>
-            <h2 className="mt-3 text-[20px] font-semibold tracking-tight text-foreground">Add subscriber</h2>
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-4">Connect a client to WiFi</p>
+          {/* Desktop: the full register table */}
+          <div className="hidden overflow-x-auto rounded-2xl border border-edge bg-surface lg:block">
+            <table className="w-full min-w-[1100px] text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-edge text-[11px] font-semibold uppercase tracking-wider text-foreground-4">
+                  {['Customer', 'Account', 'Phone', 'Location', 'Package', 'Service', 'Router / NAS', 'Due', 'Wallet', 'Debt', 'Status', 'Actions'].map((h) => (
+                    <th key={h} className="whitespace-nowrap px-3 py-3 first:pl-5 last:pr-5">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((s) => (
+                  <tr key={s.id} className="border-b border-edge last:border-0 hover:bg-surface-2">
+                    <td className="px-3 py-3 pl-5">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold" style={{ backgroundColor: CHARCOAL, color: LIME }}>
+                          {initials(s.name)}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block max-w-[180px] truncate font-semibold text-foreground">{s.name}</span>
+                          {s.username && <span className="block text-[12px] text-foreground-4">@{s.username}</span>}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 tabular-nums">{s.accountNumber ?? '—'}</td>
+                    <td className="whitespace-nowrap px-3 py-3 tabular-nums">{s.phone ?? '—'}</td>
+                    <td className="whitespace-nowrap px-3 py-3">{s.location ?? '—'}</td>
+                    <td className="whitespace-nowrap px-3 py-3 font-medium text-foreground">{s.packageName ?? '—'}</td>
+                    <td className="px-3 py-3">{s.serviceType ? SERVICE_LABEL[s.serviceType] : '—'}</td>
+                    <td className="px-3 py-3">{s.router ?? '—'}</td>
+                    <td className={cn('whitespace-nowrap px-3 py-3', s.status === 'INACTIVE' && 'text-red-600')}>
+                      {s.expiresAt ? new Date(s.expiresAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 tabular-nums">{formatKES(s.wallet)}</td>
+                    <td className={cn('whitespace-nowrap px-3 py-3 tabular-nums', s.debt > 0 && 'font-semibold text-red-600')}>{formatKES(s.debt)}</td>
+                    <td className="px-3 py-3">
+                      <StatusPill status={s.status} />
+                    </td>
+                    <td className="px-3 py-3 pr-5">{actions(s)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          {addOpen && <AddSubscriberForm onDone={() => setAddOpen(false)} onCancel={() => setAddOpen(false)} />}
-        </div>
-      </Dialog>
-
-      {logFor && (
-        <LogCallSheet open={Boolean(logFor)} onOpenChange={(o) => !o && setLogFor(null)} customerId={logFor.id} customerName={logFor.name} />
+        </>
       )}
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Delete ${deleting?.name ?? 'subscriber'}?`}
+        description="This removes the subscriber and their package. Subscribers with invoices can't be deleted, to keep the records."
+        confirmLabel="Delete"
+        destructive
+        loading={remove.isPending}
+        error={remove.error ? apiErrorMessage(remove.error) : null}
+        onConfirm={() => deleting && remove.mutate(deleting.id)}
+      />
+
+      {logFor && <LogCallSheet open={Boolean(logFor)} onOpenChange={(o) => !o && setLogFor(null)} customerId={logFor.id} customerName={logFor.name} />}
     </div>
+  );
+}
+
+function ActionButton({
+  label,
+  icon: Icon,
+  onClick,
+  danger,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex h-8 items-center gap-1 rounded-full px-3 text-[12px] font-semibold transition-transform active:scale-95',
+        danger ? 'bg-red-50 text-red-700 [.dark_&]:bg-red-500/15 [.dark_&]:text-red-300' : 'bg-surface-3 text-foreground-2',
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      {label}
+    </button>
   );
 }
