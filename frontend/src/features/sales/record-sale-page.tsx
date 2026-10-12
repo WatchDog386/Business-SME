@@ -1,31 +1,20 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  Plus,
-  Minus,
-  Trash2,
-  Search,
-  Receipt,
-  CheckCircle2,
-  Package,
-  Scissors,
-  ShoppingCart,
-  ScanLine,
-  ClipboardType,
-  AlertTriangle,
-} from 'lucide-react';
+import { Plus, Minus, Trash2, Search, CheckCircle2, ShoppingCart, ChevronDown, Lock } from 'lucide-react';
 import { customersApi, productsApi, servicesApi, salesApi } from '@/api/endpoints';
+import { Dialog } from '@/components/ui/dialog';
+import { PackageCard, planStyle } from '@/features/products/package-card';
+import { PaymentCapture, type CapturedPayment, type PayMode } from './components/payment-capture';
+import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Alert } from '@/components/ui/alert';
 import { PageLoader } from '@/components/ui/spinner';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
@@ -33,7 +22,6 @@ import { formatKES, uuid } from '@/lib/utils';
 import { DEFAULT_PAYMENT_METHODS } from '@/lib/constants';
 import { useActiveBusiness } from '@/stores/business';
 import type { Customer } from '@/api/types';
-import { parseTransactionSms, type ParsedTransaction } from '@/lib/parse-transaction-sms';
 
 interface LineItem {
   key: string;
@@ -74,6 +62,8 @@ export function RecordSalePage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [catalogSearch, setCatalogSearch] = useState('');
   const [customerId, setCustomerId] = useState<string | null>(presetCustomer);
+  // Client name typed at checkout: an existing client is matched by name, a new one is created
+  const [clientName, setClientName] = useState('');
   const [successSale, setSuccessSale] = useState<{ id: string; total: number; payment_status: string } | null>(null);
   const idempotencyKey = useRef(uuid());
 
@@ -108,7 +98,7 @@ export function RecordSalePage() {
     defaultValues: {
       discount: '',
       taxRate: '',
-      paymentMethod: 'CASH',
+      paymentMethod: 'M-PESA',
       amountPaid: '',
       notes: '',
     },
@@ -129,32 +119,76 @@ export function RecordSalePage() {
   const balanceOwed = Math.max(0, total - amountPaid);
   const isPartial = balanceOwed > 0 && total > 0;
 
-  const [scanText, setScanText] = useState('');
-  const [scanned, setScanned] = useState<ParsedTransaction | null>(null);
-  const [paymentTab, setPaymentTab] = useState<'manual' | 'scan'>('manual');
   const [pageStep, setPageStep] = useState<1 | 2 | 3>(1);
+  // Checkout payment: M-Pesa prompt, camera, pasted message, or cash/other
+  const [payMode, setPayMode] = useState<PayMode>('prompt');
+  const [captured, setCaptured] = useState<CapturedPayment | null>(null);
+  const [clientPhone, setClientPhone] = useState('');
+  const [showDiscount, setShowDiscount] = useState(false);
+  const scanned = captured;
 
-  const handleScanExtract = () => {
-    const parsed = parseTransactionSms(scanText);
-    setScanned(parsed);
-    if (parsed.amount) setValue('amountPaid', parsed.amount);
-    if (parsed.name) {
-      const list: Customer[] = Array.isArray(customersQuery.data)
-        ? (customersQuery.data as Customer[])
-        : ((customersQuery.data as { items?: Customer[] })?.items ?? []);
-      const found = list.find((c) => c.name.toLowerCase() === (parsed.name as string).toLowerCase());
-      if (found) setCustomerId(found.id);
+  const customerList: Customer[] = Array.isArray(customersQuery.data)
+    ? (customersQuery.data as Customer[])
+    : ((customersQuery.data as { items?: Customer[] })?.items ?? []);
+  const matchedClient = customerList.find((c) => c.name.trim().toLowerCase() === clientName.trim().toLowerCase());
+
+  // A known client brings their phone number for the M-Pesa prompt
+  useEffect(() => {
+    if (matchedClient?.phone && !clientPhone) setClientPhone(matchedClient.phone);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedClient?.id]);
+
+  // A confirmed or read M-Pesa payment fills the payment fields
+  function capturePayment(payment: CapturedPayment | null) {
+    setCaptured(payment);
+    if (payment) {
+      setValue('paymentMethod', 'M-PESA');
+      setValue('amountPaid', payment.amount);
+      if (payment.reference) {
+        setValue('notes', `M-Pesa ${payment.reference}${payment.when ? ` · ${payment.when}` : ''}${payment.name ? ` · ${payment.name}` : ''}`);
+      }
+      if (payment.name && !clientName.trim()) setClientName(payment.name);
+      if (payment.phone && !clientPhone.trim()) setClientPhone(payment.phone);
+    } else {
+      setValue('amountPaid', '');
+      setValue('notes', '');
     }
-    if (parsed.code) {
-      const note = `Ref: ${parsed.code}${parsed.datetime ? ` • ${parsed.datetime}` : ''}${parsed.name ? ` • ${parsed.name}` : ''}`;
-      setValue('notes', note);
+  }
+
+  function choosePayMode(mode: PayMode) {
+    setPayMode(mode);
+    if (mode === 'cash') {
+      setValue('paymentMethod', 'CASH');
+      setValue('amountPaid', total);
+    } else {
+      setValue('paymentMethod', 'M-PESA');
     }
-  };
+  }
 
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
       // Auto-resolve customer: if no customer selected but scanned name exists, find or create
       let resolvedCustomerId: string | undefined = customerId ?? undefined;
+      const typedName = clientName.trim();
+      if (typedName) {
+        const list: Customer[] = Array.isArray(customersQuery.data)
+          ? (customersQuery.data as Customer[])
+          : ((customersQuery.data as { items?: Customer[] })?.items ?? []);
+        const preset = list.find((c) => c.id === customerId);
+        // Typing a different name than the preset client means a different client
+        if (!preset || preset.name.toLowerCase() !== typedName.toLowerCase()) {
+          let found = list.find((c) => c.name.toLowerCase() === typedName.toLowerCase());
+          if (!found) {
+            try {
+              const res = await customersApi.list({ limit: 50, search: typedName });
+              found = res.items.find((c) => c.name.toLowerCase() === typedName.toLowerCase());
+            } catch {}
+          }
+          resolvedCustomerId = found
+            ? found.id
+            : (await customersApi.create({ name: typedName, phone: clientPhone.trim() || undefined })).id;
+        }
+      }
       if (!resolvedCustomerId && scanned?.name) {
         const list: Customer[] = Array.isArray(customersQuery.data)
           ? (customersQuery.data as Customer[])
@@ -189,6 +223,7 @@ export function RecordSalePage() {
         taxRate: Number(values.taxRate || 0),
         paymentMethod: values.paymentMethod,
         amountPaid: Number(values.amountPaid === '' ? 0 : values.amountPaid),
+        reference: captured?.reference ?? undefined,
         notes: values.notes || undefined,
         idempotencyKey: idempotencyKey.current,
       });
@@ -207,49 +242,14 @@ export function RecordSalePage() {
     onError: (err) => setFormError('root', { message: apiErrorMessage(err) }),
   });
 
-  const catalog = useMemo(() => {
-    const items: Array<{
-      type: 'PRODUCT' | 'SERVICE';
-      id: string;
-      name: string;
-      unitPrice: number;
-      stock: number | null;
-      active: boolean;
-    }> = [];
-
-    const productList = Array.isArray(productsQuery.data)
-      ? productsQuery.data
-      : (productsQuery.data?.items ?? []);
-
-    for (const product of productList) {
-      items.push({
-        type: 'PRODUCT',
-        id: product.id,
-        name: product.name,
-        unitPrice: product.selling_price,
-        stock: product.track_inventory ? product.stock_quantity : null,
-        active: product.active,
-      });
-    }
-
-    const serviceList = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
-    for (const service of serviceList) {
-      items.push({
-        type: 'SERVICE',
-        id: service.id,
-        name: service.name,
-        unitPrice: service.price,
-        stock: null,
-        active: service.active,
-      });
-    }
-
+  // Record sale offers WiFi packages only, cheapest first, as on the Products page
+  const packages = useMemo(() => {
+    const list = Array.isArray(productsQuery.data) ? productsQuery.data : (productsQuery.data?.items ?? []);
     const query = catalogSearch.trim().toLowerCase();
-    return items.filter(
-      (item) =>
-        item.active && (!query || item.name.toLowerCase().includes(query)),
-    );
-  }, [productsQuery.data, servicesQuery.data, catalogSearch]);
+    return list
+      .filter((p) => p.billing_days && p.active && (!query || p.name.toLowerCase().includes(query)))
+      .sort((x, y) => x.selling_price - y.selling_price);
+  }, [productsQuery.data, catalogSearch]);
 
   function addItem(item: {
     type: 'PRODUCT' | 'SERVICE';
@@ -284,6 +284,44 @@ export function RecordSalePage() {
     });
   }
 
+  // A WiFi package becomes the client's subscription, so it needs a client
+  const needsClient =
+    !customerId &&
+    !clientName.trim() &&
+    !scanned?.name &&
+    lineItems.some((line) => line.type === 'PRODUCT' && productsQuery.data?.items.find((p) => p.id === line.id)?.billing_days);
+
+  // "Renew" links pass ?product=<package id>: start with it in the cart
+  const presetProduct = searchParams.get('product');
+  const presetApplied = useRef(false);
+  useEffect(() => {
+    if (presetApplied.current || !presetProduct || !productsQuery.data) return;
+    const product = productsQuery.data.items.find((p) => p.id === presetProduct);
+    presetApplied.current = true;
+    if (!product) return;
+    addItem({
+      type: 'PRODUCT',
+      id: product.id,
+      name: product.name,
+      unitPrice: product.selling_price,
+      stock: product.track_inventory ? product.stock_quantity : null,
+    });
+    setPageStep(2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetProduct, productsQuery.data]);
+
+  const presetService = searchParams.get('service');
+  const presetServiceApplied = useRef(false);
+  useEffect(() => {
+    if (presetServiceApplied.current || !presetService || !Array.isArray(servicesQuery.data)) return;
+    const service = servicesQuery.data.find((s) => s.id === presetService);
+    presetServiceApplied.current = true;
+    if (!service) return;
+    addItem({ type: 'SERVICE', id: service.id, name: service.name, unitPrice: service.price, stock: null });
+    setPageStep(2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetService, servicesQuery.data]);
+
   function changeQuantity(key: string, delta: number) {
     setLineItems((current) =>
       current
@@ -296,15 +334,32 @@ export function RecordSalePage() {
     );
   }
 
+  // Coming from a client (Renew / Record sale on their page): show their name
+  useEffect(() => {
+    if (!presetCustomer || clientName) return;
+    const list: Customer[] = Array.isArray(customersQuery.data)
+      ? (customersQuery.data as Customer[])
+      : ((customersQuery.data as { items?: Customer[] })?.items ?? []);
+    const preset = list.find((c) => c.id === presetCustomer);
+    if (preset) setClientName(preset.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetCustomer, customersQuery.data]);
+
   function resetSale() {
     setLineItems([]);
     setCustomerId(presetCustomer);
+    setClientName('');
+    setClientPhone('');
+    setCaptured(null);
+    setPayMode('prompt');
+    setShowDiscount(false);
+    setPageStep(1);
     setSuccessSale(null);
     idempotencyKey.current = uuid();
     reset({
       discount: '',
       taxRate: '',
-      paymentMethod: 'CASH',
+      paymentMethod: 'M-PESA',
       amountPaid: '',
       notes: '',
     });
@@ -361,50 +416,27 @@ export function RecordSalePage() {
 
   return (
     <div className="space-y-4 pb-28 font-sans text-[14px]">
-      {/* Header — with cart icon top right */}
-      <div className="relative flex h-12 items-center justify-between">
-        <button
-          onClick={() => (pageStep > 1 ? setPageStep((s) => (s - 1) as 1 | 2 | 3) : navigate(-1))}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black text-white transition-colors hover:bg-zinc-900 active:bg-zinc-800"
-          aria-label="Back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">Record sale</h1>
-        <button
-          type="button"
-          onClick={() => setPageStep(2)}
-          className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-foreground transition-colors hover:bg-surface-3"
-          aria-label="Open cart"
-        >
-          <ShoppingCart className="h-5 w-5" />
-          {lineItems.length > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
-              {lineItems.reduce((a, b) => a + b.quantity, 0)}
-            </span>
-          )}
-        </button>
-      </div>
+      <AppBar
+        title="Record sale"
+        onBack={() => (pageStep > 1 ? setPageStep((s) => (s - 1) as 1 | 2 | 3) : navigate(-1))}
+        right={
+          <button
+            type="button"
+            onClick={() => setPageStep(2)}
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 text-foreground transition-transform active:scale-90"
+            aria-label="Open cart"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {lineItems.length > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
+                {lineItems.reduce((a, b) => a + b.quantity, 0)}
+              </span>
+            )}
+          </button>
+        }
+      />
 
-      {/* Steps like onboarding */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-[11px] font-medium text-foreground-4">
-          <span>Step {pageStep} of 3</span>
-          <span>{pageStep === 1 ? 'Products & services' : pageStep === 2 ? 'Cart' : 'Checkout'}</span>
-        </div>
-        <div className="flex gap-1.5">
-          {[1, 2, 3].map((s) => (
-            <span key={s} className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${s <= pageStep ? 'bg-accent' : 'bg-edge'}`} />
-          ))}
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit((values) => mutation.mutate(values))} noValidate>
-        {pageStep === 1 && (
-          <div className="space-y-4">
-            <p className="text-center text-xs text-foreground-4">Select products or services to sell</p>
-          </div>
-        )}
+      <form id="record-sale-form" onSubmit={handleSubmit((values) => mutation.mutate(values))} noValidate>
 
       <div className={pageStep === 1 ? 'space-y-6' : 'hidden'}>
           {/* Catalog — search and select (Step 1) */}
@@ -414,318 +446,312 @@ export function RecordSalePage() {
               <Input
                 value={catalogSearch}
                 onChange={(event) => setCatalogSearch(event.target.value)}
-                placeholder="Search what you sell…"
+                placeholder="Search packages…"
                 className="h-11 rounded-full pl-10"
               />
             </div>
 
-            {productsQuery.isLoading || servicesQuery.isLoading ? (
+            {productsQuery.isLoading ? (
               <PageLoader inline message="Loading" />
-            ) : catalog.length === 0 ? (
+            ) : packages.length === 0 ? (
               <div className="px-1 py-8 text-center">
-                <p className="text-[13px] text-foreground-4">No products or services found. Try a different search or add items in Products.</p>
+                <p className="text-[13px] text-foreground-4">No WiFi packages found. Try a different search or add packages in Products.</p>
               </div>
             ) : (
-              (() => {
-                const products = catalog.filter((c) => c.type === 'PRODUCT');
-                const services = catalog.filter((c) => c.type === 'SERVICE');
-                const renderCard = (item: (typeof catalog)[number]) => {
-                  const inCart = lineItems.find((l) => l.type === item.type && l.id === item.id);
-                  const outOfStock = item.stock !== null && (item.stock ?? 0) <= (inCart?.quantity ?? 0);
-                  return (
-                    <button
-                      key={`${item.type}-${item.id}`}
-                      type="button"
-                      onClick={() => !outOfStock && addItem(item)}
-                      disabled={outOfStock}
-                      className="group flex w-full items-center gap-3 bg-surface-3 px-3 py-3 text-left transition-colors hover:bg-surface-2 active:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.type === 'PRODUCT' ? 'bg-amber-500 text-white' : 'bg-purple-600 text-white'}`}>
-                        {item.type === 'PRODUCT' ? <Package className="h-5 w-5" aria-hidden /> : <Scissors className="h-5 w-5" aria-hidden />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-medium text-foreground">{item.name}</p>
-                        <p className="truncate text-xs tabular-nums text-foreground-3">{formatKES(item.unitPrice)} {item.stock !== null && `· ${item.stock} left`}</p>
-                      </span>
-                      <span className="shrink-0">
-                        {inCart ? (
-                          <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent">{inCart.quantity} in cart</span>
-                        ) : outOfStock ? (
-                          <span className="text-xs font-medium text-danger">Out</span>
-                        ) : (
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-sm group-hover:scale-105 transition-transform">
-                            <Plus className="h-4 w-4" aria-hidden />
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  );
-                };
-                return (
-                  <div className="space-y-6">
-                    {products.length > 0 && (
-                      <section className="space-y-3">
-                        <div className="flex items-center gap-2 px-1">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-white">
-                            <Package className="h-3.5 w-3.5" aria-hidden />
-                          </span>
-                          <h3 className="text-[13px] font-medium tracking-tight text-foreground">Products</h3>
-                          <span className="rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-medium text-foreground-4">{products.length}</span>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {products.map(renderCard)}
-                        </div>
-                      </section>
-                    )}
-                    {services.length > 0 && (
-                      <section className="space-y-3">
-                        <div className="flex items-center gap-2 px-1">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-white">
-                            <Scissors className="h-3.5 w-3.5" aria-hidden />
-                          </span>
-                          <h3 className="text-[13px] font-medium tracking-tight text-foreground">Services</h3>
-                          <span className="rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-medium text-foreground-4">{services.length}</span>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {services.map(renderCard)}
-                        </div>
-                      </section>
-                    )}
-                  </div>
-                );
-              })()
+              <div className="grid grid-cols-2 gap-3 pt-1 lg:grid-cols-3">
+                {packages.map((pkg, i) => (
+                  <PackageCard
+                    key={pkg.id}
+                    product={pkg}
+                    index={i}
+                    inCart={lineItems.find((l) => l.type === 'PRODUCT' && l.id === pkg.id)?.quantity ?? 0}
+                    onAdd={(p) =>
+                      addItem({ type: 'PRODUCT', id: p.id, name: p.name, unitPrice: p.selling_price, stock: null })
+                    }
+                  />
+                ))}
+              </div>
             )}
            </section>
             {lineItems.length > 0 && (
-              <Button type="button" onClick={() => setPageStep(2)} className="w-full rounded-full bg-brand-700 text-white h-11">
+              <Button type="button" onClick={() => setPageStep(2)} className="h-12 w-full rounded-2xl bg-brand-600 text-white hover:bg-brand-700">
                 View cart ({lineItems.reduce((a, b) => a + b.quantity, 0)} items) — {formatKES(total)} →
               </Button>
             )}
           </div>
 
-          {/* Step 2 — Cart */}
-          <div className={pageStep === 2 ? 'space-y-6' : 'hidden'}>
-            <section className="space-y-2">
-              <SectionHeading>Cart — what has been bought</SectionHeading>
-              {lineItems.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 px-1 py-8 text-center">
-                  <ShoppingCart className="h-7 w-7 text-foreground-5" aria-hidden />
-                  <p className="text-[13px] text-foreground-4">Cart is empty. Go back and add products or services.</p>
-                  <Button type="button" className="rounded-full bg-black text-white hover:bg-zinc-900 mt-2" onClick={() => setPageStep(1)}>
-                    Back to products
+          {/* Step 2 — Cart: the same package cards, with a quantity stepper */}
+          <div className={pageStep === 2 ? 'space-y-5' : 'hidden'}>
+            {lineItems.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 px-1 py-12 text-center">
+                <ShoppingCart className="h-7 w-7 text-foreground-5" aria-hidden />
+                <p className="text-[13px] text-foreground-4">The cart is empty. Pick a WiFi package first.</p>
+                <Button type="button" className="mt-2 h-11 rounded-2xl bg-brand-600 px-6 text-white" onClick={() => setPageStep(1)}>
+                  Choose a package
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                  {lineItems.map((item, i) => {
+                    const product = productsQuery.data?.items.find((p) => p.id === item.id);
+                    const stepper = (
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="flex items-center gap-1 rounded-xl bg-white p-1 [.dark_&]:bg-white/10">
+                          <button
+                            type="button"
+                            onClick={() => changeQuantity(item.key, -1)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground active:bg-surface-3"
+                            aria-label="One fewer"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="w-5 text-center text-[13px] font-semibold tabular-nums text-foreground">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => changeQuantity(item.key, 1)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground active:bg-surface-3"
+                            aria-label="One more"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setLineItems((current) => current.filter((line) => line.key !== item.key))}
+                          className="flex h-10 w-10 items-center justify-center rounded-xl text-danger active:bg-danger-soft"
+                          aria-label={`Remove ${item.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                    return product ? (
+                      <PackageCard key={item.key} product={product} index={i} footer={stepper} />
+                    ) : (
+                      <div key={item.key} className="flex min-h-[188px] flex-col justify-between rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
+                        <div>
+                          <p className="text-[15px] font-medium text-foreground">{item.name}</p>
+                          <p className="mt-1 text-[13px] tabular-nums text-foreground-3">{formatKES(item.unitPrice)} each</p>
+                        </div>
+                        {stepper}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-2 rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
+                  {lineItems.map((item) => (
+                    <div key={item.key} className="flex justify-between gap-3 text-[13px]">
+                      <span className="truncate text-foreground-3">
+                        {item.quantity} × {item.name}
+                      </span>
+                      <span className="shrink-0 font-medium tabular-nums text-foreground">{formatKES(item.unitPrice * item.quantity)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-baseline justify-between border-t border-black/5 pt-2 [.dark_&]:border-white/10">
+                    <span className="text-[14px] font-medium text-foreground">Total</span>
+                    <span className="text-[20px] font-semibold tabular-nums tracking-tight text-foreground">{formatKES(total)}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[auto_1fr] gap-3">
+                  <Button type="button" variant="outline" className="h-12 rounded-2xl px-5" onClick={() => setPageStep(1)}>
+                    Add more
+                  </Button>
+                  <Button type="button" className="h-12 rounded-2xl bg-brand-600 text-white hover:bg-brand-700" onClick={() => setPageStep(3)}>
+                    Checkout · {formatKES(total)}
                   </Button>
                 </div>
-              ) : (
-                <>
-                  <div className="space-y-1">
-                    <div className="hidden sm:grid grid-cols-[1.5fr_0.6fr_0.85fr_0.85fr_auto] gap-2 px-1 py-2">
-                      <span className="text-[11px] font-medium text-foreground-4">Item</span>
-                      <span className="text-center text-[11px] font-medium text-foreground-4">Qty</span>
-                      <span className="text-right text-[11px] font-medium text-foreground-4">Unit</span>
-                      <span className="text-right text-[11px] font-medium text-foreground-4">Total</span>
-                      <span className="text-right text-[11px] font-medium text-foreground-4">Remove</span>
-                    </div>
-                    <ul className="divide-y divide-edge">
-                      {lineItems.map((item) => (
-                        <li key={item.key} className="grid grid-cols-[1fr_auto] sm:grid-cols-[1.5fr_0.6fr_0.85fr_0.85fr_auto] items-center gap-2 px-1 py-3 transition-colors hover:bg-surface-2 active:bg-surface-3">
-                          <span className="min-w-0">
-                            <p className="truncate text-[13px] font-medium text-foreground">{item.name}</p>
-                            <p className="text-[11px] tabular-nums text-foreground-5">{formatKES(item.unitPrice)} each</p>
-                          </span>
-                          <span className="flex items-center justify-center gap-1 sm:justify-center">
-                            <Button type="button" variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => changeQuantity(item.key, -1)} aria-label="Decrease quantity">
-                              <Minus className="h-3.5 w-3.5" />
-                            </Button>
-                            <span className="w-6 text-center text-[13px] font-medium tabular-nums text-foreground">{item.quantity}</span>
-                            <Button type="button" variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => changeQuantity(item.key, 1)} aria-label="Increase quantity">
-                              <Plus className="h-3.5 w-3.5" />
-                            </Button>
-                          </span>
-                          <span className="hidden sm:block text-right text-[13px] tabular-nums text-foreground-3">{formatKES(item.unitPrice)}</span>
-                          <span className="hidden sm:block text-right text-[13px] font-medium tabular-nums text-foreground">{formatKES(item.unitPrice * item.quantity)}</span>
-                          <span className="flex justify-end">
-                            <button type="button" className="flex h-7 w-7 items-center justify-center rounded-full bg-danger-soft text-danger hover:bg-red-100" onClick={() => setLineItems((current) => current.filter((line) => line.key !== item.key))} aria-label={`Remove ${item.name}`}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="flex items-center justify-between px-1 py-3">
-                      <span className="text-xs font-medium text-foreground-4">Expected amount (auto)</span>
-                      <span className="text-sm font-semibold tabular-nums text-foreground">{formatKES(total)}</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 pt-4">
-                    <Button type="button" className="rounded-full bg-black text-white hover:bg-zinc-900 h-11" onClick={() => setPageStep(1)}>
-                      Back
-                    </Button>
-                    <Button type="button" className="rounded-full bg-brand-700 text-white h-11" onClick={() => setPageStep(3)}>
-                      Checkout
-                    </Button>
-                  </div>
-                </>
-              )}
-            </section>
+              </>
+            )}
           </div>
 
-          {/* Step 3 — Checkout */}
-          <div className={pageStep === 3 ? 'space-y-6' : 'hidden'}>
-            <section className="space-y-4">
-              <SectionHeading>Checkout — payment</SectionHeading>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPaymentTab('manual')}
-                className={`flex-1 rounded-full px-3 py-2 text-xs font-medium transition-colors ${paymentTab === 'manual' ? 'bg-brand-700 text-white shadow-sm' : 'bg-surface-3 text-foreground-3 hover:bg-surface-2'}`}
-              >
-                Manual
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentTab('scan')}
-                className={`flex-1 rounded-full px-3 py-2 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${paymentTab === 'scan' ? 'bg-brand-700 text-white shadow-sm' : 'bg-surface-3 text-foreground-3 hover:bg-surface-2'}`}
-              >
-                <ScanLine className="h-3.5 w-3.5" /> Scan message
-              </button>
-            </div>
-
-            {paymentTab === 'scan' && (
-              <div className="space-y-3 px-1 py-2">
-                <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                  <ClipboardType className="h-4 w-4 text-brand-600" /> Paste M-Pesa / bank SMS
-                </div>
-                <Textarea
-                  value={scanText}
-                  onChange={(e) => setScanText(e.target.value)}
-                  placeholder={`Example:\nQGH7XY8K2R Confirmed. Ksh1,500.00 paid to MARY WANJIKU on 23/8/26 at 2:30 PM...\nSystem will extract name, amount, ref, time & date.`}
-                  rows={4}
-                  className="bg-field text-sm"
-                />
-                <Button type="button" onClick={handleScanExtract} className="w-full rounded-full bg-brand-700 text-white h-9 text-xs">
-                  Extract — name / amount / ref / time / date
-                </Button>
-                {scanned && (
-                  <div className="divide-y divide-edge">
-                    <div className="flex justify-between gap-2 px-1 py-2.5 hover:bg-surface-2"><span className="text-xs text-foreground-4">Name</span><span className="text-xs font-medium text-foreground truncate">{scanned.name ?? '—'}</span></div>
-                    <div className="flex justify-between gap-2 px-1 py-2.5 hover:bg-surface-2"><span className="text-xs text-foreground-4">Amount</span><span className="text-xs font-medium tabular-nums text-foreground">{scanned.amount ? formatKES(scanned.amount) : '—'}</span></div>
-                    <div className="flex justify-between gap-2 px-1 py-2.5 hover:bg-surface-2"><span className="text-xs text-foreground-4">Ref code</span><span className="text-xs font-medium tabular-nums text-foreground">{scanned.code ?? '—'}</span></div>
-                    <div className="flex justify-between gap-2 px-1 py-2.5 hover:bg-surface-2"><span className="text-xs text-foreground-4">Date</span><span className="text-xs font-medium text-foreground">{scanned.date ?? '—'}</span></div>
-                    <div className="flex justify-between gap-2 px-1 py-2.5 hover:bg-surface-2"><span className="text-xs text-foreground-4">Time</span><span className="text-xs font-medium tabular-nums text-foreground">{scanned.time ?? '—'}</span></div>
-                    {scanned.datetime && <p className="px-1 py-2 text-[11px] text-foreground-5">Full: {scanned.datetime}</p>}
+          {/* Step 3 — Checkout: slides up as a sheet, like "Add staff" */}
+          <Dialog
+            open={pageStep === 3}
+            onOpenChange={(open) => !open && setPageStep(2)}
+            title="Checkout"
+            description={`${lineItems.reduce((a, b) => a + b.quantity, 0)} item(s) · ${formatKES(total)}`}
+          >
+            <div className="space-y-5">
+              {/* Order summary: each package with its plan colour */}
+              <section className="overflow-hidden rounded-2xl bg-[#F2F2F4] [.dark_&]:bg-[#1E1E1E]">
+                {lineItems.map((item, i) => {
+                  const style = planStyle(item.name.replace(/\s*\d+\s*mbps\s*$/i, ''), i);
+                  return (
+                    <div key={item.key} className="flex items-center gap-3 px-4 py-3">
+                      <span
+                        className="h-9 w-9 shrink-0 rounded-full"
+                        style={{ background: `linear-gradient(135deg, ${style.from}, ${style.to})` }}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-medium text-foreground">{item.name}</span>
+                        <span className="block text-[12px] text-foreground-4">
+                          {item.quantity} × {formatKES(item.unitPrice)}
+                        </span>
+                      </span>
+                      <span className="text-[14px] font-semibold tabular-nums text-foreground">{formatKES(item.unitPrice * item.quantity)}</span>
+                    </div>
+                  );
+                })}
+                {appliedDiscount > 0 && (
+                  <div className="flex justify-between px-4 pb-1 text-[13px]">
+                    <span className="text-foreground-4">Discount</span>
+                    <span className="font-medium tabular-nums text-danger">−{formatKES(appliedDiscount)}</span>
                   </div>
                 )}
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="payment-method">Payment method</Label>
-              <Select
-                id="payment-method"
-                value={paymentMethod}
-                onChange={(event) => handlePaymentMethodChange(event.target.value)}
-                aria-invalid={errors.paymentMethod ? true : undefined}
-              >
-                {DEFAULT_PAYMENT_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {method === 'M-PESA' ? 'M-Pesa' : method.charAt(0) + method.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </Select>
-              {errors.paymentMethod && <p className="text-xs text-danger">{errors.paymentMethod.message}</p>}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="amount-paid">
-                Amount paid now (KSh) — expected {formatKES(total)}
-                {paymentMethod === 'CREDIT' && <span className="ml-1 font-normal text-foreground-5">— leave 0 for credit</span>}
-              </Label>
-              <Input
-                id="amount-paid"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                disabled={paymentMethod === 'CREDIT'}
-                placeholder={paymentMethod === 'CREDIT' ? '0' : String(total || 0)}
-                aria-invalid={errors.amountPaid ? true : undefined}
-                {...register('amountPaid')}
-              />
-              {errors.amountPaid && <p className="text-xs text-danger">{errors.amountPaid.message}</p>}
-              {isPartial && (
-                <div className="flex items-center justify-center gap-2 px-1 py-2 text-xs font-medium text-danger">
-                  <AlertTriangle className="h-4 w-4" aria-hidden />
-                  <span>Insufficient</span>
+                <div className="flex items-baseline justify-between bg-black/[0.03] px-4 py-3 [.dark_&]:bg-white/5">
+                  <span className="text-[13px] font-medium text-foreground-3">To pay</span>
+                  <span className="text-[24px] font-semibold tabular-nums tracking-tight text-foreground">{formatKES(total)}</span>
                 </div>
-              )}
-              {!isPartial && total > 0 && amountPaid === total && (
-                <p className="text-xs font-medium text-success">Full amount — sale will be marked PAID.</p>
-              )}
-              {isPartial && (customerId || scanned?.name) && (
-                <p className="rounded-xl bg-warning-soft px-3 py-2 text-xs font-medium text-warning">
-                  Remaining {formatKES(balanceOwed)} will be added to customer's tab (existing or new).
-                </p>
-              )}
-            </div>
+              </section>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="discount">Discount (KSh) <span className="font-normal text-foreground-5">— optional</span></Label>
-              <Input
-                id="discount"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                placeholder="0"
-                aria-invalid={errors.discount ? true : undefined}
-                {...register('discount')}
-              />
-              {errors.discount && (
-                <p className="text-xs text-danger">{errors.discount.message}</p>
-              )}
-            </div>
-          </section>
-
-          {/* Sticky totals — flat like settings */}
-          <section className="sticky top-20 space-y-2 py-2">
-            <div className="space-y-2 px-1 pt-3">
-              <div className="flex justify-between text-[13px]">
-                <span className="text-foreground-4">Subtotal</span>
-                <span className="font-medium tabular-nums text-foreground">
-                  {formatKES(subtotal)}
-                </span>
-              </div>
-              {appliedDiscount > 0 && (
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-foreground-4">Discount</span>
-                  <span className="font-medium tabular-nums text-danger">
-                    −{formatKES(appliedDiscount)}
-                  </span>
+              {/* Client */}
+              <section className="space-y-3">
+                <SectionHeading>Client</SectionHeading>
+                <div className="space-y-1.5">
+                  <Label htmlFor="client-name">Name</Label>
+                  <Input
+                    id="client-name"
+                    list="client-names"
+                    autoComplete="off"
+                    placeholder="e.g. Grace Achieng"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                  />
+                  <datalist id="client-names">
+                    {customerList.map((c) => (
+                      <option key={c.id} value={c.name} />
+                    ))}
+                  </datalist>
+                  <p className="text-[11px] text-foreground-4">
+                    {clientName.trim()
+                      ? matchedClient
+                        ? 'Existing client'
+                        : 'New client: they will be added'
+                      : 'Pick an existing client or type a new name'}
+                  </p>
                 </div>
-              )}
-              <div className="flex items-baseline justify-between border-t border-edge pt-2.5">
-                <span className="text-[15px] font-medium tracking-tight text-foreground">Total</span>
-                <span className="text-xl font-semibold tracking-tight tabular-nums text-foreground">
-                  {formatKES(total)}
-                </span>
-              </div>
-              {errors.root && <Alert variant="error">{errors.root.message}</Alert>}
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full rounded-full bg-brand-700 text-white shadow-sm hover:bg-brand-800"
-                disabled={lineItems.length === 0 || total <= 0}
-                loading={mutation.isPending}
-              >
-                <Receipt className="h-4 w-4" aria-hidden />
-                Confirm sale
-              </Button>
-              {lineItems.length === 0 && (
+              </section>
+
+              {/* How the client pays */}
+              <section className="space-y-3">
+                <SectionHeading>How is the client paying?</SectionHeading>
+                <PaymentCapture
+                  mode={payMode}
+                  onModeChange={choosePayMode}
+                  total={total}
+                  phone={clientPhone}
+                  onPhoneChange={setClientPhone}
+                  reference={lineItems[0]?.name.split(/\s+/)[0] ?? 'Optimas'}
+                  captured={captured}
+                  onCaptured={capturePayment}
+                />
+
+                {payMode === 'cash' && (
+                  <div className="space-y-3 rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="payment-method">Method</Label>
+                      <Select
+                        id="payment-method"
+                        value={paymentMethod}
+                        onChange={(event) => handlePaymentMethodChange(event.target.value)}
+                        aria-invalid={errors.paymentMethod ? true : undefined}
+                        className="bg-white [.dark_&]:bg-surface-3"
+                      >
+                        {DEFAULT_PAYMENT_METHODS.map((method) => (
+                          <option key={method} value={method}>
+                            {method === 'M-PESA' ? 'M-Pesa' : method.charAt(0) + method.slice(1).toLowerCase()}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="amount-paid">Amount received (KSh)</Label>
+                      <Input
+                        id="amount-paid"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        disabled={paymentMethod === 'CREDIT'}
+                        placeholder={String(total || 0)}
+                        aria-invalid={errors.amountPaid ? true : undefined}
+                        className="bg-white [.dark_&]:bg-surface-3"
+                        {...register('amountPaid')}
+                      />
+                      {paymentMethod === 'CREDIT' ? (
+                        <p className="text-[12px] text-foreground-4">On credit: the full amount goes on the client's balance.</p>
+                      ) : isPartial ? (
+                        <p className="text-[12px] font-medium text-warning">
+                          {formatKES(balanceOwed)} short: the rest goes on the client's balance.
+                        </p>
+                      ) : (
+                        total > 0 && amountPaid >= total && <p className="text-[12px] font-medium text-success">Paid in full.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* Discount, tucked away */}
+              <section>
+                <button
+                  type="button"
+                  onClick={() => setShowDiscount((v) => !v)}
+                  className="flex w-full items-center justify-between px-1 py-1 text-[13px] font-medium text-foreground-3"
+                  aria-expanded={showDiscount}
+                >
+                  {appliedDiscount > 0 ? `Discount · ${formatKES(appliedDiscount)}` : 'Add a discount'}
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showDiscount ? 'rotate-180' : ''}`} aria-hidden />
+                </button>
+                {showDiscount && (
+                  <div className="mt-2 space-y-1.5">
+                    <Input
+                      id="discount"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      placeholder="0"
+                      aria-label="Discount in KSh"
+                      aria-invalid={errors.discount ? true : undefined}
+                      {...register('discount')}
+                    />
+                    {errors.discount && <p className="text-xs text-danger">{errors.discount.message}</p>}
+                  </div>
+                )}
+              </section>
+
+              {/* Confirm */}
+              <section className="space-y-2.5">
+                {needsClient && (
+                  <Alert variant="warning">Enter the client's name so their WiFi subscription starts or renews.</Alert>
+                )}
+                {errors.root && <Alert variant="error">{errors.root.message}</Alert>}
+                <Button
+                  type="submit"
+                  form="record-sale-form"
+                  size="lg"
+                  className="h-14 w-full rounded-2xl bg-brand-600 text-[15px] font-semibold text-white shadow-[0_10px_24px_-10px_rgba(45,160,67,0.7)] hover:bg-brand-700"
+                  disabled={lineItems.length === 0 || total <= 0 || (payMode !== 'cash' && !captured)}
+                  loading={mutation.isPending}
+                >
+                  <Lock className="h-4 w-4" aria-hidden />
+                  Confirm sale · {formatKES(total)}
+                </Button>
                 <p className="text-center text-[11px] text-foreground-4">
-                  Add at least one product or service to continue.
+                  {payMode === 'cash'
+                    ? 'The sale is saved with the amount received.'
+                    : captured
+                      ? 'Payment confirmed. Saving starts or renews the WiFi package.'
+                      : payMode === 'prompt'
+                        ? 'Send the prompt; confirm once the client has paid.'
+                        : 'Read the M-Pesa message to confirm the payment.'}
                 </p>
-              )}
+              </section>
             </div>
-          </section>
-        </div>
+          </Dialog>
       </form>
     </div>
   );

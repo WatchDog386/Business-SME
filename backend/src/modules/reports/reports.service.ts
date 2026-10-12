@@ -102,6 +102,7 @@ export class ReportsService {
         .select('DATE(expense.expense_date)', 'date')
         .addSelect('COALESCE(SUM(expense.amount), 0)', 'expenses')
         .where('expense.businessId = :businessId', { businessId })
+        .andWhere("expense.status = 'APPROVED'")
         .andWhere('expense.expense_date >= :start', { start })
         .andWhere('expense.expense_date < :end', { end })
         .groupBy('DATE(expense.expense_date)')
@@ -180,12 +181,43 @@ export class ReportsService {
       .select('COALESCE(category.name, \'Uncategorized\')', 'category')
       .addSelect('COALESCE(SUM(expense.amount), 0)', 'amount')
       .where('expense.businessId = :businessId', { businessId })
+      .andWhere("expense.status = 'APPROVED'")
       .andWhere('expense.expense_date >= :start', { start })
       .andWhere('expense.expense_date < :end', { end })
       .groupBy('COALESCE(category.name, \'Uncategorized\')')
       .orderBy('SUM(expense.amount)', 'DESC')
       .getRawMany<{ category: string; amount: string }>();
     return rows.map((row) => ({ category: row.category, amount: Number(row.amount) }));
+  }
+
+  /** Individual expenses in range (APPROVED unless a status is given). */
+  async expenseDetails(
+    businessId: string,
+    from?: string,
+    to?: string,
+    status: string = 'APPROVED',
+  ) {
+    const { start, end } = this.resolveRange(from, to);
+    const rows = await this.expenseRepo
+      .createQueryBuilder('expense')
+      .leftJoin('categories', 'category', 'category.id = expense.categoryId')
+      .addSelect('category.name', 'category_name')
+      .where('expense.businessId = :businessId', { businessId })
+      .andWhere('expense.status = :status', { status })
+      .andWhere('expense.expense_date >= :start', { start })
+      .andWhere('expense.expense_date < :end', { end })
+      .orderBy('expense.expense_date', 'ASC')
+      .getRawAndEntities();
+    return rows.entities.map((expense, idx) => ({
+      date: expense.expense_date,
+      description: expense.description,
+      category:
+        (rows.raw[idx] as { category_name?: string }).category_name ??
+        'Uncategorized',
+      paymentMethod: expense.payment_method,
+      status: expense.status,
+      amount: expense.amount,
+    }));
   }
 
   async salesCsv(businessId: string, from?: string, to?: string) {
@@ -249,6 +281,7 @@ export class ReportsService {
       .createQueryBuilder('expense')
       .select('COALESCE(SUM(expense.amount), 0)', 'sum')
       .where('expense.businessId = :businessId', { businessId })
+      .andWhere("expense.status = 'APPROVED'")
       .andWhere('expense.expense_date >= :start', { start })
       .andWhere('expense.expense_date < :end', { end })
       .getRawOne<{ sum: string }>();

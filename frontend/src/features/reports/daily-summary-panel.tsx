@@ -45,7 +45,7 @@ export function DailySummaryPanel({ from, to }: { from: string; to: string }) {
               <th className="px-1 py-2 text-right">Profit</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-edge">
+          <tbody className="divide-y divide-edge max-lg:divide-y-0">
             {data.map((row) => (
               <tr key={row.date} className="hover:bg-surface-2 transition-colors">
                 <td className="px-1 py-3 text-xs font-medium text-foreground">{row.date}</td>

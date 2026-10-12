@@ -1,4 +1,5 @@
-import { CheckCircle2, AlertTriangle, Loader2, X } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import { SpeedWheel } from './workspace-loader';
 import { cn } from '@/lib/utils';
 
 export interface PopupMessageProps {
@@ -44,9 +45,7 @@ export function PopupMessage({
           {type === 'loading' && (
             <div className="flex flex-col items-center gap-2">
               <h3 className="text-sm font-medium text-foreground tracking-tight">{title}</h3>
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft text-accent shadow-inner">
-                <Loader2 className="h-9 w-9 animate-spin" />
-              </div>
+              <SpeedWheel />
             </div>
           )}
 

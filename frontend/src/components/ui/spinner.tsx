@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { SpeedWheel } from './workspace-loader';
+import { createPortal } from 'react-dom';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +12,16 @@ export function Spinner({ className }: { className?: string }) {
   );
 }
 
+/** Speeding-wheel loader (advanced KUCCPS style, see SpeedWheel). */
+export function BrandLoader({ message = 'Loading' }: { message?: string }) {
+  return (
+    <div role="status" aria-live="polite" className="flex items-center justify-center">
+      <SpeedWheel />
+      <span className="sr-only">{message}</span>
+    </div>
+  );
+}
+
 export function PageLoader({
   message = 'Loading',
   inline = false,
@@ -18,27 +29,20 @@ export function PageLoader({
   message?: string;
   inline?: boolean;
 }) {
-  const [dots, setDots] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setDots((d) => (d + 1) % 4), 380);
-    return () => clearInterval(id);
-  }, []);
-  const dotStr = '.'.repeat(dots);
-
-  const content = (
-    <p className="text-center text-xl font-bold tracking-tight text-foreground">
-      {message}
-      <span className="inline-block w-7 text-left">{dotStr}</span>
-    </p>
-  );
-
   if (inline) {
-    return <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 px-4 py-12">{content}</div>;
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center px-4 py-12">
+        <BrandLoader message={message} />
+      </div>
+    );
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-surface px-4">
-      {content}
-    </div>
+  // On <body>, so an animating page wrapper can't move it: every full-screen
+  // load (workspace, then dashboard data) shows the wheel in the same spot.
+  return createPortal(
+    <div className="fixed inset-0 z-[99] flex items-center justify-center bg-surface">
+      <BrandLoader message={message} />
+    </div>,
+    document.body,
   );
 }

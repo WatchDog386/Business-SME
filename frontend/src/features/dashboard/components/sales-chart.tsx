@@ -1,107 +1,110 @@
-import {
-  Bar,
-  BarChart,
-  Cell,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { formatKES } from '@/lib/utils';
+import { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { cn, formatKES } from '@/lib/utils';
+import { barColor, barStripes } from '@/lib/chart-colors';
+import { DashSection } from './dash-section';
 
-const BAR_COLORS = [
-  '#6366F1', // Indigo
-  '#8B5CF6', // Violet
-  '#14B8A6', // Teal
-  '#F59E0B', // Amber
-  '#0EA5E9', // Sky
-  '#EC4899', // Pink
-  '#10B981', // Emerald
-];
+const TZ = 'Africa/Nairobi';
+const keyFormat = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+const labelFormat = new Intl.DateTimeFormat('en-KE', { timeZone: TZ, weekday: 'short' });
 
+/**
+ * Nairobi calendar day as YYYY-MM-DD. The API sends each day as Nairobi
+ * midnight in UTC (e.g. 2026-10-09T21:00Z is 10 Oct), so never slice the string.
+ */
+function dayKey(d: Date): string {
+  return keyFormat.format(d);
+}
+
+/** Height of the tallest bar, in pixels. */
+const BAR_AREA = 112;
+
+/**
+ * Sales for the last seven days, ending today. Today is highlighted; tap any
+ * bar to read its exact total. Days without sales show as empty, not invented.
+ */
 export function SalesChart({
   series,
 }: {
   series: Array<{ date: string; total: string }>;
   weekRevenue: number;
 }) {
-  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const map: Record<string, number> = {};
-
-  if (series && series.length > 0) {
-    series.forEach((point) => {
-      const d = new Date(`${point.date}T00:00:00`);
-      if (!Number.isNaN(d.getTime())) {
-        const dayIndex = (d.getDay() + 6) % 7;
-        const dayName = weekDays[dayIndex];
-        map[dayName] = (map[dayName] || 0) + Number(point.total);
-      }
+  const days = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const point of series ?? []) {
+      const key = dayKey(new Date(point.date));
+      totals.set(key, (totals.get(key) ?? 0) + Number(point.total));
+    }
+    const today = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today.getTime() - (6 - i) * 86_400_000);
+      return {
+        key: dayKey(d),
+        label: labelFormat.format(d).slice(0, 3),
+        total: totals.get(dayKey(d)) ?? 0,
+      };
     });
-  }
+  }, [series]);
 
-  const fallbackData: Record<string, number> = {
-    Mon: 22400,
-    Tue: 29100,
-    Wed: 38500,
-    Thu: 24600,
-    Fri: 34200,
-    Sat: 42800,
-    Sun: 39500,
-  };
-
-  const data = weekDays.map((day, index) => ({
-    label: day,
-    total: map[day] > 0 ? map[day] : fallbackData[day],
-    fillColor: BAR_COLORS[index % BAR_COLORS.length],
-  }));
+  const [selected, setSelected] = useState(days.length - 1);
+  const max = Math.max(...days.map((d) => d.total), 1);
+  const weekTotal = days.reduce((sum, d) => sum + d.total, 0);
+  const active = days[selected];
 
   return (
-    <div className="space-y-2">
-      <h2 className="px-1 text-[13px] font-medium tracking-tight text-foreground">Weekly analytics</h2>
-      <div className="h-52 sm:h-60">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 12, fill: '#17201c', fontWeight: 700 }}
-              tickLine={{ stroke: '#52525b', strokeWidth: 2 }}
-              axisLine={{ stroke: '#3f3f46', strokeWidth: 2.5 }}
-            />
-            <YAxis
-              tick={{ fontSize: 12, fill: '#17201c', fontWeight: 700 }}
-              tickLine={{ stroke: '#52525b', strokeWidth: 2 }}
-              axisLine={{ stroke: '#3f3f46', strokeWidth: 2.5 }}
-              tickFormatter={(value) => compactKES(value)}
-            />
-            <Tooltip
-              formatter={(value) => [formatKES(Number(value)), 'Sales Revenue']}
-              contentStyle={{
-                borderRadius: 14,
-                border: '1px solid #e4e4e7',
-                backgroundColor: '#ffffff',
-                color: '#18181b',
-                fontSize: 13,
-                fontWeight: 600,
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
-                padding: '10px 14px',
-              }}
-            />
-            <Bar dataKey="total" radius={[0, 0, 0, 0]} barSize={26}>
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.fillColor} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+    <DashSection title="Sales this week" subtitle="Last 7 days" action={{ label: 'Reports', to: '/reports' }} card>
+      <div className="mb-4 flex items-end justify-between">
+        <div>
+          <p className="text-[24px] font-semibold tabular-nums tracking-tight text-foreground">{formatKES(weekTotal)}</p>
+          <p className="text-[12px] text-foreground-4">Avg {formatKES(Math.round(weekTotal / 7))} a day</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-foreground-4">
+            {selected === days.length - 1 ? 'Today' : active.label}
+          </p>
+          <p className="text-[15px] font-semibold tabular-nums text-brand-600 [.dark_&]:text-brand-300">
+            {formatKES(active.total)}
+          </p>
+        </div>
       </div>
-    </div>
-  );
-}
 
-function compactKES(value: number): string {
-  if (value >= 1000000) return `${Math.round(value / 1000000)}M`;
-  if (value >= 1000) return `${Math.round(value / 1000)}k`;
-  return String(value);
+      <div className="flex h-36 items-end gap-2" role="list" aria-label="Daily sales">
+        {days.map((day, i) => {
+          const isActive = i === selected;
+          const height = day.total > 0 ? Math.max(8, Math.round((day.total / max) * BAR_AREA)) : 4;
+          return (
+            <button
+              key={day.key}
+              type="button"
+              role="listitem"
+              onClick={() => setSelected(i)}
+              className="flex h-full flex-1 flex-col items-center justify-end gap-2"
+              aria-label={`${day.label}: ${formatKES(day.total)}`}
+              aria-pressed={isActive}
+            >
+              <motion.span
+                className={cn(
+                  'w-full max-w-[34px] rounded-full transition-opacity duration-300',
+                  isActive && 'shadow-[0_8px_18px_-8px_rgba(15,23,42,0.45)]',
+                )}
+                // Every bar has its own colour; the selected day is striped
+                style={{ background: isActive ? barStripes(i) : barColor(i).solid, opacity: isActive ? 1 : 0.85 }}
+                initial={{ height: 0 }}
+                animate={{ height }}
+                transition={{ delay: 0.2 + i * 0.05, type: 'spring', stiffness: 170, damping: 22 }}
+              />
+              <span
+                className={cn(
+                  'text-[11px] leading-none',
+                  isActive ? 'font-semibold text-foreground' : 'font-medium text-foreground-4',
+                )}
+              >
+                {day.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </DashSection>
+  );
 }

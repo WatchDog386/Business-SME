@@ -12,9 +12,9 @@ import {
   ChevronRight,
   Shield,
   AlertCircle,
-  ArrowLeft,
 } from 'lucide-react';
 import { categoriesApi, productsApi } from '@/api/endpoints';
+import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,11 @@ import { PageLoader } from '@/components/ui/spinner';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { formatKES } from '@/lib/utils';
-import { ProductForm } from './product-form';
+import { ProductsMobile } from './products-mobile';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { PackageCard } from './package-card';
+import { ProductForm, type ProductKind } from './product-form';
+import { DuoProducts, DuoSubscribers } from '@/components/brand/duo-icons';
 import { StockActionForm, type StockActionType } from './stock-action-form';
 import type { Product } from '@/api/types';
 import { cn } from '@/lib/utils';
@@ -74,7 +78,7 @@ function ProductRow({
   return (
     <button
       onClick={() => onEdit(product)}
-      className="relative flex w-full items-center gap-3 px-1 py-3 text-center transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3 group"
+      className="relative flex w-full items-center gap-3 px-1 py-3 text-center transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3 group max-lg:rounded-xl"
     >
       <span className={cn(
         'flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px]',
@@ -141,7 +145,7 @@ function ProductRow({
           </button>
         </div>
 
-        <ChevronRight className="h-4 w-4 shrink-0 text-foreground-5 group-hover:text-foreground transition-colors" aria-hidden />
+        <ChevronRight className="h-4 w-4 shrink-0 text-foreground-5 group-hover:text-foreground transition-colors max-lg:hidden" aria-hidden />
       </div>
     </button>
   );
@@ -155,10 +159,15 @@ export function ProductsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [stockFilter, setStockFilter] = useState('');
-  const [formOpen, setFormOpen] = useState(false);
+  // "Add" first asks what to add, then opens the matching form
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [addKind, setAddKind] = useState<ProductKind | null>(null);
+  const startAdd = () => setChooserOpen(true);
 
   useEffect(() => {
-    if (searchParams.get('new') === '1') setFormOpen(true);
+    if (searchParams.get('new') !== '1') return;
+    if (searchParams.get('package') === '1') setAddKind('package');
+    else setChooserOpen(true);
   }, [searchParams]);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [stockAction, setStockAction] = useState<{
@@ -205,28 +214,35 @@ export function ProductsPage() {
   });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const isDesktop = useIsDesktop();
+
+  // Phones: pure white page in light mode (dark mode is black everywhere)
+  useEffect(() => {
+    if (isDesktop) return;
+    document.body.classList.add('page-white');
+    return () => document.body.classList.remove('page-white');
+  }, [isDesktop]);
+
+  const onSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+    window.setTimeout(() => setDebouncedSearch(value), 300);
+  };
 
   const header = (
     <>
-      {/* Header - Search dialog style */}
-      <div className="relative flex h-14 shrink-0 items-center px-2">
-        <button
-          onClick={() => window.history.back()}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-edge bg-surface text-foreground transition-colors hover:bg-surface-2 active:bg-surface-3"
-          aria-label="Back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h2 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">
-          Products
-        </h2>
-        <div className="absolute right-0">
-          <Button onClick={() => setFormOpen(true)} className="h-9 px-3 gap-1.5">
-            <Plus className="h-4 w-4" />
-            Add product
-          </Button>
-        </div>
-      </div>
+      <AppBar
+        title="Products"
+        onBack={() => window.history.back()}
+        right={
+          <div>
+            <Button onClick={startAdd} className="h-9 px-3 gap-1.5">
+              <Plus className="h-4 w-4" />
+              Add
+            </Button>
+          </div>
+        }
+      />
 
       <div className="px-4 pb-3">
         <div className="flex h-11 items-center gap-2.5 rounded-full border border-edge bg-field px-4 focus-within:border-edge-2">
@@ -288,15 +304,29 @@ export function ProductsPage() {
           : 'Add the products you sell so you can start recording sales and tracking stock.'
       }
       actionLabel={debouncedSearch ? undefined : 'Add a product'}
-      onAction={() => setFormOpen(true)}
+      onAction={startAdd}
     />
   );
 
   const productList = data && data.items.length > 0 ? (
-    <Card className="bg-surface mx-4">
-      <SectionLabel>All Products</SectionLabel>
-      <div className="divide-y divide-edge/50">
-        {data.items.map((product) => (
+    <Card className="bg-surface mx-4 max-lg:mx-0 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:shadow-none">
+      {/* WiFi packages first: they're what Optimas sells most */}
+      {data.items.some((p) => p.billing_days) && (
+        <>
+          <SectionLabel>WiFi packages</SectionLabel>
+          <div className="stagger-list mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {data.items
+              .filter((p) => p.billing_days && p.active)
+              .sort((a, b) => a.selling_price - b.selling_price)
+              .map((pkg, i) => (
+                <PackageCard key={pkg.id} product={pkg} index={i} onEdit={setEditProduct} onDelete={setConfirmDelete} />
+              ))}
+          </div>
+        </>
+      )}
+      <SectionLabel>{data.items.some((p) => p.billing_days) ? 'Equipment & products' : 'All Products'}</SectionLabel>
+      <div className="stagger-list divide-y divide-edge/50 max-lg:divide-y-0 max-lg:space-y-2">
+        {data.items.filter((p) => !p.billing_days).map((product) => (
           <ProductRow
             key={product.id}
             product={product}
@@ -335,27 +365,95 @@ export function ProductsPage() {
     </Card>
   ) : null;
 
+  const errorNode = error && <Alert variant="error" title="Could not load products">{apiErrorMessage(error)}</Alert>;
+  const loadingNode = isLoading && <PageLoader inline message="Loading" />;
+
   return (
     <div className="space-y-5">
-      {header}
-      {error && <Alert variant="error" title="Could not load products">{apiErrorMessage(error)}</Alert>}
-      {isLoading && <PageLoader inline message="Loading" />}
-      {data && data.items.length === 0 && emptyState}
-      {productList}
+      {isDesktop ? (
+        <>
+          {header}
+          {errorNode}
+          {loadingNode}
+          {data && data.items.length === 0 && emptyState}
+          {productList}
+        </>
+      ) : (
+        <ProductsMobile
+          items={data?.items}
+          total={data?.total ?? 0}
+          page={page}
+          totalPages={totalPages}
+          onPage={setPage}
+          search={search}
+          onSearch={onSearch}
+          categories={categoriesQuery.data}
+          categoryFilter={categoryFilter}
+          onCategory={(v) => {
+            setCategoryFilter(v);
+            setPage(1);
+          }}
+          stockFilter={stockFilter}
+          onStock={(v) => {
+            setStockFilter(v);
+            setPage(1);
+          }}
+          loading={loadingNode}
+          errorNode={errorNode}
+          onAdd={startAdd}
+          onEdit={setEditProduct}
+          onStockAction={handleStockAction}
+          onHistory={setHistoryProduct}
+          onDelete={setConfirmDelete}
+        />
+      )}
+
+      <Dialog open={chooserOpen} onOpenChange={setChooserOpen} title="What would you like to add?">
+        <div className="grid grid-cols-2 gap-3">
+          {(
+            [
+              { kind: 'package', label: 'WiFi package', note: 'Monthly internet plan', Icon: DuoSubscribers },
+              { kind: 'product', label: 'Product', note: 'Equipment kept in stock', Icon: DuoProducts },
+            ] as const
+          ).map(({ kind, label, note, Icon }) => (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => {
+                setChooserOpen(false);
+                setAddKind(kind);
+              }}
+              className="flex flex-col items-center gap-3 rounded-2xl bg-surface-3 px-3 py-5 text-center transition-transform active:scale-[0.97]"
+            >
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface text-brand-600 [.dark_&]:text-brand-400">
+                <Icon className="h-7 w-7" />
+              </span>
+              <span>
+                <span className="block text-[15px] font-semibold text-foreground">{label}</span>
+                <span className="block text-[12px] text-foreground-3">{note}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </Dialog>
 
       <Dialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        title="Add a product"
-        description="Products are deducted from stock automatically when you sell them."
+        open={addKind !== null}
+        onOpenChange={(open) => !open && setAddKind(null)}
+        title={addKind === 'package' ? 'Add a WiFi package' : 'Add a product'}
+        description={
+          addKind === 'package'
+            ? 'A monthly plan. Selling it starts or renews a client’s subscription.'
+            : 'Products are deducted from stock automatically when you sell them.'
+        }
       >
-        <ProductForm onClose={() => setFormOpen(false)} />
+        {addKind && <ProductForm key={addKind} kind={addKind} onClose={() => setAddKind(null)} />}
       </Dialog>
 
       <Dialog
         open={Boolean(editProduct)}
         onOpenChange={(open) => !open && setEditProduct(null)}
-        title="Edit product"
+        title={editProduct?.billing_days ? 'Edit package' : 'Edit product'}
       >
         {editProduct && (
           <ProductForm

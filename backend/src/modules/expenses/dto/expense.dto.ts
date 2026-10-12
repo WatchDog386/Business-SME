@@ -12,7 +12,13 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { EXPENSE_PAYMENT_METHODS } from '../entities/expense.entity';
+import {
+  EXPENSE_PAYMENT_METHODS,
+  EXPENSE_STATUSES,
+} from '../entities/expense.entity';
+
+/** Data-URL receipts up to ~2 MB of file data (base64 adds ~37%). */
+export const RECEIPT_MAX_LENGTH = 2_900_000;
 
 export class CreateExpenseDto {
   @ApiProperty({ example: 'Rent for shop' })
@@ -40,7 +46,7 @@ export class CreateExpenseDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(RECEIPT_MAX_LENGTH, { message: 'Receipt must be 2 MB or smaller.' })
   receiptUrl?: string;
 
   @ApiPropertyOptional({ example: '2026-08-19' })
@@ -81,7 +87,7 @@ export class UpdateExpenseDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(RECEIPT_MAX_LENGTH, { message: 'Receipt must be 2 MB or smaller.' })
   receiptUrl?: string;
 
   @ApiPropertyOptional()
@@ -130,4 +136,17 @@ export class ExpensesListQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ enum: EXPENSE_STATUSES })
+  @IsOptional()
+  @IsEnum(EXPENSE_STATUSES)
+  status?: (typeof EXPENSE_STATUSES)[number];
+}
+
+export class RejectExpenseDto {
+  @ApiProperty({ example: 'No receipt attached' })
+  @IsString()
+  @IsNotEmpty({ message: 'Give a reason for rejecting this expense.' })
+  @MaxLength(300)
+  reason: string;
 }

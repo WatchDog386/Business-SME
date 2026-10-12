@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, DataSource, In, Repository } from 'typeorm';
+import { Brackets, DataSource, In, IsNull, Repository } from 'typeorm';
 import { Sale } from './entities/sale.entity';
 import { SaleItem } from './entities/sale-item.entity';
 import { Payment } from './entities/payment.entity';
@@ -17,6 +17,8 @@ import { Product } from '../products/entities/product.entity';
 import { Service } from '../products/entities/service.entity';
 import { roundKES } from '../../common/utils/money';
 import { PaginatedResult } from '../../common/dto/pagination.dto';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { EntityManager } from 'typeorm';
 
 interface ResolvedItem {
   type: 'PRODUCT' | 'SERVICE';
@@ -26,6 +28,9 @@ interface ResolvedItem {
   costPrice: number | null;
   quantity: number;
   total: number;
+  /** Set for WiFi packages: days of access per unit. */
+  billingDays: number | null;
+  speedMbps: number | null;
 }
 
 @Injectable()
@@ -44,8 +49,61 @@ export class SalesService {
     private readonly inventoryService: InventoryService,
     private readonly auditService: AuditService,
     private readonly customersService: CustomersService,
+    private readonly subscriptions: SubscriptionsService,
     private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * Next invoice (sale) or receipt (payment) number for a business. A
+   * transaction-scoped lock stops two simultaneous sales getting the same one.
+   */
+  private async nextNumber(manager: EntityManager, businessId: string, kind: 'sale' | 'receipt'): Promise<number> {
+    if (this.dataSource.options.type === 'postgres') {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${kind}:${businessId}`]);
+    }
+    const row =
+      kind === 'sale'
+        ? await manager
+            .getRepository(Sale)
+            .createQueryBuilder('s')
+            .select('COALESCE(MAX(s.number), 0)', 'max')
+            .where('s.businessId = :businessId', { businessId })
+            .getRawOne<{ max: string }>()
+        : await manager
+            .getRepository(Payment)
+            .createQueryBuilder('p')
+            .select('COALESCE(MAX(p.receipt_number), 0)', 'max')
+            .where('p.businessId = :businessId', { businessId })
+            .getRawOne<{ max: string }>();
+    return Number(row?.max ?? 0) + 1;
+  }
+
+  /**
+   * Gives numbers to sales and payments that don't have one yet (older or
+   * seeded records), oldest first, continuing after the highest number.
+   */
+  async assignMissingNumbers(businessId: string) {
+    await this.dataSource.transaction(async (manager) => {
+      const sales = await manager.getRepository(Sale).find({
+        where: { businessId, number: IsNull() },
+        order: { created_at: 'ASC' },
+        select: ['id'],
+      });
+      if (sales.length) {
+        let next = await this.nextNumber(manager, businessId, 'sale');
+        for (const sale of sales) await manager.getRepository(Sale).update(sale.id, { number: next++ });
+      }
+      const payments = await manager.getRepository(Payment).find({
+        where: { businessId, receipt_number: IsNull() },
+        order: { transaction_date: 'ASC' },
+        select: ['id'],
+      });
+      if (payments.length) {
+        let next = await this.nextNumber(manager, businessId, 'receipt');
+        for (const pay of payments) await manager.getRepository(Payment).update(pay.id, { receipt_number: next++ });
+      }
+    });
+  }
 
   async resolveItems(
     businessId: string,
@@ -112,6 +170,8 @@ export class SalesService {
           costPrice: product.cost_price,
           quantity: item.quantity,
           total: roundKES(product.selling_price * item.quantity),
+          billingDays: product.billing_days ?? null,
+          speedMbps: product.speed_mbps ?? null,
         };
       }
       if (item.serviceId) {
@@ -130,6 +190,8 @@ export class SalesService {
           costPrice: null,
           quantity: item.quantity,
           total: roundKES(service.price * item.quantity),
+          billingDays: null,
+          speedMbps: null,
         };
       }
       throw new BadRequestException({
@@ -236,9 +298,16 @@ export class SalesService {
     if (dto.customerId) {
       await this.customersService.get(businessId, dto.customerId);
     }
+    if (!dto.customerId && resolved.some((i) => i.billingDays)) {
+      throw new BadRequestException({
+        code: 'PACKAGE_NEEDS_CLIENT',
+        message: 'Choose the client for this WiFi package so their subscription can be started or renewed.',
+      });
+    }
 
     const sale = await this.dataSource.transaction(async (manager) => {
       const saleEntity = manager.create(Sale, {
+        number: await this.nextNumber(manager, businessId, 'sale'),
         businessId,
         customerId: dto.customerId ?? null,
         employeeId: dto.employeeId ?? null,
@@ -255,7 +324,26 @@ export class SalesService {
 
       const saleItems: SaleItem[] = [];
       for (const item of resolved) {
+        // WiFi package: start or extend the client's subscription
+        const packageEvent =
+          item.billingDays && dto.customerId
+            ? await this.subscriptions.applyPackageSale(
+                manager,
+                businessId,
+                dto.customerId,
+                {
+                  productId: item.id,
+                  name: item.name,
+                  speedMbps: item.speedMbps,
+                  billingDays: item.billingDays,
+                  unitPrice: item.unitPrice,
+                  quantity: item.quantity,
+                },
+                saleEntity.id,
+              )
+            : null;
         const saleItem = manager.create(SaleItem, {
+          package_event: packageEvent,
           saleId: saleEntity.id,
           productId: item.type === 'PRODUCT' ? item.id : null,
           serviceId: item.type === 'SERVICE' ? item.id : null,
@@ -270,6 +358,7 @@ export class SalesService {
 
       if (amountPaid > 0) {
         const payment = manager.create(Payment, {
+          receipt_number: await this.nextNumber(manager, businessId, 'receipt'),
           businessId,
           saleId: saleEntity.id,
           customerId: dto.customerId ?? null,
@@ -385,8 +474,10 @@ export class SalesService {
       .take(limit)
       .getRawAndEntities();
 
+    // Clear ORDER BY: Postgres rejects it on an aggregate-only query.
     const totalRow = await qb
       .clone()
+      .orderBy()
       .select('COUNT(*)', 'count')
       .getRawOne<{ count: string }>();
 
@@ -496,6 +587,7 @@ export class SalesService {
 
     await this.dataSource.transaction(async (manager) => {
       const payment = manager.create(Payment, {
+        receipt_number: await this.nextNumber(manager, businessId, 'receipt'),
         businessId,
         saleId,
         customerId: sale.customerId,
@@ -585,6 +677,21 @@ export class SalesService {
         { saleId, status: 'SUCCESS' },
         { status: 'REFUNDED' },
       );
+
+      if (sale.customerId) {
+        const packageItems = items.filter((i) => i.package_event && i.productId);
+        if (packageItems.length) {
+          const packages = await manager
+            .getRepository(Product)
+            .find({ where: { id: In(packageItems.map((i) => i.productId as string)) } });
+          for (const item of packageItems) {
+            const days = packages.find((p) => p.id === item.productId)?.billing_days;
+            if (days) {
+              await this.subscriptions.reversePackageSale(manager, businessId, sale.customerId, days, item.quantity);
+            }
+          }
+        }
+      }
 
       sale.payment_status = 'CANCELLED';
       sale.cancelled_at = new Date();

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- White background -->
-    <item android:drawable="@android:color/white" />
+    <!-- Brand blue background -->
+    <item android:drawable="@color/splash_background" />
     
-    <!-- Logo centered -->
+    <!-- White logo with the green dot, centred, no tile around it -->
     <item
-        android:drawable="@mipmap/ic_launcher"
+        android:drawable="@drawable/splash_icon"
         android:gravity="center"
-        android:width="200dp"
-        android:height="200dp" />
+        android:width="288dp"
+        android:height="288dp" />
 </layer-list>

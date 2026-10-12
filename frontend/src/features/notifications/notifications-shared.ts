@@ -1,18 +1,27 @@
+import { useMemo, useSyncExternalStore } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
-  BadgePercent,
-  CalendarClock,
-  CheckCircle2,
-  FileCheck2,
-  Landmark,
+  AlarmClock,
+  ClipboardCheck,
+  FileBarChart2,
   PackageX,
+  PhoneCall,
+  PiggyBank,
   Wallet,
+  WifiOff,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { dashboardApi } from '@/api/endpoints';
 import type { DashboardData } from '@/api/types';
+import { useRole } from '@/hooks/use-role';
 
-export type NotificationCategory = 'promotions' | 'stock' | 'sales';
+export type NotificationCategory = 'subscribers' | 'money' | 'expenses' | 'reports' | 'stock';
 
 export interface NotificationItem {
+  /**
+   * Stable while the situation is the same; changes when it changes (e.g. the
+   * number of expiring clients), so a new situation shows as unread again.
+   */
   id: string;
   category: NotificationCategory;
   icon: LucideIcon;
@@ -23,98 +32,190 @@ export interface NotificationItem {
   link: string;
 }
 
-// Toggle to false to preview the empty state
-export const SHOW_NOTIFICATIONS = false;
-
-export function buildNotifications(data: DashboardData): NotificationItem[] {
-  const items: NotificationItem[] = [];
-
-  // Promotions
-  items.push(
-    {
-      id: 'promo-loans',
-      category: 'promotions',
-      icon: Landmark,
-      tone: 'success',
-      title: 'Unlock Business Loans Instantly',
-      text: 'Access working capital of up to KSh 500,000 based on your verified sales history.',
-      time: '1h ago',
-      link: '/dashboard',
-    },
-    {
-      id: 'promo-tax',
-      category: 'promotions',
-      icon: FileCheck2,
-      tone: 'info',
-      title: 'Zero-Paper Tax & Compliance',
-      text: 'Generate KRA-ready sales and profit reports in one tap. Stay audit-ready effortlessly.',
-      time: 'Yesterday',
-      link: '/reports',
-    },
-    {
-      id: 'promo-growth',
-      category: 'promotions',
-      icon: BadgePercent,
-      tone: 'warning',
-      title: 'Grow Your Business with M-Pesa',
-      text: 'Instant reconciliation, automated stock tracking and zero paperwork for your business.',
-      time: '2 days ago',
-      link: '/dashboard',
-    },
-    {
-      id: 'platform-active',
-      category: 'promotions',
-      icon: CheckCircle2,
-      tone: 'success',
-      title: 'Platform Active',
-      text: 'Your OmniTrack platform is fully synchronized and running smoothly.',
-      time: 'System',
-      link: '/dashboard',
-    },
+const TZ = 'Africa/Nairobi';
+const isoDay = (offset = 0) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+    new Date(Date.now() + offset * 86_400_000),
   );
+
+/** Notifications built from live dashboard data: only things that need attention. */
+export function buildNotifications(data: DashboardData, options: { canApprove?: boolean } = {}): NotificationItem[] {
+  const today = isoDay();
+  const yesterday = isoDay(-1);
+  const items: NotificationItem[] = [];
+  const subs = data.subscribers;
+
+  // Subscribers
+  if (subs && subs.expired > 0) {
+    items.push({
+      id: `expired-${subs.expired}-${today}`,
+      category: 'subscribers',
+      icon: WifiOff,
+      tone: 'danger',
+      title: `${subs.expired} WiFi package${subs.expired === 1 ? ' has' : 's have'} expired`,
+      text: 'These clients are disconnected until they renew. Call or message them.',
+      time: 'Today',
+      link: '/subscribers',
+    });
+  }
+  if (subs && subs.expiringSoon > 0) {
+    items.push({
+      id: `expiring-${subs.expiringSoon}-${today}`,
+      category: 'subscribers',
+      icon: AlarmClock,
+      tone: 'warning',
+      title: `${subs.expiringSoon} package${subs.expiringSoon === 1 ? '' : 's'} expiring soon`,
+      text: 'Remind these clients to renew before they lose their connection.',
+      time: 'Today',
+      link: '/subscribers',
+    });
+  }
+  if ((data.callsDue ?? 0) > 0) {
+    items.push({
+      id: `calls-${data.callsDue}-${today}`,
+      category: 'subscribers',
+      icon: PhoneCall,
+      tone: 'info',
+      title: `${data.callsDue} client call${data.callsDue === 1 ? '' : 's'} due today`,
+      text: 'Call-backs, renewals and balances to follow up.',
+      time: 'Today',
+      link: '/calls',
+    });
+  }
+
+  // Money owed
+  if (data.outstandingDebts > 0) {
+    items.push({
+      id: `owed-${data.outstandingDebts}`,
+      category: 'money',
+      icon: Wallet,
+      tone: 'danger',
+      title: 'Clients owe you money',
+      text: `KSh ${data.outstandingDebts.toLocaleString('en-KE')} is unpaid across client balances.`,
+      time: 'Now',
+      link: '/customers',
+    });
+  }
+
+  // Expenses
+  if (options.canApprove && data.pendingApprovals > 0) {
+    items.push({
+      id: `approvals-${data.pendingApprovals}`,
+      category: 'expenses',
+      icon: ClipboardCheck,
+      tone: 'warning',
+      title: 'Expenses awaiting approval',
+      text: `${data.pendingApprovals} staff expense${data.pendingApprovals === 1 ? ' needs' : 's need'} your review.`,
+      time: 'Now',
+      link: '/expenses?status=PENDING',
+    });
+  }
+  for (const budget of data.budgetAlerts ?? []) {
+    const over = budget.level === 'EXCEEDED';
+    items.push({
+      id: `budget-${budget.id}-${budget.level}`,
+      category: 'expenses',
+      icon: PiggyBank,
+      tone: over ? 'danger' : 'warning',
+      title: over ? `${budget.category_name} over budget` : `${budget.category_name} near budget`,
+      text: `KSh ${budget.spent.toLocaleString('en-KE')} spent of KSh ${budget.limit.toLocaleString('en-KE')} this month (${budget.percent}%).`,
+      time: 'This month',
+      link: '/budgets',
+    });
+  }
 
   // Stock
   if (data.lowStock > 0) {
     items.push({
-      id: 'low-stock',
+      id: `low-stock-${data.lowStock}`,
       category: 'stock',
       icon: PackageX,
       tone: 'warning',
-      title: 'Low Stock Alert',
-      text: `${data.lowStock} product${data.lowStock === 1 ? ' is' : 's are'} running low on stock. Restock soon to avoid losing sales.`,
+      title: 'Low stock',
+      text: `${data.lowStock} product${data.lowStock === 1 ? ' is' : 's are'} running low. Restock soon.`,
       time: 'Today',
       link: '/products',
     });
   }
 
-  // Sales
-  const debtors = data.recentCustomers.filter((c) => c.outstanding_balance > 0);
-  if (debtors.length > 0) {
-    const total = debtors.reduce((acc, c) => acc + c.outstanding_balance, 0);
-    items.push({
-      id: 'debtors',
-      category: 'sales',
-      icon: Wallet,
-      tone: 'danger',
-      title: 'Outstanding Customer Credit',
-      text: `${debtors.length} customer${debtors.length === 1 ? '' : 's'} owe a total of KSh ${total.toLocaleString('en-KE')}.`,
-      time: 'Today',
-      link: '/customers',
-    });
-  }
+  // Yesterday's daily report, every morning
+  items.push({
+    id: `report-${yesterday}`,
+    category: 'reports',
+    icon: FileBarChart2,
+    tone: 'success',
+    title: "Yesterday's report is ready",
+    text: 'Revenue, money collected, expenses and profit for the full day.',
+    time: 'Today',
+    link: `/reports?date=${yesterday}`,
+  });
 
-  if (data.appointmentsToday > 0) {
-    items.push({
-      id: 'appointments',
-      category: 'sales',
-      icon: CalendarClock,
-      tone: 'info',
-      title: 'Appointments Today',
-      text: `${data.appointmentsToday} service appointment${data.appointmentsToday === 1 ? '' : 's'} scheduled for today.`,
-      time: 'Today',
-      link: '/services',
-    });
-  }
+  return items;
+}
 
-  return SHOW_NOTIFICATIONS ? items : [];
+/* ---------------- Read state (kept on this device) ---------------- */
+
+const STORE_KEY = 'optimas_read_notifications';
+const listeners = new Set<() => void>();
+let cache: Set<string> | null = null;
+
+function load(): Set<string> {
+  if (cache) return cache;
+  try {
+    cache = new Set(JSON.parse(localStorage.getItem(STORE_KEY) ?? '[]') as string[]);
+  } catch {
+    cache = new Set();
+  }
+  return cache;
+}
+
+function save(next: Set<string>) {
+  // Keep the newest few hundred ids; old situations no longer appear anyway
+  const list = [...next].slice(-300);
+  cache = new Set(list);
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(list));
+  } catch {
+    // Storage blocked: still works for this session
+  }
+  listeners.forEach((fn) => fn());
+}
+
+export function markNotificationsRead(ids: string[]) {
+  const next = new Set(load());
+  ids.forEach((id) => next.add(id));
+  save(next);
+}
+
+function subscribe(fn: () => void) {
+  listeners.add(fn);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORE_KEY) {
+      cache = null;
+      fn();
+    }
+  };
+  window.addEventListener('storage', onStorage);
+  return () => {
+    listeners.delete(fn);
+    window.removeEventListener('storage', onStorage);
+  };
+}
+
+/** The ids already read on this device; updates everywhere when one is read. */
+export function useReadNotifications(): Set<string> {
+  return useSyncExternalStore(subscribe, load, load);
+}
+
+/** Notifications plus how many are unread: used by the bell and the page. */
+export function useNotifications() {
+  const { canApprove } = useRole();
+  const query = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.get });
+  const read = useReadNotifications();
+  const items = useMemo(
+    () => (query.data ? buildNotifications(query.data, { canApprove }) : []),
+    [query.data, canApprove],
+  );
+  const unread = items.filter((n) => !read.has(n.id)).length;
+  return { ...query, items, read, unread };
 }

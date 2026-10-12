@@ -31,4 +31,8 @@ export class Payment extends BaseEntity {
 
   @Column({ type: 'timestamptz' })
   transaction_date: Date;
+
+  /** Sequential per business; printed as the receipt number (RCT-000045). */
+  @Column({ type: 'int', nullable: true })
+  receipt_number: number | null;
 }

@@ -4,9 +4,14 @@ import { Expense } from './entities/expense.entity';
 import { ExpensesService } from './expenses.service';
 import { ExpensesController } from './expenses.controller';
 import { AuditModule } from '../audit/audit.module';
+import { RecurringExpensesModule } from '../recurring-expenses/recurring-expenses.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Expense]), AuditModule],
+  imports: [
+    TypeOrmModule.forFeature([Expense]),
+    AuditModule,
+    RecurringExpensesModule,
+  ],
   providers: [ExpensesService],
   controllers: [ExpensesController],
   exports: [ExpensesService, TypeOrmModule],

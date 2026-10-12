@@ -53,4 +53,8 @@ export class Sale extends BaseEntity {
 
   @Column({ type: 'uuid', nullable: true })
   cancelled_by: string | null;
+
+  /** Sequential per business; printed as the invoice number (INV-000123). */
+  @Column({ type: 'int', nullable: true })
+  number: number | null;
 }

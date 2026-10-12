@@ -6,7 +6,10 @@
   :root {
     color-scheme: light;
 
-    /* Light theme tokens with user primary green */
+    /* Figtree (bundled), close to the Safaricom app's open, rounded lettering */
+    --font-sans: 'Figtree Variable', 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
+
+    /* Light theme tokens — Safaricom green (#2DA043) */
     --surface: 255 255 255;        /* white */
     --surface-2: 247 249 248;      
     --surface-3: 238 242 240;      
@@ -18,11 +21,11 @@
     --foreground-3: 94 107 101;    
     --foreground-4: 138 150 144;   
     --foreground-5: 170 182 176;   
-    --accent: 0 177 64;            /* #00B140 Primary Green */
-    --accent-strong: 1 163 90;     /* #01A35A Accent Green */
-    --accent-soft: 231 247 241;    
-    --accent-border: 71 171 136;   
-    --accent-text: 6 71 51;        
+    --accent: 45 160 67;
+    --accent-strong: 36 133 55;
+    --accent-soft: 234 247 237;
+    --accent-border: 69 182 92;
+    --accent-text: 29 106 44;
     --success: 0 177 64;           
     --success-soft: 209 250 229;   
     --danger: 220 38 38;           
@@ -40,9 +43,10 @@
   body {
     background-color: #f8fafc;
     color: rgb(var(--foreground));
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.5;
+    letter-spacing: 0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -50,26 +54,29 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Dark "Shevify" theme — flips every semantic token */
+  /*
+   * Dark theme — Safaricom app greys: #121212 page, #1E1E1E cards and round
+   * buttons, #303538 unselected pills, green accent.
+   */
   .dark {
     color-scheme: dark;
 
-    --surface: 18 26 22;           /* #121A16 */
-    --surface-2: 11 17 14;         /* #0B110E */
-    --surface-3: 32 43 37;         /* #202B25 */
-    --field: 32 43 37;             /* dull dark field bg */
-    --edge: 46 58 51;              /* #2E3A33 */
-    --edge-2: 66 79 71;            /* #424F47 */
-    --foreground: 233 238 235;     /* #E9EEEB */
-    --foreground-2: 214 222 217;   /* #D6DED9 */
-    --foreground-3: 158 171 164;   /* #9EABA4 */
-    --foreground-4: 122 134 127;   /* #7A867F */
-    --foreground-5: 94 105 99;     /* #5E6963 */
-    --accent: 0 177 64;            /* #00B140 Primary Green */
-    --accent-strong: 34 197 111;   /* brighter green for dark bg */
-    --accent-soft: 8 54 36;        /* deep green tint */
-    --accent-border: 35 155 102;
-    --accent-text: 167 243 208;
+    --surface: 30 30 30;
+    --surface-2: 18 18 18;
+    --surface-3: 48 53 56;
+    --field: 30 30 30;
+    --edge: 46 46 46;
+    --edge-2: 68 68 68;
+    --foreground: 255 255 255;
+    --foreground-2: 228 228 234;
+    --foreground-3: 168 168 176;
+    --foreground-4: 130 130 140;
+    --foreground-5: 98 98 108;
+    --accent: 45 160 67;
+    --accent-strong: 69 182 92;
+    --accent-soft: 16 48 24;
+    --accent-border: 45 160 67;
+    --accent-text: 157 220 170;
     --success: 52 211 153;
     --success-soft: 6 46 32;
     --danger: 248 113 113;
@@ -81,11 +88,209 @@
   }
 
   .dark body {
-    background-color: #0b110e;
+    background-color: #121212;
+  }
+
+  html:not(.dark) body.page-white {
+    background-color: #ffffff;
+  }
+
+  /*
+   * Phones: each page's header (tagged `page-head`) stays pinned at the top
+   * while the content scrolls underneath, like the bottom navigation bar.
+   */
+  @media (max-width: 1023px) {
+    .page-head {
+      position: sticky !important;
+      top: 0;
+      z-index: 25;
+      height: auto !important;
+      min-height: 3rem;
+      margin-left: -1rem;
+      margin-right: -1rem;
+      padding: calc(env(safe-area-inset-top) + 0.5rem) 1rem 0.5rem !important;
+      /* Same as the page, so it's seamless until content scrolls under it */
+      background: #ffffff;
+      transition: box-shadow 0.2s ease;
+    }
+    html.page-scrolled .page-head {
+      box-shadow: 0 8px 16px -14px rgba(15, 23, 42, 0.35);
+    }
+    .dark .page-head {
+      background: #121212;
+    }
+  }
+
+  /* Phones, every page in the app: soft sky glow behind the header (from the user's reference) */
+  @media (max-width: 1023px) {
+    /* Clear at rest so the glow runs through; frosted once content scrolls under it */
+    .page-head.dash-glow-head,
+    body.app-glow .page-head {
+      background: transparent;
+    }
+    html.page-scrolled .page-head.dash-glow-head,
+    html.page-scrolled body.app-glow .page-head {
+      background: rgba(232, 241, 255, 0.82);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+    }
+    .dash-glow {
+      background: linear-gradient(180deg, #d7e7ff 0%, #e8f1ff 45%, rgba(255, 255, 255, 0) 100%);
+    }
+    html.dark.page-scrolled .page-head.dash-glow-head,
+    html.dark.page-scrolled body.app-glow .page-head {
+      background: rgba(22, 32, 47, 0.82);
+    }
+    html:not(.dark) body.dash-glow-body,
+    html:not(.dark) body.app-glow {
+      background: linear-gradient(180deg, #d7e7ff 0, #e8f1ff 180px, #ffffff 380px) no-repeat, #ffffff;
+    }
+    .dark body.dash-glow-body,
+    .dark body.app-glow {
+      background: linear-gradient(180deg, #16202f 0, #121212 360px) no-repeat, #121212;
+    }
+    /* Grey round buttons in a pinned header turn white with a soft blue shadow, like the dashboard's */
+    html:not(.dark) body.app-glow .page-head .bg-surface-3 {
+      background-color: #ffffff;
+      box-shadow: 0 6px 18px -6px rgba(37, 99, 235, 0.28), 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+    /* The same glow at the bottom, behind the footer bar: fixed to the screen, under the content */
+    body.app-glow::before {
+      content: '';
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 260px;
+      z-index: -1;
+      pointer-events: none;
+      background: linear-gradient(0deg, #d7e7ff 0, #e8f1ff 110px, rgba(255, 255, 255, 0) 100%);
+    }
+    .dark body.app-glow::before {
+      background: linear-gradient(0deg, #16202f 0, rgba(18, 18, 18, 0) 100%);
+    }
+    .dark .dash-glow {
+      background: linear-gradient(180deg, #16202f 0%, rgba(18, 18, 18, 0) 100%);
+    }
+  }
+
+  /* Never scroll sideways: sliding pages must not widen the page and nudge the fixed footer bar */
+  html,
+  body {
+    overflow-x: clip;
+  }
+
+  /* Phones: every app page sits on pure white, like the login page */
+  @media (max-width: 1023px) {
+    html:not(.dark) body {
+      background-color: #ffffff;
+    }
+  }
+
+  /*
+   * Phones: Safaricom-app proportions. Measured against screen width, its text
+   * and icon tiles are about 15% smaller than ours were, so the rem base drops
+   * to 14px (text and spacing) and every fixed pixel text size scales to match.
+   */
+  @media (max-width: 1023px) {
+    html {
+      font-size: 14px;
+    }
+    body {
+      font-size: 12.5px;
+    }
+    html .text-\[9px\] {
+      font-size: 9px;
+    }
+    html .text-\[10px\] {
+      font-size: 9px;
+    }
+    html .text-\[11px\] {
+      font-size: 10px;
+    }
+    html .text-\[12px\] {
+      font-size: 10.5px;
+    }
+    html .text-\[13px\] {
+      font-size: 11px;
+    }
+    html .text-\[14px\] {
+      font-size: 12px;
+    }
+    html .text-\[15px\] {
+      font-size: 13px;
+    }
+    html .text-\[16px\] {
+      font-size: 13.5px;
+    }
+    html .text-\[17px\] {
+      font-size: 14.5px;
+    }
+    html .text-\[18px\] {
+      font-size: 15.5px;
+    }
+    html .text-\[20px\] {
+      font-size: 17px;
+    }
+    html .text-\[22px\] {
+      font-size: 19px;
+    }
+    html .text-\[24px\] {
+      font-size: 20.5px;
+    }
+    html .text-\[26px\] {
+      font-size: 22px;
+    }
+    html .text-\[28px\] {
+      font-size: 24px;
+    }
+    html .text-\[30px\] {
+      font-size: 25.5px;
+    }
+    html .text-\[32px\] {
+      font-size: 27px;
+    }
+    html .text-\[34px\] {
+      font-size: 29px;
+    }
+    html .text-\[44px\] {
+      font-size: 37px;
+    }
   }
 
   h1, h2, h3, h4 {
     text-rendering: geometricPrecision;
+  }
+
+  /*
+   * Desktop reading size: a sturdier typeface at a normal size. Phones keep
+   * the compact system font. Fixed pixel sizes used across the app are
+   * raised here too, since they would not scale with the root size.
+   */
+  @media (min-width: 1024px) {
+    html {
+      font-size: 17px;
+    }
+    body {
+      font-family: var(--font-sans);
+      font-size: 15px;
+      -webkit-font-smoothing: auto;
+      -moz-osx-font-smoothing: auto;
+    }
+    html .text-\[9px\],
+    html .text-\[10px\] {
+      font-size: 12px;
+    }
+    html .text-\[11px\] {
+      font-size: 13px;
+    }
+    html .text-\[12px\],
+    html .text-\[13px\] {
+      font-size: 14px;
+    }
+    html .text-\[15px\] {
+      font-size: 16px;
+    }
   }
 
   /* Keep text crisp on mobile — no blurry scaling artifacts */
@@ -136,6 +341,38 @@
 }
 
 @layer utilities {
+  /*
+   * Phone lists: rows rise in one after another, like a native list loading.
+   * Delays stop growing after 12 rows so long lists don't feel slow.
+   */
+  @keyframes list-rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @media (max-width: 1023px) and (prefers-reduced-motion: no-preference) {
+    .stagger-list > * {
+      animation: list-rise 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: 360ms;
+    }
+    .stagger-list > *:nth-child(1) { animation-delay: 30ms; }
+    .stagger-list > *:nth-child(2) { animation-delay: 60ms; }
+    .stagger-list > *:nth-child(3) { animation-delay: 90ms; }
+    .stagger-list > *:nth-child(4) { animation-delay: 120ms; }
+    .stagger-list > *:nth-child(5) { animation-delay: 150ms; }
+    .stagger-list > *:nth-child(6) { animation-delay: 180ms; }
+    .stagger-list > *:nth-child(7) { animation-delay: 210ms; }
+    .stagger-list > *:nth-child(8) { animation-delay: 240ms; }
+    .stagger-list > *:nth-child(9) { animation-delay: 270ms; }
+    .stagger-list > *:nth-child(10) { animation-delay: 300ms; }
+    .stagger-list > *:nth-child(11) { animation-delay: 330ms; }
+  }
+
   .scrollbar-none {
     scrollbar-width: none;
   }

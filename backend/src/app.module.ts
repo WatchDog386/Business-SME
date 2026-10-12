@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { CommonModule } from './common/common.module';
@@ -14,9 +15,13 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { AuditModule } from './modules/audit/audit.module';
-import { BillingModule } from './modules/billing/billing.module';
-import { AdminModule } from './modules/admin/admin.module';
-import { AiModule } from './modules/ai/ai.module';
+import { BudgetsModule } from './modules/budgets/budgets.module';
+import { RecurringExpensesModule } from './modules/recurring-expenses/recurring-expenses.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { CallsModule } from './modules/calls/calls.module';
+import { DocumentsModule } from './modules/documents/documents.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { ClientPortalModule } from './modules/client-portal/client-portal.module';
 
 @Module({
   imports: [
@@ -25,6 +30,7 @@ import { AiModule } from './modules/ai/ai.module';
       load: [configuration],
       envFilePath: ['backend/.env', '.env'],
     }),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     CommonModule,
     AuditModule,
@@ -36,11 +42,15 @@ import { AiModule } from './modules/ai/ai.module';
     ProductsModule,
     SalesModule,
     ExpensesModule,
-  DashboardModule,
-  ReportsModule,
-  BillingModule,
-  AdminModule,
-  AiModule,
-],
+    BudgetsModule,
+    RecurringExpensesModule,
+    SubscriptionsModule,
+    CallsModule,
+    DocumentsModule,
+    PaymentsModule,
+    ClientPortalModule,
+    DashboardModule,
+    ReportsModule,
+  ],
 })
 export class AppModule {}

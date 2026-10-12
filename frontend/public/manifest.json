@@ -1,23 +1,73 @@
 {
-  "name": "OmniTrack",
-  "short_name": "OmniTrack",
-  "description": "Smart SME Solutions for Kenya",
-  "start_url": "/",
+  "id": "/",
+  "name": "Optimas Technologies",
+  "short_name": "Optimas",
+  "description": "Stock, sales, invoices and daily reports for Optimas Technologies Ltd",
+  "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#087F5B",
-  "theme_color": "#087F5B",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "orientation": "any",
+  "background_color": "#0033A1",
+  "theme_color": "#0033A1",
+  "categories": [
+    "business",
+    "productivity",
+    "finance"
+  ],
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/icons/launch-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/logo.png",
+      "src": "/icons/launch-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/launch-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/maskable-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Record sale",
+      "url": "/sales/new"
+    },
+    {
+      "name": "Products & stock",
+      "url": "/products"
+    },
+    {
+      "name": "Reports",
+      "url": "/reports"
     }
   ]
 }

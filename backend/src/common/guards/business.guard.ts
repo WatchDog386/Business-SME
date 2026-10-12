@@ -7,11 +7,13 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BusinessMember } from '../../modules/businesses/entities/business-member.entity';
 import { Business } from '../../modules/businesses/entities/business.entity';
-import { RequestWithUser } from '../types/auth-user.interface';
+import { RequestWithUser, UserRole } from '../types/auth-user.interface';
+import { CLIENT_ACCESS_KEY } from '../decorators/client-access.decorator';
 
 /**
  * Resolves the active business for the authenticated user from the
@@ -27,6 +29,7 @@ export class BusinessGuard implements CanActivate {
     private readonly memberRepo: Repository<BusinessMember>,
     @InjectRepository(Business)
     private readonly businessRepo: Repository<Business>,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -60,6 +63,20 @@ export class BusinessGuard implements CanActivate {
       });
     }
 
+    // Client logins only reach routes marked @ClientAccess(), never staff data
+    if (membership.role === UserRole.CLIENT) {
+      const allowed = this.reflector.getAllAndOverride<boolean>(CLIENT_ACCESS_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (!allowed || !membership.customerId) {
+        throw new ForbiddenException({
+          code: 'STAFF_ONLY',
+          message: 'This part of the app is for Optimas staff.',
+        });
+      }
+    }
+
     const business = await this.businessRepo.findOne({
       where: { id: businessId },
     });
@@ -74,6 +91,7 @@ export class BusinessGuard implements CanActivate {
       id: membership.id,
       businessId: membership.businessId,
       role: membership.role,
+      customerId: membership.customerId,
     };
     request.business = {
       id: business.id,

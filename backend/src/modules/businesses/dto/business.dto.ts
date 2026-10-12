@@ -5,10 +5,11 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  MinLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BUSINESS_TYPES } from '../entities/business.entity';
-import { UserRole } from '../../../common/types/auth-user.interface';
+import { STAFF_ROLES, UserRole } from '../../../common/types/auth-user.interface';
 
 export class CreateBusinessDto {
   @ApiProperty({ example: 'Mama Njeri Salon' })
@@ -100,13 +101,30 @@ export class AddMemberDto {
   @IsEmail({}, { message: 'Enter a valid email address.' })
   email: string;
 
-  @ApiProperty({ enum: UserRole, example: UserRole.MANAGER })
-  @IsIn(Object.values(UserRole), { message: 'Select a valid role.' })
+  @ApiProperty({ enum: STAFF_ROLES, example: UserRole.MANAGER })
+  @IsIn([...STAFF_ROLES], { message: 'Select a valid role.' })
   role: UserRole;
+
+  // Required when the person has no account yet — the owner creates their login
+  @ApiPropertyOptional({ example: 'Mercy Wanjiru' })
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @ApiPropertyOptional({ example: '0712345678' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'secret123', minLength: 8 })
+  @IsOptional()
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters.' })
+  password?: string;
 }
 
 export class UpdateMemberRoleDto {
-  @ApiProperty({ enum: UserRole, example: UserRole.ACCOUNTANT })
-  @IsIn(Object.values(UserRole), { message: 'Select a valid role.' })
+  @ApiProperty({ enum: STAFF_ROLES, example: UserRole.ACCOUNTANT })
+  @IsIn([...STAFF_ROLES], { message: 'Select a valid role.' })
   role: UserRole;
 }

@@ -1,22 +1,46 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Search, ShoppingCart, Receipt } from 'lucide-react';
-import { salesApi } from '@/api/endpoints';
+import { motion } from 'framer-motion';
+import { ArrowUpDown, ChevronLeft, Search, ShoppingCart, Receipt } from 'lucide-react';
+import { dashboardApi, salesApi } from '@/api/endpoints';
+import { Chips } from '@/components/layout/app-bar';
+import { useAuthStore } from '@/stores/auth';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { invoiceNo } from '@/features/isp/document-actions';
 import { Alert } from '@/components/ui/alert';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
 import { PageLoader } from '@/components/ui/spinner';
-import { formatKES, formatDateTime } from '@/lib/utils';
+import { cn, formatKES, formatDateTime } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
 
+// Same look as the Products page header section
+const LIME = '#B8F28B';
+const TILE = 'bg-[#F2F2F4] [.dark_&]:bg-[#1E1E1E]';
+
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function shortKsh(amount: number): string {
+  if (amount >= 1_000_000) return `${(amount / 1_000_000).toLocaleString('en-KE', { maximumFractionDigits: 1 })}M`;
+  if (amount >= 1_000) return `${(amount / 1_000).toLocaleString('en-KE', { maximumFractionDigits: 1 })}K`;
+  return amount.toLocaleString('en-KE');
+}
+
 export function SalesPage() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
   const [searchParams, setSearchParams] = useSearchParams();
   const customerId = searchParams.get('customer') ?? '';
   const [page, setPage] = useState(1);
@@ -44,6 +68,11 @@ export function SalesPage() {
       }),
   });
 
+  // Business-wide figures for the tiles (shared with the dashboard's cache)
+  const dashboard = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.get });
+  const [newestFirst, setNewestFirst] = useState(true);
+  const items = data ? (newestFirst ? data.items : [...data.items].reverse()) : [];
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
   const statusTabs: Array<{ id: string; label: string }> = [
@@ -55,59 +84,89 @@ export function SalesPage() {
 
   return (
     <div className="space-y-4 pb-10 font-sans text-[14px]">
-      {/* Header — matches notification page */}
-      <div className="relative flex h-12 items-center justify-between">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-foreground transition-colors hover:bg-surface-3 active:bg-surface-3"
-          aria-label="Back to dashboard"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">
-          Sales
+      {/* Header, same as the Products page: greeting with avatar and back */}
+      <header className="page-head flex items-center justify-between gap-3 text-foreground">
+        <h1 className="text-[24px] leading-tight tracking-tight">
+          Let&apos;s track
+          <span className="block font-semibold">Your Sales! 🛒</span>
         </h1>
-        <Button onClick={() => navigate('/sales/new')} className="h-9 rounded-full px-4 text-xs">
-          <Plus className="h-3.5 w-3.5" />
-          Record sale
-        </Button>
+        <div className="flex shrink-0 items-center">
+          <span className="relative z-10 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#2A2A2E] text-[14px] font-semibold text-white ring-2 ring-white [.dark_&]:ring-black">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initialsOf(user?.fullName ?? 'You')
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}
+            className="-ml-3 flex h-12 w-12 items-center justify-center rounded-full bg-black pl-2 text-white active:scale-90 [.dark_&]:bg-white [.dark_&]:text-black"
+            aria-label="Back"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        </div>
+      </header>
+
+      <Chips
+        items={statusTabs}
+        value={statusFilter}
+        onChange={(id) => {
+          setStatusFilter(id);
+          setPage(1);
+        }}
+      />
+
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-5" aria-hidden />
+          <Input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+              window.setTimeout(() => setDebouncedSearch(event.target.value), 300);
+            }}
+            placeholder="Search sales by customer or reference..."
+            className="h-11 rounded-full bg-field pl-9"
+            autoComplete="off"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setNewestFirst((v) => !v)}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90"
+          aria-label={newestFirst ? 'Show oldest first' : 'Show newest first'}
+          title="Sort by date"
+        >
+          <ArrowUpDown className={cn('h-4 w-4 transition-transform', !newestFirst && 'rotate-180')} />
+        </button>
       </div>
 
-      {/* Status tabs — notification style */}
-      <div className="flex items-center justify-center gap-2">
-        {statusTabs.map((tab) => {
-          const isActive = statusFilter === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setStatusFilter(tab.id);
-                setPage(1);
-              }}
-              className={cn(
-                'h-9 w-24 rounded-full border text-xs font-medium tracking-wide transition-all active:scale-[0.97]',
-                isActive ? 'border-brand-700 bg-brand-700 text-white shadow-sm' : 'border-edge bg-surface text-foreground-2 hover:bg-surface-2',
-              )}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* Three equal tiles, like Products */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: 'Today', value: dashboard.data ? shortKsh(dashboard.data.today.sales) : '—' },
+          { label: 'Sales', value: data ? String(data.total) : '—' },
+          { label: 'Owed', value: dashboard.data ? shortKsh(dashboard.data.outstandingDebts) : '—' },
+        ].map((tile) => (
+          <div key={tile.label} className={cn('flex h-[68px] flex-col items-center justify-center rounded-[22px] px-2', TILE)}>
+            <span className="text-[11px] leading-4 text-foreground-4">{tile.label}</span>
+            <span className="mt-1 h-5 text-[14px] leading-5 tabular-nums">{tile.value}</span>
+          </div>
+        ))}
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-5" aria-hidden />
-        <Input
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(1);
-            window.setTimeout(() => setDebouncedSearch(event.target.value), 300);
-          }}
-          placeholder="Search sales by customer or reference..."
-          className="pl-9 h-11 rounded-full bg-field"
-        />
-      </div>
+      <motion.button
+        type="button"
+        onClick={() => navigate('/sales/new')}
+        whileTap={{ scale: 0.98 }}
+        className="flex h-[60px] w-full items-center justify-center rounded-[22px] text-[16px] font-medium text-black"
+        style={{ backgroundColor: LIME }}
+      >
+        Record sale
+      </motion.button>
 
       {customerId && (
         <Alert variant="info">
@@ -155,8 +214,8 @@ export function SalesPage() {
             <span className="text-right text-[11px] font-medium text-foreground-4">Total</span>
             <span className="text-right text-[11px] font-medium text-foreground-4">Status</span>
           </div>
-          <ul className="divide-y divide-edge">
-            {data.items.map((sale) => (
+          <ul className="stagger-list divide-y divide-edge max-lg:divide-y-0">
+            {items.map((sale) => (
               <li key={sale.id}>
                 <Link to={`/sales/${sale.id}`} className="grid grid-cols-[1fr_auto] sm:grid-cols-[1.4fr_0.9fr_1fr_0.8fr_auto] gap-2 px-1 py-3 transition-colors hover:bg-surface-2 active:bg-surface-3 items-center">
                   <span className="flex items-center gap-3 min-w-0">
@@ -166,14 +225,14 @@ export function SalesPage() {
                     <span className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">{sale.customer_name ?? 'Walk-in customer'}</p>
                       <p className="sm:hidden truncate text-xs text-foreground-5">
-                        #{sale.id.slice(0, 8).toUpperCase()} · {formatKES(sale.total)}
+                        {sale.number ? invoiceNo(sale.number) : `#${sale.id.slice(0, 8).toUpperCase()}`} · {formatKES(sale.total)}
                       </p>
                       <p className="hidden sm:block truncate text-xs text-foreground-5">
                         {sale.item_count !== undefined ? `${sale.item_count} items` : '—'}
                       </p>
                     </span>
                   </span>
-                  <span className="hidden sm:block truncate text-xs font-medium tabular-nums text-foreground-3">#{sale.id.slice(0, 8).toUpperCase()}</span>
+                  <span className="hidden sm:block truncate text-xs font-medium tabular-nums text-foreground-3">{sale.number ? invoiceNo(sale.number) : `#${sale.id.slice(0, 8).toUpperCase()}`}</span>
                   <span className="hidden sm:block min-w-0">
                     <p className="truncate text-xs text-foreground-3">{formatDateTime(sale.created_at)}</p>
                     <p className="truncate text-[11px] text-foreground-5">{sale.payment_method}</p>

@@ -17,6 +17,7 @@ import {
   type ParsedTransaction,
 } from '@/lib/parse-transaction-sms';
 import { cn, uuid } from '@/lib/utils';
+import { SpeedWheel } from '@/components/ui/workspace-loader';
 
 type Step = 'capture' | 'paste' | 'review' | 'saving' | 'done';
 
@@ -278,7 +279,7 @@ export function ScanSaleDialog({
 
                 {ocrBusy && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 text-white">
-                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <SpeedWheel />
                     <p className="text-sm font-medium">Reading the message…</p>
                   </div>
                 )}

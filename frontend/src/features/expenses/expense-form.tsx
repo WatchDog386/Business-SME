@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,6 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Alert } from '@/components/ui/alert';
 import { EXPENSE_PAYMENT_METHODS } from '@/lib/constants';
+import { FileText, Paperclip, X } from 'lucide-react';
+import type { Expense } from '@/api/types';
+
+const RECEIPT_MAX_BYTES = 2 * 1024 * 1024;
 
 const schema = z.object({
   description: z.string().min(2, 'Describe this expense.').max(150),
@@ -25,9 +30,12 @@ type FormValues = z.infer<typeof schema>;
 
 export function ExpenseForm({
   onClose,
+  onSaved,
   defaultValues,
+  submitLabel = 'Add expense',
 }: {
   onClose: () => void;
+  onSaved?: (expense: Expense) => void;
   defaultValues?: {
     id: string;
     description: string;
@@ -35,10 +43,37 @@ export function ExpenseForm({
     categoryId: string | null;
     payment_method: string;
     expense_date: string;
+    receipt_url?: string | null;
   };
+  submitLabel?: string;
 }) {
   const queryClient = useQueryClient();
   const isEdit = Boolean(defaultValues);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(
+    defaultValues?.receipt_url ?? null,
+  );
+  const [receiptName, setReceiptName] = useState<string | null>(
+    defaultValues?.receipt_url ? 'Attached receipt' : null,
+  );
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+
+  const handleReceiptChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (file.size > RECEIPT_MAX_BYTES) {
+      setReceiptError('Receipt must be 2 MB or smaller.');
+      return;
+    }
+    setReceiptError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setReceiptUrl(reader.result as string);
+      setReceiptName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const categoriesQuery = useQuery({
     queryKey: ['categories', 'EXPENSE'],
@@ -69,15 +104,21 @@ export function ExpenseForm({
         categoryId: values.categoryId || undefined,
         paymentMethod: values.paymentMethod || 'CASH',
         expenseDate: values.expenseDate || new Date().toISOString(),
+        // An empty string clears an existing receipt on edit.
+        ...(receiptUrl !== (defaultValues?.receipt_url ?? null)
+          ? { receiptUrl: receiptUrl ?? '' }
+          : {}),
       };
       return defaultValues
         ? expensesApi.update(defaultValues.id, payload)
         : expensesApi.create(payload);
     },
-    onSuccess: async () => {
+    onSuccess: async (expense) => {
       await queryClient.invalidateQueries({ queryKey: ['expenses'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       await queryClient.invalidateQueries({ queryKey: ['reports'] });
+      await queryClient.invalidateQueries({ queryKey: ['budgets'] });
+      onSaved?.(expense);
       onClose();
     },
     onError: (err) => setFormError('root', { message: apiErrorMessage(err) }),
@@ -161,12 +202,62 @@ export function ExpenseForm({
           </Select>
         </div>
       </div>
+      <div>
+        <Label htmlFor="expense-receipt">Receipt (optional)</Label>
+        <input
+          id="expense-receipt"
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          className="hidden"
+          onChange={handleReceiptChange}
+        />
+        {receiptUrl ? (
+          <div className="flex items-center gap-3 rounded-2xl border border-edge bg-field px-3 py-2">
+            {receiptUrl.startsWith('data:image') ? (
+              <img
+                src={receiptUrl}
+                alt="Receipt preview"
+                className="h-12 w-12 shrink-0 rounded-lg object-cover"
+              />
+            ) : (
+              <FileText className="h-6 w-6 shrink-0 text-foreground-4" aria-hidden />
+            )}
+            <p className="min-w-0 flex-1 truncate text-sm text-foreground-2">
+              {receiptName}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setReceiptUrl(null);
+                setReceiptName(null);
+              }}
+              aria-label="Remove receipt"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="h-4 w-4" />
+            Attach photo or PDF
+          </Button>
+        )}
+        {receiptError && <p className="mt-1 text-xs text-danger">{receiptError}</p>}
+      </div>
       <div className="flex justify-end gap-3 pt-1">
         <Button variant="outline" type="button" onClick={onClose}>
           Cancel
         </Button>
         <Button type="submit" loading={mutation.isPending}>
-          {isEdit ? 'Save changes' : 'Add expense'}
+          {isEdit ? 'Save changes' : submitLabel}
         </Button>
       </div>
     </form>

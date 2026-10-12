@@ -46,6 +46,14 @@ export class Business extends BaseEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   county: string | null;
 
+  /** KRA PIN printed on invoices and receipts. */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  kra_pin: string | null;
+
+  /** Note printed at the bottom of invoices (bank / M-Pesa paybill details). */
+  @Column({ type: 'text', nullable: true })
+  invoice_footer: string | null;
+
   @Column({ type: 'varchar', length: 3, default: 'KES' })
   currency: string;
 

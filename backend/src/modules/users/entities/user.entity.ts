@@ -27,4 +27,22 @@ export class User extends BaseEntity {
 
   @Column({ type: 'timestamptz', nullable: true, select: false })
   reset_token_expires_at: Date | null;
+
+  // ---- Two-factor authentication (authenticator app, required for everyone) ----
+
+  /** On once the user has scanned the secret and confirmed a code. */
+  @Column({ type: 'boolean', default: false })
+  totp_enabled: boolean;
+
+  /** Authenticator secret, AES-256-GCM encrypted. Set during setup. */
+  @Column({ type: 'text', nullable: true, select: false })
+  totp_secret_enc: string | null;
+
+  /** Last accepted 30-second step, so a code can't be used twice. */
+  @Column({ type: 'integer', nullable: true, select: false })
+  totp_last_counter: number | null;
+
+  /** SHA-256 hashes of unused single-use recovery codes (JSON array). */
+  @Column({ type: 'text', nullable: true, select: false })
+  totp_recovery_hashes: string | null;
 }

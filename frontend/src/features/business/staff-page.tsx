@@ -1,26 +1,22 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
-  Mail,
-  UserPlus,
-  UserX,
-  Shield,
   Briefcase,
-  Users,
   Calculator,
-  MoreVertical,
-  Check,
+  UsersRound,
   X,
-  AlertTriangle,
-  Activity,
-  Clock,
-  Star,
-  MessageSquare,
-  UserCheck,
+  Check,
+  Mail,
+  Phone,
+  Search,
+  Shield,
+  ShieldCheck,
   Trash2,
-  Edit,
-  Eye,
+  UserPlus,
+  Users,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useActiveBusiness } from '@/stores/business';
@@ -29,694 +25,821 @@ import type { UserRole, BusinessMember } from '@/api/types';
 import { api, apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
-import { PopupMessage } from '@/components/ui/popup-message';
-import { cn } from '@/lib/utils';
-import { formatDate, timeAgo } from '@/lib/utils';
-import {
-  PageTitle,
-} from '@/features/admin/admin-shared';
+import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/layout/page-header';
+import { CHARCOAL, FiberHeroCard, LIME, ProfileHeader, RoundFilters, type RoundFilter } from '@/components/brand/fiber-card';
+import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
+import { cn, formatDate, timeAgo } from '@/lib/utils';
+import { useRole } from '@/hooks/use-role';
 
-const ROLE_OPTIONS: Array<{ value: UserRole; label: string; icon: React.ReactNode; description: string; color: string; bgColor: string; borderColor: string; gradient: string; permissions: string[] }> = [
-  {
-    value: 'OWNER',
-    label: 'Owner',
-    icon: <Shield className="h-4 w-4" />,
-    description: 'Full access including billing, team management & business deletion',
-    color: 'text-brand-600',
-    bgColor: 'bg-brand-50',
-    borderColor: 'border-brand-200',
-    gradient: 'from-brand-700 via-brand-900 to-brand-950',
-    permissions: ['All permissions', 'Manage billing & subscription', 'Delete business', 'Transfer ownership', 'Manage all staff roles'],
+interface NewMember {
+  email: string;
+  role: UserRole;
+  fullName?: string;
+  phone?: string;
+  password?: string;
+}
+
+type RoleInfo = {
+  label: string;
+  plural: string;
+  icon: LucideIcon;
+  description: string;
+  /** Soft tile/pill colours. */
+  tone: string;
+  /** Solid avatar colour. */
+  avatar: string;
+  /** Segment colour in the team breakdown bar. */
+  bar: string;
+};
+
+const ROLES: Record<UserRole, RoleInfo> = {
+  OWNER: {
+    label: 'Admin',
+    plural: 'Admins',
+    icon: Shield,
+    description: 'Full access, including staff roles and business settings',
+    tone: 'bg-violet-50 text-violet-700 [.dark_&]:bg-violet-500/15 [.dark_&]:text-violet-300',
+    avatar: 'bg-violet-600',
+    bar: 'bg-violet-500',
   },
-  {
-    value: 'MANAGER',
+  MANAGER: {
     label: 'Manager',
-    icon: <Briefcase className="h-4 w-4" />,
-    description: 'Manage products, sales, expenses, customers & staff',
-    color: 'text-emerald-600',
-    bgColor: 'bg-emerald-50',
-    borderColor: 'border-emerald-200',
-    gradient: 'from-emerald-800 via-green-900 to-emerald-950',
-    permissions: ['Manage products & services', 'Record & view all sales', 'Manage expenses', 'Manage customers', 'Invite & manage staff (except Owner)', 'View all reports'],
+    plural: 'Managers',
+    icon: Briefcase,
+    description: 'Runs products, sales, expenses, customers and staff',
+    tone: 'bg-emerald-50 text-emerald-700 [.dark_&]:bg-emerald-500/15 [.dark_&]:text-emerald-300',
+    avatar: 'bg-emerald-600',
+    bar: 'bg-emerald-500',
   },
-  {
-    value: 'EMPLOYEE',
+  EMPLOYEE: {
     label: 'Employee',
-    icon: <Users className="h-4 w-4" />,
-    description: 'Record sales, view assigned customers & products',
-    color: 'text-sky-600',
-    bgColor: 'bg-sky-50',
-    borderColor: 'border-sky-200',
-    gradient: 'from-sky-700 via-blue-900 to-sky-950',
-    permissions: ['Record sales', 'View assigned products', 'View assigned customers', 'Basic sales reports'],
+    plural: 'Employees',
+    icon: Users,
+    description: 'Records sales and submits expenses',
+    tone: 'bg-sky-50 text-sky-700 [.dark_&]:bg-sky-500/15 [.dark_&]:text-sky-300',
+    avatar: 'bg-sky-600',
+    bar: 'bg-sky-500',
   },
-  {
-    value: 'ACCOUNTANT',
+  // Client logins are not staff and never listed here
+  CLIENT: {
+    label: 'Client',
+    plural: 'Clients',
+    icon: Users,
+    description: 'WiFi client with the client app',
+    tone: 'bg-teal-50 text-teal-700 [.dark_&]:bg-teal-500/15 [.dark_&]:text-teal-300',
+    avatar: 'bg-teal-600',
+    bar: 'bg-teal-500',
+  },
+  ACCOUNTANT: {
     label: 'Accountant',
-    icon: <Calculator className="h-4 w-4" />,
-    description: 'View financial reports, expenses & manage transactions',
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-50',
-    borderColor: 'border-amber-200',
-    gradient: 'from-amber-700 via-orange-800 to-orange-950',
-    permissions: ['View all financial reports', 'Manage expenses', 'View sales & payments', 'Export financial data', 'Manage tax settings'],
+    plural: 'Accountants',
+    icon: Calculator,
+    description: 'Approves expenses and works with reports',
+    tone: 'bg-amber-50 text-amber-700 [.dark_&]:bg-amber-500/15 [.dark_&]:text-amber-300',
+    avatar: 'bg-amber-500',
+    bar: 'bg-amber-400',
   },
-];
+};
 
-const STATUS_CONFIG = {
-  ACTIVE: { label: 'Active', gradient: 'from-emerald-600 to-emerald-800', icon: <Activity className="h-3 w-3" /> },
-  PENDING: { label: 'Pending', gradient: 'from-amber-600 to-amber-800', icon: <Clock className="h-3 w-3" /> },
-  INACTIVE: { label: 'Inactive', gradient: 'from-slate-500 to-slate-700', icon: <UserX className="h-3 w-3" /> },
-  INVITED: { label: 'Invited', gradient: 'from-sky-600 to-sky-800', icon: <UserPlus className="h-3 w-3" /> },
-} as const;
+const ROLE_ORDER: UserRole[] = ['OWNER', 'MANAGER', 'ACCOUNTANT', 'EMPLOYEE'];
+const ASSIGNABLE: UserRole[] = ['MANAGER', 'ACCOUNTANT', 'EMPLOYEE'];
 
-const AVATAR_IMAGES = [
-  'https://i.pinimg.com/1200x/77/71/4d/77714db652c343cfabf1c51a20e403ff.jpg',
-  'https://i.pinimg.com/736x/0a/50/bc/0a50bc5d50f5ebff9a626f1307780287.jpg',
-  'https://i.pinimg.com/736x/56/b9/90/56b9904ab763d88bbc1fe87cb9e827b4.jpg',
-  'https://i.pinimg.com/736x/0f/31/8d/0f318da21f16078d14d65da44f8628bb.jpg',
-  'https://i.pinimg.com/736x/3a/2f/1c/3a2f1c8e8f9b0c4d5e6f7a8b9c0d1e2f.jpg',
-  'https://i.pinimg.com/736x/1a/2b/3c/1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d.jpg',
-];
+const STATUS: Record<string, { label: string; dot: string }> = {
+  ACTIVE: { label: 'Active', dot: 'bg-emerald-500' },
+  PENDING: { label: 'Pending', dot: 'bg-amber-500' },
+  INVITED: { label: 'Invited', dot: 'bg-sky-500' },
+  INACTIVE: { label: 'Inactive', dot: 'bg-slate-400' },
+};
 
-function StatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.INACTIVE;
+const card =
+  'rounded-3xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_28px_-14px_rgba(15,23,42,0.14)] [.dark_&]:border [.dark_&]:border-edge';
+
+function initials(name: string): string {
+  // Only words that start with a letter, so "Korri (Platform Admin)" gives "KP"
+  return name
+    .split(/\s+/)
+    .filter((w) => /^\p{L}/u.test(w.replace(/^[^\p{L}]+/u, '')))
+    .map((w) => w.replace(/^[^\p{L}]+/u, '')[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function Avatar({ member, size = 44, ring = false }: { member: BusinessMember; size?: number; ring?: boolean }) {
+  const status = STATUS[member.status] ?? STATUS.INACTIVE;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white">
-      <span className={`flex h-3 w-3 items-center justify-center bg-gradient-to-r ${config.gradient} rounded-full`}>
-        {config.icon}
+    <span className="relative inline-flex shrink-0" style={{ width: size, height: size }}>
+      <span
+        className={cn(
+          'flex h-full w-full items-center justify-center rounded-full font-semibold text-white',
+          ROLES[member.role].avatar,
+          ring && 'ring-2 ring-surface',
+        )}
+        style={{ fontSize: size * 0.36 }}
+      >
+        {initials(member.user.fullName)}
       </span>
-      {config.label}
+      {!ring && (
+        <span className={cn('absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-surface', status.dot)} aria-hidden />
+      )}
     </span>
   );
 }
 
-function StaffAvatar({ name, size = 'md', src, index = 0 }: { name: string; size?: 'sm' | 'md' | 'lg' | 'xl'; src?: string; index?: number }) {
-  const sizes = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-12 w-12 text-base', xl: 'h-16 w-16 text-lg' };
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
-  const bgImage = AVATAR_IMAGES[index % AVATAR_IMAGES.length];
-
+function RolePill({ role }: { role: UserRole }) {
+  const info = ROLES[role];
   return (
-    <div
-      className={cn('flex items-center justify-center rounded-full overflow-hidden relative', sizes[size])}
-      style={{
-        backgroundImage: `url(${bgImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-    >
-      <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-black/10 to-transparent" aria-hidden />
-      {src ? (
-        <img src={src} alt={name} className="h-full w-full object-cover relative z-10" />
-      ) : (
-        <span className="relative z-10 text-white font-bold drop-shadow-md">{initials}</span>
-      )}
-    </div>
+    <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold', info.tone)}>
+      <info.icon className="h-3 w-3" aria-hidden />
+      {info.label}
+    </span>
   );
 }
 
-function GradientStat({
-  icon,
-  label,
+/** Team summary on the shared network-green card, with "Add staff" in its corner. */
+function TeamHero({
+  members,
+  businessName,
+  onAdd,
+  canAdd,
+}: {
+  members: BusinessMember[];
+  businessName: string;
+  onAdd: () => void;
+  canAdd: boolean;
+}) {
+  const active = members.filter((m) => m.status === 'ACTIVE').length;
+  const secured = members.filter((m) => m.user.twoFactorEnabled).length;
+  const admins = members.filter((m) => m.role === 'OWNER').length;
+  return (
+    <FiberHeroCard
+      label="Team members"
+      value={members.length}
+      note={`${active} active · ${admins} admin${admins === 1 ? '' : 's'}`}
+      maskedValue={members.length}
+      footerLeft={businessName}
+      footerRight={`2FA ${secured}/${members.length}`}
+      icon={UsersRound}
+      action={canAdd ? { label: 'Add staff', onClick: onAdd } : undefined}
+    />
+  );
+}
+
+const FILTER_STYLE: Record<UserRole | 'ALL', Pick<RoundFilter<string>, 'label' | 'icon' | 'iconClass' | 'hoverClass' | 'selectedClass'>> = {
+  ALL: { label: 'Everyone', icon: Users, iconClass: 'text-brand-600', hoverClass: 'hover:bg-brand-50', selectedClass: 'bg-brand-50 border-brand-500' },
+  OWNER: { label: 'Admins', icon: Shield, iconClass: 'text-violet-600', hoverClass: 'hover:bg-violet-50', selectedClass: 'bg-violet-50 border-violet-500' },
+  MANAGER: { label: 'Managers', icon: Briefcase, iconClass: 'text-emerald-600', hoverClass: 'hover:bg-emerald-50', selectedClass: 'bg-emerald-50 border-emerald-500' },
+  ACCOUNTANT: { label: 'Accounts', icon: Calculator, iconClass: 'text-amber-600', hoverClass: 'hover:bg-amber-50', selectedClass: 'bg-amber-50 border-amber-500' },
+  EMPLOYEE: { label: 'Employees', icon: UsersRound, iconClass: 'text-sky-600', hoverClass: 'hover:bg-sky-50', selectedClass: 'bg-sky-50 border-sky-500' },
+  // Client logins are not staff and never listed here
+  CLIENT: { label: 'Clients', icon: Users, iconClass: 'text-teal-600', hoverClass: 'hover:bg-teal-50', selectedClass: 'bg-teal-50 border-teal-500' },
+};
+
+function RoleButtons({
   value,
-  gradient,
+  onChange,
+  counts,
+  total,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  gradient: string;
+  value: UserRole | 'ALL';
+  onChange: (v: UserRole | 'ALL') => void;
+  counts: Partial<Record<UserRole, number>>;
+  total: number;
 }) {
+  const ids: Array<UserRole | 'ALL'> = ['ALL', 'OWNER', 'MANAGER', 'ACCOUNTANT', 'EMPLOYEE'];
   return (
-    <div
-      className={`relative flex h-[104px] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-3.5 shadow-lg ${gradient}`}
-    >
-      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" aria-hidden />
-      <div className="relative flex items-start justify-between gap-2">
-        <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">{label}</p>
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/15 text-white backdrop-blur">
-          {icon}
-        </span>
-      </div>
-      <p className="relative text-2xl font-black leading-none tracking-tight tabular-nums text-white drop-shadow-[0_1px_5px_rgba(0,0,0,0.55)]">
-        {value}
-      </p>
-    </div>
+    <RoundFilters
+      hideIcons
+      value={value}
+      onChange={onChange}
+      items={ids.map((id) => ({ id, ...FILTER_STYLE[id], count: id === 'ALL' ? total : (counts[id] ?? 0) }))}
+    />
   );
 }
 
-function StaffRow({
-  member,
+/** Avatar row for fast contact (Quick Send in the reference). */
+function QuickContact({ members, onPick }: { members: BusinessMember[]; onPick: (id: string) => void }) {
+  if (members.length === 0) return null;
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between px-1">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Quick contact</h2>
+        <span className="text-[12px] font-medium text-foreground-4">{members.length} people</span>
+      </div>
+      <div className="scrollbar-none -mx-1 flex gap-4 overflow-x-auto px-1">
+        {members.map((m, i) => (
+          <motion.button
+            key={m.id}
+            type="button"
+            onClick={() => onPick(m.id)}
+            className="flex w-14 shrink-0 flex-col items-center gap-1.5"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.05 * i, type: 'spring', stiffness: 400, damping: 26 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <Avatar member={m} size={48} />
+            <span className="w-full truncate text-center text-[11px] font-medium text-foreground-2">{m.user.fullName.split(' ')[0]}</span>
+          </motion.button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Member list straight on the page, each person on a dull grey tile. */
+function TeamList({
+  members,
   currentUserId,
-  onRemove,
-  onRoleChange,
-  onViewDetails,
-  index,
+  onPick,
 }: {
-  member: BusinessMember & { user: BusinessMember['user'] & { avatarUrl?: string } };
-  currentUserId: string;
-  onRemove: (id: string) => void;
-  onRoleChange: (id: string, role: UserRole) => void;
-  onViewDetails: (member: BusinessMember) => void;
-  index: number;
+  members: BusinessMember[];
+  currentUserId?: string;
+  onPick: (id: string) => void;
 }) {
-  const isSelf = member.user.id === currentUserId;
-  const isOwner = member.role === 'OWNER';
-  const [showDropdown, setShowDropdown] = useState(false);
-  const roleConfig = ROLE_OPTIONS.find((r) => r.value === member.role);
-
-  const bgImage = AVATAR_IMAGES[index % AVATAR_IMAGES.length];
-
   return (
-    <div className="relative">
-      <div
-        className={cn(
-          'relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-white/10 p-4 transition-all duration-200 shadow-xl',
-          'hover:border-white/20 hover:shadow-2xl',
-          isSelf && 'ring-1 ring-accent/30',
-          isOwner && 'ring-1 ring-brand-500/30'
-        )}
-        onClick={() => !isSelf && onViewDetails(member)}
-        style={{
-          cursor: isSelf ? 'default' : 'pointer',
-          backgroundImage: `url(${bgImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/50" aria-hidden />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" aria-hidden />
-        <div className="absolute inset-0 ring-1 ring-white/10 rounded-2xl" aria-hidden />
-        
-        <div className="relative flex items-center gap-3 min-w-0 flex-1">
-          <StaffAvatar name={member.user.fullName} size="md" src={member.user.avatarUrl} index={index} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="truncate font-medium text-white drop-shadow-sm">{member.user.fullName}</p>
-              {isSelf && (
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/15 text-white border border-white/10 backdrop-blur-sm">
-                  <UserCheck className="h-3 w-3" />
-                  You
-                </span>
-              )}
-              {isOwner && !isSelf && (
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-brand-500/20 text-brand-300 border border-brand-500/30 backdrop-blur-sm">
-                  <Star className="h-3 w-3" />
-                  Owner
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-3 mt-1 flex-wrap">
-              <p className="truncate text-sm text-white/70">{member.user.email}</p>
-              {member.user.phone && (
-                <span className="flex items-center gap-1 text-sm text-white/70">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  {member.user.phone}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="relative flex items-center gap-2 shrink-0">
-          <span className={cn(
-            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border transition-colors',
-            'bg-white/10 border-white/10 text-white/90 backdrop-blur-sm'
-          )}>
-            {roleConfig?.icon}
-            {roleConfig?.label}
-          </span>
-          <StatusBadge status={member.status} />
-
-          {!isOwner && !isSelf && (
-            <div className="relative">
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowDropdown(!showDropdown); }}
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors backdrop-blur-sm"
-                aria-label="More options"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-              {showDropdown && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
-                  <div className="absolute right-0 top-full mt-1.5 z-50 flex w-48 flex-col rounded-2xl bg-slate-900/95 border border-white/10 shadow-2xl overflow-hidden animate-fade-in backdrop-blur-xl">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onViewDetails(member); setShowDropdown(false); }}
-                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/90 hover:bg-white/10 transition-colors"
-                    >
-                      <Eye className="h-4 w-4" />
-                      View Details
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setShowDropdown(false); }}
-                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/90 hover:bg-white/10 transition-colors"
-                    >
-                      <Edit className="h-4 w-4" />
-                      Edit Profile
-                    </button>
-                    {ROLE_OPTIONS.filter((r) => r.value !== 'OWNER' && r.value !== member.role).map((role) => (
-                      <button
-                        key={role.value}
-                        onClick={(e) => { e.stopPropagation(); onRoleChange(member.id, role.value); setShowDropdown(false); }}
-                        className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/90 hover:bg-white/10 transition-colors"
-                      >
-                        {role.icon}
-                        {role.label}
-                      </button>
-                    ))}
-                    <hr className="my-1 border-white/10" />
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onRemove(member.id); setShowDropdown(false); }}
-                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Remove from Team
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+    <section>
+      <div className="mb-2 flex items-center justify-between px-1">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Team</h2>
+        <span className="text-[12px] font-medium text-foreground-4">{members.length}</span>
       </div>
-    </div>
-  );
-}
-
-function StaffDetailModal({ member, onClose, onRoleChange, onRemove, currentUserId }: {
-  member: BusinessMember & { user: BusinessMember['user'] & { avatarUrl?: string } };
-  onClose: () => void;
-  onRoleChange: (id: string, role: UserRole) => void;
-  onRemove: (id: string) => void;
-  currentUserId: string;
-}) {
-  const isSelf = member.user.id === currentUserId;
-  const isOwner = member.role === 'OWNER';
-  const roleConfig = ROLE_OPTIONS.find((r) => r.value === member.role);
-  const statusConfig = STATUS_CONFIG[member.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.INACTIVE;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900/95 shadow-2xl animate-scale-in backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent" aria-hidden />
-        
-        <div className="relative flex items-start justify-between p-5 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <StaffAvatar name={member.user.fullName} size="xl" src={member.user.avatarUrl} />
-            <div>
-              <h2 className="text-lg font-medium text-white">{member.user.fullName}</h2>
-              <p className="text-sm text-white/60">{member.user.email}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/50 hover:bg-white/10 hover:text-white transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="relative p-5 space-y-5">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
-              <p className="text-xs text-white/40 uppercase tracking-wide">Role</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-white/10 border border-white/10 text-white/90 backdrop-blur-sm">
-                  {roleConfig?.icon}
-                  {roleConfig?.label}
+      <ul className="stagger-list space-y-2">
+        {members.map((m) => {
+          const status = STATUS[m.status] ?? STATUS.INACTIVE;
+          const isSelf = m.user.id === currentUserId;
+          return (
+            <li key={m.id}>
+              <button type="button" onClick={() => onPick(m.id)} className="-mx-1 flex w-[calc(100%+0.5rem)] items-center gap-3 text-left rounded-xl px-1 py-2.5 transition-[transform,background-color] active:scale-[0.99] active:bg-surface-3">
+                <span
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold"
+                  style={{ backgroundColor: CHARCOAL, color: LIME }}
+                >
+                  {initials(m.user.fullName)}
                 </span>
-              </div>
-            </div>
-            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
-              <p className="text-xs text-white/40 uppercase tracking-wide">Status</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white">
-                  <span className={`flex h-3 w-3 items-center justify-center bg-gradient-to-r ${statusConfig.gradient} rounded-full`}>
-                    {statusConfig.icon}
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-[14px] font-semibold text-foreground">{m.user.fullName}</span>
+                    {isSelf && <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-foreground-3">You</span>}
                   </span>
-                  {statusConfig.label}
+                  <span className="block truncate text-[12px] text-foreground-4">
+                    {ROLES[m.role].label} · {m.user.email}
+                  </span>
                 </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-white/5 p-3 border border-white/10">
-            <p className="text-xs text-white/40 uppercase tracking-wide">Member Since</p>
-            <p className="text-sm font-medium text-white mt-1">
-              {formatDate(member.createdAt)} ({timeAgo(member.createdAt)})
-            </p>
-          </div>
-
-          {member.user.phone && (
-            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
-              <p className="text-xs text-white/40 uppercase tracking-wide">Phone</p>
-              <p className="text-sm font-medium text-white mt-1">{member.user.phone}</p>
-            </div>
-          )}
-
-          {!isSelf && !isOwner && (
-            <div className="space-y-3 pt-2 border-t border-white/10">
-              <p className="text-xs text-white/40 uppercase tracking-wide">Change Role</p>
-              <div className="grid grid-cols-2 gap-2">
-                {ROLE_OPTIONS.filter((r) => r.value !== 'OWNER' && r.value !== member.role).map((role) => (
-                  <button
-                    key={role.value}
-                    onClick={() => { onRoleChange(member.id, role.value); onClose(); }}
-                    className={cn(
-                      'relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3 text-center transition-all',
-                      'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
-                    )}
-                  >
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${role.gradient}`}>
-                      {role.icon}
-                    </div>
-                    <span className="text-sm font-medium text-white">{role.label}</span>
-                    <span className="text-[10px] text-white/50 text-center">{role.description}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!isSelf && !isOwner && (
-            <div className="pt-2 border-t border-white/10">
-              <button
-                onClick={() => { onRemove(member.id); onClose(); }}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
-              >
-                <Trash2 className="h-4 w-4" />
-                Remove from Team
+                <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-foreground-3">
+                  <span className={cn('h-2 w-2 rounded-full', status.dot)} aria-hidden />
+                  {status.label}
+                </span>
               </button>
-            </div>
-          )}
-
-          {isSelf && (
-            <div className="pt-2 border-t border-white/10 text-center text-sm text-white/50">
-              You cannot remove yourself or change your own role.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
-function InviteModal({ isOpen, onClose, onInvite, isPending, error }: {
-  isOpen: boolean;
+function MemberDetail({
+  member,
+  isSelf,
+  canEditRoles,
+  onClose,
+  onRoleChange,
+  onRemove,
+  onResetTwoFactor,
+  changingRole,
+}: {
+  member: BusinessMember;
+  isSelf: boolean;
+  canEditRoles: boolean;
   onClose: () => void;
-  onInvite: (email: string, role: UserRole) => void;
-  isPending: boolean;
-  error: string | null;
+  onRoleChange: (role: UserRole) => void;
+  onRemove: () => void;
+  onResetTwoFactor: () => void;
+  changingRole: boolean;
 }) {
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<UserRole>('EMPLOYEE');
-  const [localError, setLocalError] = useState<string | null>(null);
+  const status = STATUS[member.status] ?? STATUS.INACTIVE;
+  const editable = canEditRoles && !isSelf && member.role !== 'OWNER';
+  const phoneDigits = member.user.phone?.replace(/[^\d]/g, '') ?? '';
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setLocalError(null);
-    onInvite(email.trim(), role);
-  };
-
-  if (!isOpen) return null;
+  const actions = [
+    { label: 'Call', icon: Phone, href: member.user.phone ? `tel:${member.user.phone}` : null },
+    { label: 'Email', icon: Mail, href: `mailto:${member.user.email}` },
+    { label: 'WhatsApp', icon: WhatsAppIcon, href: phoneDigits ? `https://wa.me/${phoneDigits}` : null },
+  ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in sm:items-center" onClick={onClose}>
-      <div className="relative w-full max-w-md rounded-t-3xl border-t border-white/10 bg-slate-900/95 p-6 pb-8 shadow-2xl animate-slide-up sm:max-w-lg sm:rounded-3xl sm:border sm:shadow-2xl sm:animate-scale-in backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent" aria-hidden />
-        
-        <div className="relative flex items-center justify-between mb-5">
-          <h2 className="text-base font-medium tracking-tight text-white">Invite Team Member</h2>
-          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/50 hover:bg-white/10 hover:text-white transition-colors">
-            <X className="h-4 w-4" />
-          </button>
+    <div className="space-y-5">
+      <div className="flex flex-col items-center text-center">
+        <Avatar member={member} size={72} />
+        <p className="mt-3 text-[18px] font-semibold tracking-tight text-foreground">{member.user.fullName}</p>
+        <p className="text-[13px] text-foreground-4">{member.user.email}</p>
+        <div className="mt-2 flex items-center gap-2">
+          <RolePill role={member.role} />
+          {isSelf && (
+            <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-foreground-3">You</span>
+          )}
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="relative space-y-5">
-          <div className="space-y-1.5">
-            <Label htmlFor="inviteEmail" className="text-sm font-medium text-white">
-              Email Address
-            </Label>
-            <Input
-              id="inviteEmail"
-              type="email"
-              placeholder="staff@business.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-12 px-5 text-sm rounded-2xl border-white/10 bg-white/5 text-white placeholder-white/30 focus:border-accent focus:ring-accent/20 focus:bg-white/10 disabled:opacity-50"
-              autoFocus
-              required
-              disabled={isPending}
-            />
+      {/* Quick contact */}
+      <div className="grid grid-cols-3 gap-2">
+        {actions.map((a) =>
+          a.href ? (
+            <a
+              key={a.label}
+              href={a.href}
+              target={a.label === 'WhatsApp' ? '_blank' : undefined}
+              rel="noreferrer"
+              className="flex flex-col items-center gap-1.5 rounded-2xl bg-surface py-3 text-[12px] font-medium text-foreground-2 active:scale-95"
+            >
+              <a.icon className="h-5 w-5 text-brand-600 [.dark_&]:text-brand-300" aria-hidden />
+              {a.label}
+            </a>
+          ) : (
+            <span
+              key={a.label}
+              className="flex flex-col items-center gap-1.5 rounded-2xl bg-surface py-3 text-[12px] font-medium text-foreground-5"
+              aria-disabled
+            >
+              <a.icon className="h-5 w-5" aria-hidden />
+              {a.label}
+            </span>
+          ),
+        )}
+      </div>
+
+      {/* Details */}
+      <div className="overflow-hidden rounded-2xl bg-surface">
+        {[
+          { label: 'Status', value: (
+            <span className="inline-flex items-center gap-1.5">
+              <span className={cn('h-2 w-2 rounded-full', status.dot)} aria-hidden />
+              {status.label}
+            </span>
+          ) },
+          { label: 'Two-factor sign-in', value: member.user.twoFactorEnabled ? (
+            <span className="inline-flex items-center gap-1.5 text-emerald-600">
+              <ShieldCheck className="h-4 w-4" aria-hidden />
+              On
+            </span>
+          ) : (
+            <span className="text-amber-600">Set up at next sign-in</span>
+          ) },
+          { label: 'Phone', value: member.user.phone ?? '—' },
+          { label: 'Member since', value: `${formatDate(member.createdAt)} · ${timeAgo(member.createdAt)}` },
+        ].map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-3 px-4 py-3">
+            <span className="text-[13px] text-foreground-4">{row.label}</span>
+            <span className="text-right text-[13px] font-medium text-foreground">{row.value}</span>
           </div>
+        ))}
+      </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-white">Role</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {ROLE_OPTIONS.filter((r) => r.value !== 'OWNER').map((r) => (
+      {editable && (
+        <div>
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-foreground-4">Role</p>
+          <div className="space-y-2">
+            {ASSIGNABLE.map((role) => {
+              const info = ROLES[role];
+              const selected = member.role === role;
+              return (
                 <button
-                  key={r.value}
+                  key={role}
                   type="button"
-                  onClick={() => setRole(r.value)}
+                  disabled={selected || changingRole}
+                  onClick={() => onRoleChange(role)}
                   className={cn(
-                    'relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all',
-                    role === r.value
-                      ? 'border-accent bg-accent/10'
-                      : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                    'flex w-full items-center gap-3 rounded-2xl border bg-surface p-3 text-left transition-colors',
+                    selected ? 'border-brand-600' : 'border-transparent active:bg-surface-2',
                   )}
                 >
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${r.gradient}`}>
-                    {r.icon}
-                  </div>
-                  <span className="text-sm font-medium text-white">{r.label}</span>
-                  <span className="text-[11px] text-white/50 text-center">{r.description}</span>
-                  {role === r.value && (
-                    <Check className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-white" />
-                  )}
+                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', info.tone)}>
+                    <info.icon className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-semibold text-foreground">{info.label}</span>
+                    <span className="block text-[12px] text-foreground-4">{info.description}</span>
+                  </span>
+                  {selected && <Check className="h-5 w-5 text-brand-600" aria-hidden />}
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
+        </div>
+      )}
 
-          {(error || localError) && (
-            <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400 animate-fade-in">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {error || localError}
-            </div>
-          )}
+      {canEditRoles && !isSelf && member.user.twoFactorEnabled && (
+        <Button variant="outline" className="w-full" onClick={onResetTwoFactor}>
+          <ShieldCheck className="h-4 w-4" />
+          Reset two-factor sign-in
+        </Button>
+      )}
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} className="rounded-2xl h-12 border-white/10 text-white hover:bg-white/10" disabled={isPending}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={isPending} className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-brand-600 px-6 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-60">
-              <Mail className="h-4 w-4" />
-              Send Invitation
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+      {editable && (
+        <Button variant="outline" className="w-full border-danger/30 text-danger hover:bg-danger-soft hover:text-danger" onClick={onRemove}>
+          <Trash2 className="h-4 w-4" />
+          Remove from team
+        </Button>
+      )}
 
-function EmptyState({ onInvite }: { onInvite: () => void }) {
-  return (
-    <div className="relative flex flex-col items-center gap-4 rounded-2xl p-8 text-center border border-white/10 bg-slate-900/50 backdrop-blur-sm">
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent rounded-2xl" aria-hidden />
-      <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 border border-white/10">
-        <Users className="h-8 w-8 text-white/80" />
-      </div>
-      <div className="relative">
-        <h3 className="text-lg font-medium text-white">No team members yet</h3>
-        <p className="text-sm text-white/50 mt-1">Invite your first staff member to start collaborating</p>
-      </div>
-      <Button onClick={onInvite} className="gap-2 mt-2 flex h-10 shrink-0 items-center gap-2 rounded-full bg-brand-600 px-4 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98]">
-        <UserPlus className="h-4 w-4" />
-        Invite Staff
+      {isSelf && (
+        <p className="text-center text-[12px] text-foreground-4">You can’t change your own role or remove yourself.</p>
+      )}
+
+      <Button variant="secondary" className="w-full" onClick={onClose}>
+        Done
       </Button>
     </div>
   );
 }
 
-function StatsCards({ members }: { members: BusinessMember[] }) {
-  const stats = [
-    { label: 'Total Staff', value: members.length, icon: Users, gradient: 'from-brand-700 via-brand-900 to-brand-950' },
-    { label: 'Active', value: members.filter(m => m.status === 'ACTIVE').length, icon: Activity, gradient: 'from-emerald-800 via-green-900 to-emerald-950' },
-    { label: 'Pending', value: members.filter(m => m.status === 'PENDING' || m.status === 'INVITED').length, icon: Clock, gradient: 'from-amber-700 via-orange-800 to-orange-950' },
-    { label: 'Roles', value: new Set(members.map(m => m.role)).size, icon: Shield, gradient: 'from-purple-700 via-purple-900 to-fuchsia-950' },
-  ];
+/** "Add staff" panel styled like the reference budget popup. */
+function AddMemberForm({
+  onSubmit,
+  onCancel,
+  isPending,
+  error,
+  canAddAdmin,
+}: {
+  onSubmit: (member: NewMember) => void;
+  onCancel: () => void;
+  isPending: boolean;
+  error: string | null;
+  canAddAdmin: boolean;
+}) {
+  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole>('EMPLOYEE');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const roles: UserRole[] = canAddAdmin ? ['OWNER', ...ASSIGNABLE] : ASSIGNABLE;
+
+  const clear = () => {
+    setEmail('');
+    setFullName('');
+    setPhone('');
+    setPassword('');
+    setRole('EMPLOYEE');
+    setLocalError(null);
+  };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      setLocalError('Enter their email address.');
+      return;
+    }
+    if (password && password.length < 8) {
+      setLocalError('Password must be at least 8 characters.');
+      return;
+    }
+    setLocalError(null);
+    onSubmit({
+      email: email.trim(),
+      role,
+      fullName: fullName.trim() || undefined,
+      phone: phone.trim() || undefined,
+      password: password || undefined,
+    });
+  };
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {stats.map((stat) => (
-        <GradientStat
-          key={stat.label}
-          icon={<stat.icon className="h-3.5 w-3.5" aria-hidden />}
-          label={stat.label}
-          value={String(stat.value)}
-          gradient={stat.gradient}
-        />
-      ))}
-    </div>
+    <form onSubmit={submit} className="relative">
+      {/* Lime "Close" pill in the corner, as in the reference */}
+      <button
+        type="button"
+        onClick={onCancel}
+        className="absolute -right-1 -top-1 flex h-9 items-center gap-1.5 rounded-full pl-1.5 pr-3.5 text-[12px] font-semibold"
+        style={{ backgroundColor: LIME, color: CHARCOAL }}
+      >
+        <span className="flex h-6 w-6 items-center justify-center rounded-full text-white" style={{ backgroundColor: CHARCOAL }}>
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </span>
+        Close
+      </button>
+
+      <div className="flex flex-col items-center pt-4 text-center">
+        <motion.span
+          className="flex h-16 w-16 items-center justify-center rounded-full"
+          style={{ backgroundColor: CHARCOAL, color: LIME }}
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+        >
+          <UserPlus className="h-7 w-7" aria-hidden />
+        </motion.span>
+        <h2 className="mt-3 text-[20px] font-semibold tracking-tight text-foreground">Add team member</h2>
+        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-4">New login for Optimas</p>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        <Input aria-label="Full name" placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={isPending} className="h-12" />
+        <Input aria-label="Email" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isPending} className="h-12" />
+        <div className="grid grid-cols-2 gap-3">
+          <Input aria-label="Phone" type="tel" placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={isPending} className="h-12" />
+          <Input
+            aria-label="Login password"
+            type="text"
+            autoComplete="new-password"
+            placeholder="Password (8+)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isPending}
+            className="h-12"
+          />
+        </div>
+      </div>
+
+      <p className="mt-5 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-4">Role</p>
+      <div className={cn('mt-2 grid gap-2', roles.length === 4 ? 'grid-cols-4' : 'grid-cols-3')}>
+        {roles.map((r) => {
+          const info = ROLES[r];
+          const selected = role === r;
+          return (
+            <motion.button
+              key={r}
+              type="button"
+              whileTap={{ scale: 0.93 }}
+              onClick={() => setRole(r)}
+              aria-pressed={selected}
+              className={cn(
+                'flex flex-col items-center gap-1 rounded-2xl border py-2.5 transition-colors',
+                selected ? 'border-transparent' : 'border-edge bg-surface',
+              )}
+              style={selected ? { backgroundColor: LIME } : undefined}
+            >
+              <info.icon className={cn('h-4 w-4', selected ? 'text-[#1C1F1B]' : 'text-foreground-3')} aria-hidden />
+              <span className={cn('text-[11px] font-semibold', selected ? 'text-[#1C1F1B]' : 'text-foreground-3')}>{info.label}</span>
+            </motion.button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-center text-[12px] text-foreground-4">{ROLES[role].description}</p>
+
+      {(error || localError) && (
+        <div className="mt-3">
+          <Alert variant="error">{error || localError}</Alert>
+        </div>
+      )}
+
+      <p className="mt-3 text-center text-[11px] leading-relaxed text-foreground-5">
+        Share the email and password with them. They set up two-factor sign-in when they first log in. Leave name and
+        password empty for someone who already has an Optimas login.
+      </p>
+
+      {/* Clear / Add, like the reference's Clear / Set */}
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={clear}
+          disabled={isPending}
+          className="h-12 rounded-full border border-edge bg-surface text-[14px] font-semibold text-foreground active:scale-[0.98]"
+        >
+          Clear
+        </button>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="flex h-12 items-center justify-center gap-2 rounded-full text-[14px] font-semibold text-white active:scale-[0.98] disabled:opacity-70"
+          style={{ backgroundColor: CHARCOAL }}
+        >
+          {isPending && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden />}
+          Add
+        </button>
+      </div>
+    </form>
   );
 }
 
 export function StaffPage() {
-  const user = useAuthStore((s) => s.user);
   const active = useActiveBusiness();
+  if (!active) return <Navigate to="/dashboard" replace />;
+  return <StaffScreen businessId={active.id} businessName={active.name} />;
+}
+
+function StaffScreen({ businessId, businessName }: { businessId: string; businessName: string }) {
+  const user = useAuthStore((s) => s.user);
+  const { role: myRole, canManage } = useRole();
+  const canEditRoles = myRole === 'OWNER';
   const queryClient = useQueryClient();
+  const queryKey = ['business', businessId, 'members'];
 
-  if (!active) return <Navigate to="/onboarding" replace />;
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<UserRole | 'ALL'>('ALL');
+  const [addOpen, setAddOpen] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<BusinessMember | null>(null);
+  const [confirmReset2fa, setConfirmReset2fa] = useState<BusinessMember | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [selectedMember, setSelectedMember] = useState<BusinessMember | null>(null);
-
-  const { data: members, isLoading, error } = useQuery({
-    queryKey: ['business', active.id, 'members'],
+  const { data, isLoading, error } = useQuery({
+    queryKey,
     queryFn: () => businessesApi.members(),
+    enabled: canManage,
   });
+  const members = useMemo(
+    () =>
+      [...(data ?? [])].sort(
+        (a, b) =>
+          ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.user.fullName.localeCompare(b.user.fullName),
+      ),
+    [data],
+  );
+  const selected = members.find((m) => m.id === selectedId) ?? null;
 
-  const displayMembers = members ?? [];
-  const currentUserId = user?.id;
-
-  const inviteMutation = useMutation({
-    mutationFn: ({ email, role }: { email: string; role: UserRole }) => businessesApi.addMember(email, role),
+  const addMutation = useMutation({
+    mutationFn: (member: NewMember) => businessesApi.addMember(member),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['business', active.id, 'members'] });
-      setInviteOpen(false);
-      setInviteError(null);
+      queryClient.invalidateQueries({ queryKey });
+      setAddOpen(false);
+      setAddError(null);
     },
-    onError: (err) => {
-      setInviteError(apiErrorMessage(err));
-      console.error('Invite failed:', err);
-    },
+    onError: (err) => setAddError(apiErrorMessage(err)),
   });
 
   const removeMutation = useMutation({
     mutationFn: (id: string) => api<{ success: boolean }>({ method: 'DELETE', url: `/businesses/current/members/${id}` }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['business', active.id, 'members'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      setConfirmRemove(null);
+      setSelectedId(null);
+    },
+    onError: (err) => setActionError(apiErrorMessage(err)),
   });
 
-  const roleChangeMutation = useMutation({
+  const reset2faMutation = useMutation({
+    mutationFn: (id: string) => businessesApi.resetMemberTwoFactor(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      setConfirmReset2fa(null);
+    },
+    onError: (err) => setActionError(apiErrorMessage(err)),
+  });
+
+  const roleMutation = useMutation({
     mutationFn: ({ id, role }: { id: string; role: UserRole }) =>
       api<{ success: boolean }>({ method: 'PATCH', url: `/businesses/current/members/${id}`, data: { role } }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['business', active.id, 'members'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onError: (err) => setActionError(apiErrorMessage(err)),
   });
 
-  const handleInvite = (email: string, role: UserRole) => {
-    inviteMutation.mutate({ email, role });
+  const counts = useMemo(() => {
+    const c: Partial<Record<UserRole, number>> = {};
+    for (const m of members) c[m.role] = (c[m.role] ?? 0) + 1;
+    return c;
+  }, [members]);
+
+  const term = search.trim().toLowerCase();
+  const visible = members.filter(
+    (m) =>
+      (roleFilter === 'ALL' || m.role === roleFilter) &&
+      (!term || m.user.fullName.toLowerCase().includes(term) || m.user.email.toLowerCase().includes(term)),
+  );
+
+  const openAdd = () => {
+    setAddError(null);
+    setAddOpen(true);
   };
 
-  const handleViewDetails = (member: BusinessMember) => {
-    setSelectedMember(member);
-  };
-
-  const handleCloseDetails = () => {
-    setSelectedMember(null);
-  };
+  if (!canManage) {
+    return (
+      <div className="space-y-5 pb-8">
+        <PageHeader title="Team" description={`People who work at ${businessName}`} />
+        <section className={cn(card, 'flex flex-col items-center px-6 py-10 text-center')}>
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+            <Shield className="h-6 w-6" aria-hidden />
+          </span>
+          <p className="mt-4 text-[15px] font-semibold text-foreground">Only admins and managers can see the team</p>
+          <p className="mt-1 text-[13px] text-foreground-4">Ask your manager if you need someone added or their role changed.</p>
+        </section>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-5 pb-8 animate-fade-in">
-      <PageTitle
-        title="Team Members"
-        subtitle={`Manage who has access to ${active.name}`}
-      />
+    <div className="space-y-5 pb-8">
+      <ProfileHeader roleLabel={myRole ? ROLES[myRole].label : 'Staff'} />
 
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[13px] font-medium tracking-tight text-foreground">Team Overview</h2>
-        <Button
-          onClick={() => { setInviteError(null); setInviteOpen(true); }}
-          className="flex h-10 shrink-0 items-center gap-2 rounded-full bg-brand-600 px-4 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-60"
-        >
-          <UserPlus className="h-4 w-4" />
-          Invite Staff
-        </Button>
-      </div>
-
-      {error && (
-        <Alert variant="error" title="Failed to load team" className="rounded-xl border-destructive/20 bg-destructive/5">
-          {apiErrorMessage(error)}
+      {error && <Alert variant="error" title="Could not load the team">{apiErrorMessage(error)}</Alert>}
+      {actionError && (
+        <Alert variant="error" title="That change didn’t go through">
+          {actionError}
         </Alert>
       )}
 
-      <StatsCards members={displayMembers} />
+      {isLoading ? (
+        <Skeleton className="h-[230px] w-full rounded-[1.75rem]" />
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
+          <TeamHero members={members} businessName={businessName} onAdd={openAdd} canAdd={canManage} />
+        </motion.div>
+      )}
+
+      <RoleButtons value={roleFilter} onChange={setRoleFilter} counts={counts} total={members.length} />
+
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-5" aria-hidden />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or email" className="h-12 pl-11" />
+      </div>
+
+      {!isLoading && !term && roleFilter === 'ALL' && <QuickContact members={members} onPick={setSelectedId} />}
 
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map((_, idx) => (
-            <div key={idx} className="animate-pulse relative overflow-hidden rounded-2xl border border-white/10 p-4">
-              <div className="absolute inset-0 bg-slate-900/50" aria-hidden />
-              <div className="relative flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-white/10" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-3/4 bg-white/10 rounded" />
-                  <div className="h-3 w-1/2 bg-white/10 rounded" />
-                </div>
-                <div className="h-6 w-20 rounded-full bg-white/10" />
+        <div className="space-y-4 px-1 py-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-11 w-11 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
               </div>
             </div>
           ))}
         </div>
+      ) : visible.length === 0 ? (
+        <section className="flex flex-col items-center rounded-3xl px-6 py-10 text-center" style={{ backgroundColor: '#F3F8E6' }}>
+          <span className="flex h-14 w-14 items-center justify-center rounded-full text-[#C6EA5A]" style={{ backgroundColor: '#1C1F1B' }}>
+            <Users className="h-6 w-6" aria-hidden />
+          </span>
+          <p className="mt-4 text-[15px] font-semibold text-foreground">
+            {members.length === 0 ? 'No team members yet' : 'No one matches that search'}
+          </p>
+          <p className="mt-1 text-[13px] text-foreground-4">
+            {members.length === 0 ? 'Add your first staff member to give them access.' : 'Try another name or role.'}
+          </p>
+        </section>
       ) : (
-        <div className="space-y-3">
-          {displayMembers.map((member, index) => (
-            <StaffRow
-              key={member.id}
-              member={member}
-              currentUserId={currentUserId!}
-              onRemove={(id) => removeMutation.mutate(id)}
-              onRoleChange={(id, role) => roleChangeMutation.mutate({ id, role })}
-              onViewDetails={handleViewDetails}
-              index={index}
-            />
-          ))}
-          {displayMembers.length === 0 && <EmptyState onInvite={() => { setInviteError(null); setInviteOpen(true); }} />}
-        </div>
+        <TeamList members={visible} currentUserId={user?.id} onPick={setSelectedId} />
       )}
 
-      <PopupMessage
-        isOpen={inviteMutation.isPending}
-        type="loading"
-        title="Sending invitation..."
-      />
-      <PopupMessage
-        isOpen={!!inviteError}
-        type="error"
-        title="Invitation Failed"
-        message={inviteError ?? undefined}
-        onClose={() => setInviteError(null)}
-      />
-      <PopupMessage
-        isOpen={removeMutation.isPending || roleChangeMutation.isPending}
-        type="loading"
-        title={removeMutation.isPending ? 'Removing member...' : 'Updating role...'}
-      />
-
-      <InviteModal
-        isOpen={inviteOpen}
-        onClose={() => setInviteOpen(false)}
-        onInvite={handleInvite}
-        isPending={inviteMutation.isPending}
-        error={inviteError}
-      />
-
-      {selectedMember && (
-        <StaffDetailModal
-          member={selectedMember}
-          onClose={handleCloseDetails}
-          onRoleChange={(id, role) => roleChangeMutation.mutate({ id, role })}
-          onRemove={(id) => removeMutation.mutate(id)}
-          currentUserId={currentUserId!}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <AddMemberForm
+          onSubmit={(m) => addMutation.mutate(m)}
+          onCancel={() => setAddOpen(false)}
+          isPending={addMutation.isPending}
+          error={addError}
+          canAddAdmin={myRole === 'OWNER'}
         />
-      )}
+      </Dialog>
+
+      <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelectedId(null)}>
+        {selected && (
+          <MemberDetail
+            member={selected}
+            isSelf={selected.user.id === user?.id}
+            canEditRoles={canEditRoles}
+            onClose={() => setSelectedId(null)}
+            onRoleChange={(role) => {
+              setActionError(null);
+              roleMutation.mutate({ id: selected.id, role });
+            }}
+            onRemove={() => setConfirmRemove(selected)}
+            onResetTwoFactor={() => setConfirmReset2fa(selected)}
+            changingRole={roleMutation.isPending}
+          />
+        )}
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(confirmReset2fa)}
+        onOpenChange={(open) => !open && setConfirmReset2fa(null)}
+        title="Reset two-factor sign-in?"
+        description={
+          confirmReset2fa
+            ? `${confirmReset2fa.user.fullName} will set up their authenticator app again the next time they sign in. Use this if they lost their phone.`
+            : undefined
+        }
+        confirmLabel="Reset"
+        loading={reset2faMutation.isPending}
+        onConfirm={() => {
+          setActionError(null);
+          if (confirmReset2fa) reset2faMutation.mutate(confirmReset2fa.id);
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(confirmRemove)}
+        onOpenChange={(open) => !open && setConfirmRemove(null)}
+        title="Remove from team?"
+        description={
+          confirmRemove
+            ? `${confirmRemove.user.fullName} will lose access to ${businessName}. You can add them again later.`
+            : undefined
+        }
+        confirmLabel="Remove"
+        destructive
+        loading={removeMutation.isPending}
+        onConfirm={() => {
+          setActionError(null);
+          if (confirmRemove) removeMutation.mutate(confirmRemove.id);
+        }}
+      />
     </div>
   );
 }

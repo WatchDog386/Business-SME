@@ -1,12 +1,19 @@
-import { api, type Paginated } from './client';
+import { api, client, API_BASE_URL, type Paginated } from './client';
 import type {
-  AdminBusiness,
-  AdminBusinessDetail,
-  AdminSummary,
-  AdminUserRow,
   AuthResult,
-  BillingInitResult,
-  BillingMethod,
+  CallDue,
+  CallLog,
+  CallOutcome,
+  DocKind,
+  DocumentShare,
+  SubscriberStats,
+  Subscription,
+  SubscriptionStatus,
+  MfaChallenge,
+  TwoFactorEnabled,
+  TwoFactorSetup,
+  Budget,
+  BudgetStatus,
   Business,
   BusinessMember,
   Category,
@@ -14,16 +21,16 @@ import type {
   DashboardData,
   DailySummaryRow,
   Expense,
+  ExpenseStatus,
   InventoryTransaction,
   Payment,
-  PlatformSettings,
   Product,
   ProductPerformanceRow,
   ProfitLoss,
+  RecurringExpense,
   Sale,
   SaleDetail,
   Service,
-  SubscriptionPayment,
   User,
   UserRole,
 } from './types';
@@ -31,14 +38,22 @@ import type {
 // ---- Auth ----
 
 export const authApi = {
+  /** Checks the password; always answers with a two-factor step, never a session. */
   login: (email: string, password: string) =>
-    api<AuthResult>({ method: 'POST', url: '/auth/login', data: { email, password } }),
-  register: (data: {
-    email: string;
-    fullName: string;
-    phone?: string;
-    password: string;
-  }) => api<AuthResult>({ method: 'POST', url: '/auth/register', data }),
+    // A session straight away, or a code challenge when two-factor is on
+    api<MfaChallenge | AuthResult>({ method: 'POST', url: '/auth/login', data: { email, password } }),
+  /** Settings: start, confirm or turn off two-factor sign-in for the signed-in person. */
+  twoFactorSetupMe: () => api<TwoFactorSetup>({ method: 'POST', url: '/auth/2fa/me/setup' }),
+  twoFactorEnableMe: (code: string) =>
+    api<{ recoveryCodes: string[] }>({ method: 'POST', url: '/auth/2fa/me/enable', data: { code } }),
+  twoFactorDisableMe: (password: string) =>
+    api<{ twoFactorEnabled: boolean }>({ method: 'POST', url: '/auth/2fa/me/disable', data: { password } }),
+  twoFactorSetup: (mfaToken: string) =>
+    api<TwoFactorSetup>({ method: 'POST', url: '/auth/2fa/setup', data: { mfaToken } }),
+  twoFactorEnable: (mfaToken: string, code: string) =>
+    api<TwoFactorEnabled>({ method: 'POST', url: '/auth/2fa/enable', data: { mfaToken, code } }),
+  twoFactorVerify: (mfaToken: string, code: string) =>
+    api<AuthResult>({ method: 'POST', url: '/auth/2fa/verify', data: { mfaToken, code } }),
   me: () => api<User>({ method: 'GET', url: '/auth/me' }),
   forgotPassword: (email: string) =>
     api<{ resetToken?: string }>({
@@ -81,11 +96,23 @@ export const businessesApi = {
     api<Business>({ method: 'PATCH', url: '/businesses/current', data }),
   members: () =>
     api<BusinessMember[]>({ method: 'GET', url: '/businesses/current/members' }),
-  addMember: (email: string, role: UserRole) =>
+  addMember: (data: {
+    email: string;
+    role: UserRole;
+    fullName?: string;
+    phone?: string;
+    password?: string;
+  }) =>
     api<{ email: string; role: UserRole }>({
       method: 'POST',
       url: '/businesses/current/members',
-      data: { email, role },
+      data,
+    }),
+  /** Owner only: clears a member's two-factor so they set it up again (lost phone). */
+  resetMemberTwoFactor: (memberId: string) =>
+    api<{ success: boolean }>({
+      method: 'POST',
+      url: `/businesses/current/members/${memberId}/reset-2fa`,
     }),
 };
 
@@ -149,6 +176,8 @@ export const productsApi = {
     stockQuantity?: number;
     lowStockThreshold?: number;
     trackInventory?: boolean;
+    billingDays?: number | null;
+    speedMbps?: number | null;
   }) => api<Product>({ method: 'POST', url: '/products', data }),
   update: (
     id: string,
@@ -161,6 +190,8 @@ export const productsApi = {
       lowStockThreshold: number;
       trackInventory: boolean;
       active: boolean;
+      billingDays: number | null;
+      speedMbps: number | null;
     }>,
   ) => api<Product>({ method: 'PATCH', url: `/products/${id}`, data }),
   remove: (id: string) =>
@@ -283,6 +314,131 @@ export const salesApi = {
     api<SaleDetail>({ method: 'POST', url: `/sales/${saleId}/cancel` }),
 };
 
+// ---- Invoices & receipts ----
+
+export const documentsApi = {
+  /** Fetches the PDF (A4, or 80mm till format) for previewing before saving. */
+  fetchPdf: async (saleId: string, kind: DocKind, format: 'a4' | 'thermal' = 'a4') => {
+    const res = await client.get<Blob>(`/sales/${saleId}/documents/${kind}.pdf`, {
+      params: { format },
+      responseType: 'blob',
+    });
+    const disposition = String(res.headers['content-disposition'] ?? '');
+    const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `${kind}.pdf`;
+    return { blob: res.data, filename };
+  },
+  /** Saves a fetched PDF to the device. */
+  save: (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  },
+  share: (saleId: string, kind: DocKind) =>
+    api<DocumentShare>({ method: 'POST', url: `/sales/${saleId}/documents/share`, data: { kind } }),
+  email: (saleId: string, kind: DocKind, to: string) =>
+    api<{ success: boolean; to: string }>({ method: 'POST', url: `/sales/${saleId}/documents/email`, data: { kind, to } }),
+  /** Link a client can open without signing in (used for WhatsApp). */
+  publicUrl: (token: string, kind: DocKind, format: 'a4' | 'thermal' = 'a4') => {
+    const base = /^https?:/.test(API_BASE_URL) ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
+    return `${base.replace(/\/$/, '')}/public/documents/${token}/${kind}.pdf${format === 'thermal' ? '?format=thermal' : ''}`;
+  },
+};
+
+// ---- WiFi subscriptions ----
+
+export const subscriptionsApi = {
+  list: (status?: SubscriptionStatus) =>
+    api<Subscription[]>({ method: 'GET', url: '/subscriptions', params: status ? { status } : undefined }),
+  stats: () => api<SubscriberStats>({ method: 'GET', url: '/subscriptions/stats' }),
+  forCustomer: (customerId: string) =>
+    api<Subscription | null>({ method: 'GET', url: `/subscriptions/customer/${customerId}` }),
+  /** Add an already-connected subscriber without a sale. */
+  create: (data: { customerId: string; productId: string; startedAt?: string }) =>
+    api<Subscription>({ method: 'POST', url: '/subscriptions', data }),
+};
+
+// ---- M-Pesa prompts (STK push) ----
+
+export type StkState = 'pending' | 'paid' | 'cancelled' | 'failed';
+export interface StkPush {
+  checkoutRequestId: string;
+  phone: string;
+  amount: number;
+  state: StkState;
+  message: string;
+  receipt: string | null;
+}
+
+export const paymentsApi = {
+  mpesaStatus: () => api<{ stkPush: boolean; environment: string }>({ method: 'GET', url: '/payments/mpesa/status' }),
+  stkPush: (data: { phone: string; amount: number; reference?: string; description?: string }) =>
+    api<StkPush>({ method: 'POST', url: '/payments/mpesa/stk-push', data }),
+  stkStatus: (checkoutRequestId: string) =>
+    api<StkPush>({ method: 'GET', url: '/payments/mpesa/stk-push/' + encodeURIComponent(checkoutRequestId) }),
+};
+
+// ---- Client app (a WiFi client's own login) ----
+
+export interface ClientHome {
+  business: { name: string; phone: string | null; email: string | null };
+  customer: { id: string; name: string; phone: string | null; email: string | null; balance: number; totalSpent: number };
+  subscription: Subscription | null;
+  packages: Array<{ id: string; name: string; price: number; speedMbps: number | null; billingDays: number | null; description: string | null }>;
+  payments: Array<{ id: string; number: number | null; total: number; status: string; method: string; at: string }>;
+}
+
+export const clientApi = {
+  me: () => api<ClientHome>({ method: 'GET', url: '/client/me' }),
+  pay: (data: { productId?: string; phone?: string }) => api<StkPush>({ method: 'POST', url: '/client/pay', data }),
+  payStatus: (checkoutRequestId: string) =>
+    api<StkPush & { saleId: string | null }>({ method: 'GET', url: '/client/pay/' + encodeURIComponent(checkoutRequestId) }),
+  /** Downloads the client's own invoice or receipt. */
+  document: async (saleId: string, kind: 'invoice' | 'receipt') => {
+    const res = await client.get<Blob>(`/client/sales/${saleId}/${kind}.pdf`, { responseType: 'blob' });
+    const disposition = String(res.headers['content-disposition'] ?? '');
+    const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `${kind}.pdf`;
+    const url = URL.createObjectURL(res.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+};
+
+/** Staff give a client their app login from the client's page. */
+export interface ClientAccess {
+  enabled: boolean;
+  email: string | null;
+  createdAt: string | null;
+}
+
+export const clientAccessApi = {
+  get: (customerId: string) => api<ClientAccess>({ method: 'GET', url: `/customers/${customerId}/app-access` }),
+  grant: (customerId: string, data: { email: string; password: string }) =>
+    api<ClientAccess>({ method: 'POST', url: `/customers/${customerId}/app-access`, data }),
+  revoke: (customerId: string) => api<ClientAccess>({ method: 'DELETE', url: `/customers/${customerId}/app-access` }),
+};
+
+// ---- Client calls ----
+
+export const callsApi = {
+  due: () => api<CallDue[]>({ method: 'GET', url: '/calls/due' }),
+  history: (customerId: string) => api<CallLog[]>({ method: 'GET', url: `/customers/${customerId}/calls` }),
+  log: (
+    customerId: string,
+    data: { outcome: CallOutcome; channel?: 'PHONE' | 'WHATSAPP'; notes?: string; followUpAt?: string },
+  ) => api<CallLog>({ method: 'POST', url: `/customers/${customerId}/calls`, data }),
+  done: (id: string) => api<{ success: boolean }>({ method: 'PATCH', url: `/calls/${id}/done` }),
+};
+
 // ---- Expenses ----
 
 export const expensesApi = {
@@ -293,6 +449,7 @@ export const expensesApi = {
     to?: string;
     categoryId?: string;
     search?: string;
+    status?: ExpenseStatus;
   }) => api<Paginated<Expense>>({ method: 'GET', url: '/expenses', params }),
   get: (id: string) => api<Expense>({ method: 'GET', url: `/expenses/${id}` }),
   create: (data: {
@@ -316,6 +473,55 @@ export const expensesApi = {
   ) => api<Expense>({ method: 'PATCH', url: `/expenses/${id}`, data }),
   remove: (id: string) =>
     api<{ success: boolean }>({ method: 'DELETE', url: `/expenses/${id}` }),
+  approve: (id: string) =>
+    api<Expense>({ method: 'PATCH', url: `/expenses/${id}/approve` }),
+  reject: (id: string, reason: string) =>
+    api<Expense>({ method: 'PATCH', url: `/expenses/${id}/reject`, data: { reason } }),
+};
+
+// ---- Recurring expenses ----
+
+export interface RecurringExpenseInput {
+  description: string;
+  amount: number;
+  categoryId?: string;
+  paymentMethod?: string;
+  dayOfMonth: number;
+  startDate?: string;
+  endDate?: string | null;
+}
+
+export const recurringExpensesApi = {
+  list: () =>
+    api<RecurringExpense[]>({ method: 'GET', url: '/recurring-expenses' }),
+  create: (data: RecurringExpenseInput) =>
+    api<RecurringExpense>({ method: 'POST', url: '/recurring-expenses', data }),
+  update: (id: string, data: Partial<Omit<RecurringExpenseInput, 'startDate'>>) =>
+    api<RecurringExpense>({ method: 'PATCH', url: `/recurring-expenses/${id}`, data }),
+  pause: (id: string) =>
+    api<RecurringExpense>({ method: 'POST', url: `/recurring-expenses/${id}/pause` }),
+  resume: (id: string) =>
+    api<RecurringExpense>({ method: 'POST', url: `/recurring-expenses/${id}/resume` }),
+  remove: (id: string) =>
+    api<{ success: boolean }>({ method: 'DELETE', url: `/recurring-expenses/${id}` }),
+};
+
+// ---- Budgets ----
+
+export const budgetsApi = {
+  list: () => api<Budget[]>({ method: 'GET', url: '/budgets' }),
+  status: (month?: string) =>
+    api<{ month: string; items: BudgetStatus[] }>({
+      method: 'GET',
+      url: '/budgets/status',
+      params: month ? { month } : undefined,
+    }),
+  create: (data: { categoryId: string; monthlyLimit: number; alertThreshold?: number }) =>
+    api<Budget>({ method: 'POST', url: '/budgets', data }),
+  update: (id: string, data: { monthlyLimit?: number; alertThreshold?: number }) =>
+    api<Budget>({ method: 'PATCH', url: `/budgets/${id}`, data }),
+  remove: (id: string) =>
+    api<{ success: boolean }>({ method: 'DELETE', url: `/budgets/${id}` }),
 };
 
 // ---- Dashboard ----
@@ -326,7 +532,60 @@ export const dashboardApi = {
 
 // ---- Reports ----
 
+// ---- Daily report ----
+
+export interface DailyReport {
+  date: string;
+  from: string;
+  to: string;
+  /** The day has ended (midnight passed): the report is final. */
+  closed: boolean;
+  generatedAt: string;
+  revenue: {
+    total: number;
+    salesCount: number;
+    averageSale: number;
+    collected: number;
+    unpaid: number;
+    byMethod: Array<{ method: string; total: number; count: number }>;
+    collectedByMethod: Array<{ method: string; total: number; count: number }>;
+  };
+  packages: {
+    sold: number;
+    revenue: number;
+    newSubscribers: number;
+    renewals: number;
+    lines: Array<{ name: string; quantity: number; revenue: number }>;
+  };
+  products: Array<{ name: string; quantity: number; revenue: number; profit: number }>;
+  expenses: {
+    total: number;
+    count: number;
+    pendingCount: number;
+    pendingTotal: number;
+    byCategory: Array<{ category: string; amount: number }>;
+    items: Array<{ id: string; description: string; category: string; amount: number; status: string; method: string }>;
+  };
+  profit: { cogs: number; gross: number; net: number; margin: number };
+  cash: { moneyIn: number; moneyOut: number; net: number };
+  subscribers: { active: number; expiring: number; expired: number; expiredThisDay: number };
+  debts: { outstanding: number; debtors: number };
+  previous: { revenue: number; salesCount: number; expenses: number; net: number };
+  sales: Array<{ id: string; number: number | null; at: string; customer: string; total: number; method: string; status: string }>;
+}
+
+export interface DailyHistoryRow {
+  date: string;
+  revenue: number;
+  expenses: number;
+  net: number;
+  salesCount: number;
+}
+
 export const reportsApi = {
+  day: (date?: string) => api<DailyReport>({ method: 'GET', url: '/reports/day', params: date ? { date } : undefined }),
+  dayHistory: (days: number, until?: string) =>
+    api<DailyHistoryRow[]>({ method: 'GET', url: '/reports/day/history', params: { days, until } }),
   profitLoss: (params: { from?: string; to?: string }) =>
     api<ProfitLoss>({ method: 'GET', url: '/reports/profit-loss', params }),
   dailySummary: (params: { from?: string; to?: string }) =>
@@ -349,52 +608,27 @@ export const reportsApi = {
       url: '/reports/expenses',
       params,
     }),
-};
-
-// ---- Billing (subscriptions) ----
-
-export const billingApi = {
-  initiate: (planId: string, method: BillingMethod) =>
-    api<BillingInitResult>({
-      method: 'POST',
-      url: '/billing/initiate',
-      data: { plan: planId.toUpperCase(), method },
-    }),
-  verify: (reference: string) =>
-    api<SubscriptionPayment>({
-      method: 'GET',
-      url: `/billing/verify/${reference}`,
-    }),
-};
-
-// ---- Platform admin (app owner) ----
-
-export const adminApi = {
-  summary: () => api<AdminSummary>({ method: 'GET', url: '/admin/summary' }),
-  businesses: () =>
-    api<AdminBusiness[]>({ method: 'GET', url: '/admin/businesses' }),
-  businessDetail: (id: string) =>
-    api<AdminBusinessDetail>({ method: 'GET', url: `/admin/businesses/${id}` }),
-  setPlan: (id: string, plan: 'FREE' | 'GROWTH' | 'SCALE') =>
-    api<Business>({
-      method: 'PATCH',
-      url: `/admin/businesses/${id}/plan`,
-      data: { plan },
-    }),
-  payments: (status?: 'PENDING' | 'PAID' | 'FAILED') =>
-    api<SubscriptionPayment[]>({
-      method: 'GET',
-      url: '/admin/payments',
-      params: status ? { status } : {},
-    }),
-  confirmPayment: (id: string) =>
-    api<SubscriptionPayment>({
-      method: 'POST',
-      url: `/admin/payments/${id}/confirm`,
-    }),
-  users: () => api<AdminUserRow[]>({ method: 'GET', url: '/admin/users' }),
-  settings: () =>
-    api<PlatformSettings>({ method: 'GET', url: '/admin/settings' }),
+  /** Downloads a server-generated export (e.g. `profit-loss/export.xlsx`). */
+  download: async (
+    path: string,
+    params: { from?: string; to?: string; date?: string },
+    fallbackName: string,
+  ) => {
+    const res = await client.get<Blob>(`/reports/${path}`, {
+      params,
+      responseType: 'blob',
+    });
+    const disposition = String(res.headers['content-disposition'] ?? '');
+    const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? fallbackName;
+    const url = URL.createObjectURL(res.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
 };
 
 export type { Payment };

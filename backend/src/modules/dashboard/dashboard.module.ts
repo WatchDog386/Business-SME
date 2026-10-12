@@ -9,12 +9,20 @@ import { Customer } from '../customers/entities/customer.entity';
 import { Product } from '../products/entities/product.entity';
 import { SalesModule } from '../sales/sales.module';
 import { ExpensesModule } from '../expenses/expenses.module';
+import { BudgetsModule } from '../budgets/budgets.module';
+import { RecurringExpensesModule } from '../recurring-expenses/recurring-expenses.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { CallsModule } from '../calls/calls.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Sale, SaleItem, Expense, Customer, Product]),
     SalesModule,
     ExpensesModule,
+    BudgetsModule,
+    RecurringExpensesModule,
+    SubscriptionsModule,
+    CallsModule,
   ],
   providers: [DashboardService],
   controllers: [DashboardController],

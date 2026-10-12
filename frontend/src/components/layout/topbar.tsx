@@ -1,32 +1,112 @@
 import { useNavigate } from 'react-router-dom';
 import {
+  Bell,
+  CalendarDays,
   ChevronsUpDown,
-  Plus,
   MoreHorizontal,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useActiveBusiness, useBusinessStore } from '@/stores/business';
+import { useAuthStore } from '@/stores/auth';
+import { useNotifications } from '@/features/notifications/notifications-shared';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { ThemeToggle } from './theme-toggle';
 import { SettingsPage } from './settings-page';
+import { UserMenu } from './user-menu';
+
+const TZ = 'Africa/Nairobi';
+
+/** Current Nairobi time, refreshed every 15 seconds. */
+function useClock(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now;
+}
 
 export function Topbar() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const now = useClock();
+  // Only notifications not yet read on this device
+  const { unread: notificationCount } = useNotifications();
+
+  const dateLabel = new Intl.DateTimeFormat('en-KE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: TZ,
+  }).format(now);
+  const timeLabel = new Intl.DateTimeFormat('en-KE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: TZ,
+  }).format(now);
+  const initials =
+    user?.fullName
+      ?.split(' ')
+      .map((p) => p.charAt(0))
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() ?? '?';
 
   return (
-    <header className="hidden sm:flex sticky top-0 z-30 h-16 items-center justify-between gap-3 border-b border-edge bg-surface-2/90 px-6 backdrop-blur">
+    <header className="hidden sm:flex sticky top-0 z-30 h-16 items-center justify-between gap-3 border-b border-edge bg-surface-2/90 px-6 backdrop-blur lg:px-8">
       <BusinessSwitcher />
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-foreground hover:bg-surface-3 transition-colors active:bg-surface-3"
-          aria-label="Menu"
+      <div className="flex items-center gap-3">
+        <span className="hidden items-center gap-2 rounded-full border border-edge bg-surface px-4 py-1.5 text-xs text-foreground-4 shadow-sm md:inline-flex">
+          Indicators for
+          <span className="flex items-center gap-1 font-medium text-foreground">
+            <CalendarDays className="h-3.5 w-3.5 text-brand-600" aria-hidden />
+            {dateLabel}
+          </span>
+        </span>
+        <time
+          className="hidden text-xl font-semibold tabular-nums tracking-tight text-foreground md:block"
+          dateTime={now.toISOString()}
         >
-          <MoreHorizontal className="h-6 w-6" strokeWidth={2.5} aria-hidden />
+          {timeLabel}
+        </time>
+        <button
+          onClick={() => navigate('/notifications')}
+          className="relative flex h-10 w-10 items-center justify-center rounded-full text-brand-700 transition-colors hover:bg-surface-3 [.dark_&]:text-brand-200"
+          aria-label={notificationCount > 0 ? `Notifications (${notificationCount})` : 'Notifications'}
+        >
+          <Bell className="h-5 w-5" aria-hidden />
+          {notificationCount > 0 && (
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white ring-2 ring-surface-2">
+              {notificationCount > 9 ? '9+' : notificationCount}
+            </span>
+          )}
         </button>
         <ThemeToggle />
+        {/* Tablets keep the settings sheet; desktop uses the account menu instead. */}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-surface-3 lg:hidden"
+          aria-label="Menu"
+        >
+          <MoreHorizontal className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+        </button>
+        <div className="hidden lg:block">
+          <UserMenu />
+        </div>
+        <button
+          onClick={() => navigate('/profile')}
+          className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border-2 border-brand-600 bg-brand-50 text-xs font-semibold text-brand-700 lg:hidden"
+          aria-label="My profile"
+        >
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            initials
+          )}
+        </button>
       </div>
       <SettingsPage open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
@@ -39,6 +119,18 @@ export function BusinessSwitcher() {
   const selectBusiness = useBusinessStore((s) => s.selectBusiness);
   const active = useActiveBusiness();
   const navigate = useNavigate();
+
+  // Single company: show its name, no switcher
+  if (businesses.length <= 1) {
+    return (
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-sm font-medium text-accent">
+          {active?.name?.charAt(0).toUpperCase() ?? '?'}
+        </div>
+        <p className="max-w-[220px] truncate text-sm font-medium text-foreground">{active?.name}</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -104,17 +196,6 @@ export function BusinessSwitcher() {
               </button>
             );
           })}
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              setOpen(false);
-              navigate('/onboarding');
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add another business
-          </Button>
         </div>
       </Dialog>
     </>

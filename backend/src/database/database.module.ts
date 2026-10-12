@@ -13,7 +13,11 @@ import { Customer } from '../modules/customers/entities/customer.entity';
 import { Sale } from '../modules/sales/entities/sale.entity';
 import { SaleItem } from '../modules/sales/entities/sale-item.entity';
 import { Expense } from '../modules/expenses/entities/expense.entity';
-import { SubscriptionPayment } from '../modules/billing/entities/subscription-payment.entity';
+import { Budget } from '../modules/budgets/entities/budget.entity';
+import { RecurringExpense } from '../modules/recurring-expenses/entities/recurring-expense.entity';
+import { Payment } from '../modules/sales/entities/payment.entity';
+import { Subscription } from '../modules/subscriptions/entities/subscription.entity';
+import { CallLog } from '../modules/calls/entities/call-log.entity';
 
 @Module({
   imports: [
@@ -33,7 +37,11 @@ import { SubscriptionPayment } from '../modules/billing/entities/subscription-pa
       Sale,
       SaleItem,
       Expense,
-      SubscriptionPayment,
+      Budget,
+      RecurringExpense,
+      Payment,
+      Subscription,
+      CallLog,
     ]),
   ],
   providers: [SeedService],

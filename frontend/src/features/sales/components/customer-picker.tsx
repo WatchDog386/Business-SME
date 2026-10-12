@@ -67,7 +67,7 @@ export function CustomerPicker({
                 No customers match "{search}".
               </p>
             )}
-            <ul className="divide-y divide-edge">
+            <ul className="divide-y divide-edge max-lg:divide-y-0">
               {filtered.slice(0, 20).map((customer) => (
                 <li key={customer.id}>
                   <button

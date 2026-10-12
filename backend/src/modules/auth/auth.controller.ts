@@ -17,8 +17,11 @@ import {
   ChangePasswordDto,
   ForgotPasswordDto,
   LoginDto,
-  RegisterDto,
   ResetPasswordDto,
+  TwoFactorCodeDto,
+  TwoFactorDisableDto,
+  TwoFactorEnableDto,
+  TwoFactorTicketDto,
 } from './dto/auth.dto';
 
 @ApiTags('auth')
@@ -26,17 +29,59 @@ import {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('register')
-  @ApiOperation({ summary: 'Create a new user account' })
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
-
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Log in with email and password' })
+  @ApiOperation({ summary: 'Check email and password; returns a session, or a two-factor challenge when it is on' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto.email, dto.password);
+  }
+
+  @Post('2fa/setup')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'First sign-in: get a new authenticator secret and QR link' })
+  startTwoFactorSetup(@Body() dto: TwoFactorTicketDto) {
+    return this.authService.startTwoFactorSetup(dto.mfaToken);
+  }
+
+  @Post('2fa/enable')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirm the first authenticator code; returns recovery codes and a session' })
+  enableTwoFactor(@Body() dto: TwoFactorCodeDto) {
+    return this.authService.enableTwoFactor(dto.mfaToken, dto.code);
+  }
+
+  @Post('2fa/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Second sign-in step: authenticator or recovery code; returns a session' })
+  verifyTwoFactor(@Body() dto: TwoFactorCodeDto) {
+    return this.authService.verifyTwoFactor(dto.mfaToken, dto.code);
+  }
+
+  @Post('2fa/me/setup')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Settings: start turning on two-factor sign-in' })
+  startMyTwoFactor(@CurrentUser() user: AuthUser) {
+    return this.authService.startTwoFactorSetupForUser(user.id);
+  }
+
+  @Post('2fa/me/enable')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Settings: confirm the first code; returns recovery codes' })
+  enableMyTwoFactor(@CurrentUser() user: AuthUser, @Body() dto: TwoFactorEnableDto) {
+    return this.authService.enableTwoFactorForUser(user.id, dto.code);
+  }
+
+  @Post('2fa/me/disable')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Settings: turn two-factor sign-in off (needs the password)' })
+  disableMyTwoFactor(@CurrentUser() user: AuthUser, @Body() dto: TwoFactorDisableDto) {
+    return this.authService.disableTwoFactorForUser(user.id, dto.password);
   }
 
   @Get('me')

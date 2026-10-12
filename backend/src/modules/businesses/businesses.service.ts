@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { UserRole } from '../../common/types/auth-user.interface';
 import { AuditService } from '../audit/audit.service';
 import { UsersService } from '../users/users.service';
@@ -67,7 +69,10 @@ export class BusinessesService {
     });
   }
 
-  async listForUser(userId: string): Promise<Business[]> {
+  /** Businesses the user belongs to, each with the user's role there. */
+  async listForUser(
+    userId: string,
+  ): Promise<(Business & { role: string })[]> {
     const memberships = await this.memberRepo.find({
       where: { userId, status: 'ACTIVE' },
       relations: { business: true },
@@ -75,7 +80,7 @@ export class BusinessesService {
     });
     return memberships
       .filter((m) => m.business.status === 'ACTIVE')
-      .map((m) => m.business);
+      .map((m) => Object.assign(m.business, { role: m.role }));
   }
 
   async getById(businessId: string): Promise<Business> {
@@ -121,7 +126,8 @@ export class BusinessesService {
 
   async listMembers(businessId: string) {
     const members = await this.memberRepo.find({
-      where: { businessId },
+      // Staff only: client app logins are managed from the client's page
+      where: { businessId, role: Not(UserRole.CLIENT) },
       relations: { user: true },
       order: { created_at: 'ASC' },
     });
@@ -135,6 +141,7 @@ export class BusinessesService {
         fullName: m.user.full_name,
         email: m.user.email,
         phone: m.user.phone,
+        twoFactorEnabled: m.user.totp_enabled,
       },
     }));
   }
@@ -142,14 +149,29 @@ export class BusinessesService {
   async addMember(
     businessId: string,
     dto: AddMemberDto,
-    actor: { userId: string },
+    actor: { userId: string; role?: string },
   ) {
-    const user = await this.usersService.findByEmail(dto.email);
+    // Managers can add staff, but only an admin (owner) can make another admin
+    if (dto.role === UserRole.OWNER && actor.role !== UserRole.OWNER) {
+      throw new ForbiddenException({
+        code: 'ADMIN_ONLY',
+        message: 'Only an admin can add another admin.',
+      });
+    }
+    let user = await this.usersService.findByEmail(dto.email);
     if (!user) {
-      throw new NotFoundException({
-        code: 'USER_NOT_FOUND',
-        message:
-          'No account exists for this email. Ask them to sign up first, then invite them again.',
+      // No public sign-up: the owner creates the staff member's login here
+      if (!dto.fullName?.trim() || !dto.password) {
+        throw new BadRequestException({
+          code: 'ACCOUNT_DETAILS_REQUIRED',
+          message: "Enter the staff member's full name and a password to create their login.",
+        });
+      }
+      user = await this.usersService.create({
+        email: dto.email,
+        fullName: dto.fullName.trim(),
+        phone: dto.phone,
+        passwordHash: await bcrypt.hash(dto.password, 10),
       });
     }
 
@@ -207,7 +229,7 @@ export class BusinessesService {
     if (member.role === UserRole.OWNER) {
       throw new BadRequestException({
         code: 'CANNOT_CHANGE_OWNER',
-        message: 'The business owner role cannot be changed.',
+        message: "An admin's role can't be changed.",
       });
     }
     member.role = role;
@@ -240,7 +262,7 @@ export class BusinessesService {
     if (member.role === UserRole.OWNER) {
       throw new BadRequestException({
         code: 'CANNOT_REMOVE_OWNER',
-        message: 'The business owner cannot be removed.',
+        message: 'An admin cannot be removed from the team.',
       });
     }
     await this.memberRepo.remove(member);
@@ -248,6 +270,46 @@ export class BusinessesService {
       businessId,
       userId: actor.userId,
       action: 'MEMBER_REMOVED',
+      entity: 'business_member',
+      entityId: member.id,
+    });
+    return { success: true };
+  }
+
+  /**
+   * Clears a member's two-factor setup (lost phone). They set it up again at
+   * their next sign-in. Owners can't reset their own; they use a recovery code.
+   */
+  async resetMemberTwoFactor(
+    businessId: string,
+    memberId: string,
+    actor: { userId: string },
+  ) {
+    const member = await this.memberRepo.findOne({
+      where: { id: memberId, businessId },
+    });
+    if (!member) {
+      throw new NotFoundException({
+        code: 'MEMBER_NOT_FOUND',
+        message: 'Member not found.',
+      });
+    }
+    if (member.userId === actor.userId) {
+      throw new BadRequestException({
+        code: 'CANNOT_RESET_OWN_2FA',
+        message: 'Use one of your recovery codes to sign in instead.',
+      });
+    }
+    await this.usersService.update(member.userId, {
+      totp_enabled: false,
+      totp_secret_enc: null,
+      totp_last_counter: null,
+      totp_recovery_hashes: null,
+    });
+    await this.auditService.log({
+      businessId,
+      userId: actor.userId,
+      action: 'MEMBER_2FA_RESET',
       entity: 'business_member',
       entityId: member.id,
     });

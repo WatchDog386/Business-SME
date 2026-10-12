@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Scissors, Clock, ChevronRight, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Plus, Search, Scissors, Clock, ChevronRight, AlertTriangle, Trash2 } from 'lucide-react';
 import { servicesApi } from '@/api/endpoints';
+import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,47 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Phone card: round icon + name, description, outlined "Sell" button, faint watermark icon. */
+function ServiceCard({
+  service,
+  onEdit,
+  onDelete,
+}: {
+  service: Service;
+  onEdit: (service: Service) => void;
+  onDelete: (service: Service) => void;
+}) {
+  return (
+    <div className="relative flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface p-4 [.dark_&]:border-transparent">
+      <Scissors className="pointer-events-none absolute -bottom-3 -right-3 h-16 w-16 -rotate-12 text-foreground opacity-[0.06]" strokeWidth={1.5} aria-hidden />
+      <button type="button" onClick={() => onEdit(service)} className="flex flex-col items-start gap-3 text-left">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-3 text-rose-500">
+          <Scissors className="h-5 w-5" aria-hidden />
+        </span>
+        <span className="line-clamp-2 text-[15px] font-medium leading-snug text-foreground">{service.name}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onDelete(service)}
+        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-foreground-4 active:bg-surface-3"
+        aria-label={`Delete ${service.name}`}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+      <p className="mt-1.5 line-clamp-3 flex-1 text-[13px] leading-relaxed text-foreground-3">
+        {service.description || 'No description yet'}
+        {service.duration_minutes ? ` · ${service.duration_minutes} min` : ''}
+      </p>
+      <Link
+        to={`/sales/new?service=${service.id}`}
+        className="relative mt-4 inline-flex h-10 items-center self-start rounded-xl border-[1.5px] border-brand-600 px-3.5 text-[13px] font-medium text-brand-600 transition-colors active:bg-brand-50 [.dark_&]:border-brand-400 [.dark_&]:text-brand-300 [.dark_&]:active:bg-brand-950"
+      >
+        Sell · {formatKES(service.price)}
+      </Link>
+    </div>
+  );
+}
+
 function ServiceRow({
   service,
   onEdit,
@@ -36,7 +78,7 @@ function ServiceRow({
   return (
     <button
       onClick={() => onEdit(service)}
-      className="relative flex w-full items-center gap-3 px-1 py-3 text-center transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3 group"
+      className="relative flex w-full items-center gap-3 px-1 py-3 text-center transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3 group max-lg:rounded-xl"
     >
       <span className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] bg-rose-500/10 text-rose-600 dark:text-rose-400">
         <Scissors className="h-4.5 w-4.5" aria-hidden />
@@ -72,7 +114,7 @@ function ServiceRow({
           <AlertTriangle className="h-3.5 w-3.5" />
         </button>
 
-        <ChevronRight className="h-4 w-4 shrink-0 text-foreground-5 group-hover:text-foreground transition-colors" aria-hidden />
+        <ChevronRight className="h-4 w-4 shrink-0 text-foreground-5 group-hover:text-foreground transition-colors max-lg:hidden" aria-hidden />
       </div>
     </button>
   );
@@ -109,27 +151,20 @@ export function ServicesPage() {
 
   const header = (
     <>
-      {/* Header - Search dialog style */}
-      <div className="relative flex h-14 shrink-0 items-center px-2">
-        <button
-          onClick={() => window.history.back()}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-edge bg-surface text-foreground transition-colors hover:bg-surface-2 active:bg-surface-3"
-          aria-label="Back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h2 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">
-          Services
-        </h2>
-        <div className="absolute right-0">
-          <Button onClick={() => setFormOpen(true)} className="h-9 px-3 gap-1.5">
-            <Plus className="h-4 w-4" />
-            Add service
-          </Button>
-        </div>
-      </div>
+      <AppBar
+        title="Services"
+        onBack={() => window.history.back()}
+        right={
+          <div>
+            <Button onClick={() => setFormOpen(true)} className="h-9 px-3 gap-1.5">
+              <Plus className="h-4 w-4" />
+              Add service
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="px-4 pb-3">
+      <div className="pb-3 lg:px-4">
         <div className="flex h-11 items-center gap-2.5 rounded-full border border-edge bg-field px-4 focus-within:border-edge-2">
           <Search className="h-4 w-4 shrink-0 text-foreground-4" aria-hidden />
           <Input
@@ -162,9 +197,18 @@ export function ServicesPage() {
   );
 
   const serviceList = data && data.length > 0 ? (
-    <Card className="bg-surface mx-4">
+    <>
+    <section className="lg:hidden">
       <SectionLabel>All Services</SectionLabel>
-      <div className="divide-y divide-edge/50">
+      <div className="stagger-list grid grid-cols-2 gap-3">
+        {data.map((service) => (
+          <ServiceCard key={service.id} service={service} onEdit={setEditService} onDelete={setConfirmDelete} />
+        ))}
+      </div>
+    </section>
+    <Card className="bg-surface mx-4 max-lg:hidden max-lg:mx-0 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:shadow-none">
+      <SectionLabel>All Services</SectionLabel>
+      <div className="stagger-list divide-y divide-edge/50 max-lg:divide-y-0 max-lg:space-y-2">
         {data.map((service) => (
           <ServiceRow
             key={service.id}
@@ -175,6 +219,7 @@ export function ServicesPage() {
         ))}
       </div>
     </Card>
+    </>
   ) : null;
 
   return (

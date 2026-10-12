@@ -23,8 +23,11 @@ type FormValues = z.infer<typeof schema>;
 export function CustomerForm({
   onClose,
   defaultValues,
+  sheetStyle = false,
 }: {
   onClose: () => void;
+  /** Clear / Add buttons in the lime-and-charcoal sheet style. */
+  sheetStyle?: boolean;
   defaultValues?: {
     id: string;
     name: string;
@@ -42,6 +45,7 @@ export function CustomerForm({
     handleSubmit,
     formState: { errors },
     setError: setFormError,
+    reset,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -138,14 +142,35 @@ export function CustomerForm({
           {...register('notes')}
         />
       </div>
-      <div className="flex justify-end gap-3 pt-1">
-        <Button variant="outline" type="button" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit" loading={mutation.isPending}>
-          {isEdit ? 'Save changes' : 'Add customer'}
-        </Button>
-      </div>
+      {sheetStyle ? (
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => reset()}
+            disabled={mutation.isPending}
+            className="h-12 rounded-full border border-edge bg-surface text-[14px] font-semibold text-foreground active:scale-[0.98]"
+          >
+            Clear
+          </button>
+          <button
+            type="submit"
+            disabled={mutation.isPending}
+            className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#1C1F1B] text-[14px] font-semibold text-white active:scale-[0.98] disabled:opacity-70"
+          >
+            {mutation.isPending && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden />}
+            {isEdit ? 'Save' : 'Add'}
+          </button>
+        </div>
+      ) : (
+        <div className="flex justify-end gap-3 pt-1">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={mutation.isPending}>
+            {isEdit ? 'Save changes' : 'Add customer'}
+          </Button>
+        </div>
+      )}
     </form>
   );
 }

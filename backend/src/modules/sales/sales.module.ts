@@ -10,6 +10,7 @@ import { AuditModule } from '../audit/audit.module';
 import { CustomersModule } from '../customers/customers.module';
 import { Product } from '../products/entities/product.entity';
 import { Service } from '../products/entities/service.entity';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { Service } from '../products/entities/service.entity';
     InventoryModule,
     AuditModule,
     CustomersModule,
+    SubscriptionsModule,
   ],
   providers: [SalesService],
   controllers: [SalesController],

@@ -25,6 +25,9 @@ export function dataSourceOptions(
       username: config.get<string>('database.user'),
       password: config.get<string>('database.password'),
       database: config.get<string>('database.name'),
+      ssl: config.get<boolean>('database.ssl')
+        ? { rejectUnauthorized: false }
+        : undefined,
     };
   }
 

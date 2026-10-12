@@ -59,6 +59,26 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   trackInventory?: boolean;
+
+  @ApiPropertyOptional({ example: 30, description: 'WiFi package: days of access per purchase (makes this a package)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  billingDays?: number | null;
+
+  @ApiPropertyOptional({ example: 20, description: 'WiFi package speed in Mbps' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  speedMbps?: number | null;
+
+  @ApiPropertyOptional({ example: 'Great for browsing and streaming' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string | null;
 }
 
 export class UpdateProductDto {
@@ -109,6 +129,26 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  @ApiPropertyOptional({ example: 30, description: 'WiFi package: days of access per purchase (makes this a package)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  billingDays?: number | null;
+
+  @ApiPropertyOptional({ example: 20, description: 'WiFi package speed in Mbps' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  speedMbps?: number | null;
+
+  @ApiPropertyOptional({ example: 'Great for browsing and streaming' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string | null;
 }
 
 export class StockMovementDto {

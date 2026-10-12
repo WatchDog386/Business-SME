@@ -4,18 +4,19 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Safaricom green — brand-600 is #2DA043, measured from the Safaricom app
         brand: {
-          50: '#E7F7F1',
-          100: '#D2EFE3',
-          200: '#A9DFCB',
-          300: '#79C8AA',
-          400: '#47AB88',
-          500: '#1E926D',
-          600: '#087F5B',
-          700: '#0A6C4E',
-          800: '#075B43',
-          900: '#064733',
-          950: '#042A1F',
+          50: '#EAF7ED',
+          100: '#CDEDD4',
+          200: '#9FDCAB',
+          300: '#6BC97F',
+          400: '#45B65C',
+          500: '#34A94B',
+          600: '#2DA043',
+          700: '#248537',
+          800: '#1D6A2C',
+          900: '#155021',
+          950: '#0C3214',
         },
         ink: {
           50: '#F7F9F8',
@@ -82,10 +83,11 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'],
-        display: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'],
-        poppins: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        quicksand: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        // Resolved from --font-sans (index.css): Figtree, like the Safaricom app
+        sans: ['var(--font-sans)'],
+        display: ['var(--font-sans)'],
+        poppins: ['var(--font-sans)'],
+        quicksand: ['var(--font-sans)'],
       },
       boxShadow: {
         soft: '0 1px 3px 0 rgb(20 40 30 / 0.04), 0 4px 12px -4px rgb(20 40 30 / 0.06)',

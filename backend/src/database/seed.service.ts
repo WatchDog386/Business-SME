@@ -13,8 +13,14 @@ import { Customer } from '../modules/customers/entities/customer.entity';
 import { Sale } from '../modules/sales/entities/sale.entity';
 import { SaleItem } from '../modules/sales/entities/sale-item.entity';
 import { Expense } from '../modules/expenses/entities/expense.entity';
+import { Budget } from '../modules/budgets/entities/budget.entity';
+import { RecurringExpense } from '../modules/recurring-expenses/entities/recurring-expense.entity';
+import { Payment } from '../modules/sales/entities/payment.entity';
+import { Subscription } from '../modules/subscriptions/entities/subscription.entity';
+import { CallLog } from '../modules/calls/entities/call-log.entity';
 import { UserRole } from '../common/types/auth-user.interface';
-import { todayRangeUtc } from '../common/utils/dates';
+import { currentMonthRangeUtc, todayRangeUtc } from '../common/utils/dates';
+import { DateTime } from 'luxon';
 
 // Deterministic pseudo-random generator so mock data is stable across restarts
 let seedState = 1337;
@@ -31,6 +37,52 @@ interface CatalogItem {
   price: number;
 }
 
+// Every seeded test account logs in with this password
+const DEMO_PASSWORD = 'fantes361';
+
+interface DemoAccount {
+  email: string;
+  fullName: string;
+  phone: string;
+  business?: {
+    name: string;
+    type: string;
+    // Showcase business always reports fixed figures for "today"
+    showcase?: boolean;
+    // `password` overrides the shared demo password for that account
+    staff?: Array<{ email: string; fullName: string; phone: string; role: UserRole; password?: string }>;
+  };
+}
+
+const COMPANY_NAME = 'Optimas Technologies Ltd';
+
+const DEMO_ACCOUNTS: DemoAccount[] = [
+  {
+    email: 'fanteskorri36@gmail.com',
+    fullName: 'Felix Ochieng',
+    phone: '+254712345679',
+    business: {
+      name: COMPANY_NAME,
+      type: 'ELECTRONICS',
+      showcase: true,
+      staff: [
+        // Company administrator: full Owner rights, own password
+        {
+          email: 'admin@optimas.co.ke',
+          fullName: 'Optimas Admin',
+          phone: '+254700100100',
+          role: UserRole.OWNER,
+          password: 'optimas2026@!',
+        },
+        { email: 'korrifantes36@gmail.com', fullName: 'Korri Fantes', phone: '+254712345678', role: UserRole.OWNER },
+        { email: 'manager@optimas.local', fullName: 'Aisha Mohamed', phone: '+254700100200', role: UserRole.MANAGER },
+        { email: 'sales@optimas.local', fullName: 'Kevin Mutua', phone: '+254700100201', role: UserRole.EMPLOYEE },
+        { email: 'accountant@optimas.local', fullName: 'Lucy Wairimu', phone: '+254700100202', role: UserRole.ACCOUNTANT },
+      ],
+    },
+  },
+];
+
 @Injectable()
 export class SeedService implements OnModuleInit {
   private readonly logger = new Logger(SeedService.name);
@@ -46,31 +98,39 @@ export class SeedService implements OnModuleInit {
     @InjectRepository(Sale) private readonly saleRepo: Repository<Sale>,
     @InjectRepository(SaleItem) private readonly itemRepo: Repository<SaleItem>,
     @InjectRepository(Expense) private readonly expRepo: Repository<Expense>,
+    @InjectRepository(Budget) private readonly budgetRepo: Repository<Budget>,
+    @InjectRepository(RecurringExpense)
+    private readonly recurringRepo: Repository<RecurringExpense>,
+    @InjectRepository(Payment) private readonly payRepo: Repository<Payment>,
+    @InjectRepository(Subscription) private readonly subRepo: Repository<Subscription>,
+    @InjectRepository(CallLog) private readonly callRepo: Repository<CallLog>,
   ) {}
 
   async onModuleInit() {
+    // Demo accounts share a known password, so production skips them unless
+    // SEED_DEMO=true is set explicitly
+    const seedDemo = process.env.SEED_DEMO
+      ? process.env.SEED_DEMO === 'true'
+      : process.env.NODE_ENV !== 'production';
+    if (!seedDemo) return;
     try {
-      // Platform admin — owns the app, has no business of their own.
-      await this.ensureAccount('korrifantes36@gmail.com');
-      // Demo business owner — gets a business with a full mock dataset.
-      await this.ensureAccount('fanteskorri36@gmail.com', true);
+      for (const account of DEMO_ACCOUNTS) {
+        await this.ensureAccount(account);
+      }
     } catch (err) {
       this.logger.error('Error in SeedService:', err);
     }
   }
 
-  private async ensureAccount(email: string, withBusiness = false) {
-    const passwordHash = await bcrypt.hash('fantes361', 10);
+  private async ensureUser(email: string, fullName: string, phone: string, password = DEMO_PASSWORD) {
+    const passwordHash = await bcrypt.hash(password, 10);
     let user = await this.userRepo.findOne({ where: { email } });
 
     if (!user) {
       user = this.userRepo.create({
         email,
-        full_name:
-          email === 'korrifantes36@gmail.com'
-            ? 'Korri (Platform Admin)'
-            : 'Felix Ochieng',
-        phone: '+254712345678',
+        full_name: fullName,
+        phone,
         password_hash: passwordHash,
         email_verified: true,
       });
@@ -80,20 +140,24 @@ export class SeedService implements OnModuleInit {
       user.password_hash = passwordHash;
       await this.userRepo.save(user);
     }
+    return user;
+  }
 
-    if (!withBusiness) {
-      // Platform admins are pure admins — strip any legacy business links.
-      await this.stripBusinesses(user);
-      return;
-    }
+  private async ensureAccount(account: DemoAccount) {
+    const { email } = account;
+    const user = await this.ensureUser(email, account.fullName, account.phone);
 
-    let member = await this.memberRepo.findOne({ where: { userId: user.id } });
+    if (!account.business) return;
+
+    let member = await this.memberRepo.findOne({
+      where: { userId: user.id, role: UserRole.OWNER },
+    });
     let business: Business | null = null;
 
     if (!member) {
       business = this.bizRepo.create({
-        name: "Korri's Enterprise",
-        business_type: 'RETAIL',
+        name: account.business.name,
+        business_type: account.business.type,
         currency: 'KES',
         timezone: 'Africa/Nairobi',
         ownerId: user.id,
@@ -113,10 +177,18 @@ export class SeedService implements OnModuleInit {
 
     if (!business) return;
 
+    // Older dev databases hold the previous demo shop — convert it to the company
+    const renamed = business.name !== account.business.name;
+    if (renamed) {
+      business.name = account.business.name;
+      business.business_type = account.business.type;
+      await this.bizRepo.save(business);
+    }
+
     const productCount = await this.prodRepo.count({ where: { businessId: business.id } });
     const saleCount = await this.saleRepo.count({ where: { businessId: business.id } });
 
-    const richlySeeded = productCount >= 10 && saleCount >= 20;
+    const richlySeeded = !renamed && productCount >= 10 && saleCount >= 20;
 
     if (!richlySeeded) {
       // Wipe any thin/partial mock data so we can rebuild cleanly
@@ -124,7 +196,7 @@ export class SeedService implements OnModuleInit {
 
       const cats = await this.seedCategories(business.id);
       const products = await this.seedProducts(business.id, cats);
-      const services = await this.seedServices(business.id, cats);
+      const services = await this.seedServices(business.id, business.name, cats);
       const customers = await this.seedCustomers(business.id);
       await this.seedSales(business.id, products, services, customers);
       await this.seedExpenses(business.id, cats);
@@ -132,13 +204,158 @@ export class SeedService implements OnModuleInit {
       this.logger.log(`Seeded full mock dataset for ${email}`);
     }
 
+    for (const staff of account.business.staff ?? []) {
+      await this.ensureStaff(business.id, staff);
+    }
+
     // Showcase account always reports exact demo figures for today
-    await this.applyDemoTodaySummary(business.id);
+    if (account.business.showcase) {
+      await this.ensureIspCatalog(business.id);
+      await this.applyDemoTodaySummary(business.id);
+      await this.ensureExpenseWorkflowDemo(business.id, account.business.staff ?? []);
+      await this.ensurePaymentsAndNumbers(business.id);
+      await this.ensureDemoCalls(business.id, user.id);
+    }
   }
 
   /**
-   * Forces today's numbers for the showcase account:
-   * sales 6,580 · COGS 2,450 · gross profit 4,130 · expenses 630 → net profit 3,500
+   * Budgets, recurring templates and approval-queue items for the showcase
+   * company. Runs once per business (skipped when budgets already exist).
+   */
+  private async ensureExpenseWorkflowDemo(
+    businessId: string,
+    staff: Array<{ email: string; role: UserRole }>,
+  ) {
+    if ((await this.budgetRepo.count({ where: { businessId } })) > 0) return;
+
+    const cats = await this.catRepo.find({ where: { businessId, type: 'EXPENSE' } });
+    const catId = (name: string) => cats.find((c) => c.name === name)?.id ?? null;
+    const tz = 'Africa/Nairobi';
+
+    // Limits are set against this month's spend so one category warns and one is over.
+    const { start, end } = currentMonthRangeUtc(tz);
+    const spentRows = await this.expRepo
+      .createQueryBuilder('expense')
+      .select('expense.categoryId', 'categoryId')
+      .addSelect('COALESCE(SUM(expense.amount), 0)', 'spent')
+      .where('expense.businessId = :businessId', { businessId })
+      .andWhere("expense.status = 'APPROVED'")
+      .andWhere('expense.expense_date >= :start', { start })
+      .andWhere('expense.expense_date < :end', { end })
+      .groupBy('expense.categoryId')
+      .getRawMany<{ categoryId: string; spent: string }>();
+    const spent = (name: string) =>
+      Number(spentRows.find((r) => r.categoryId === catId(name))?.spent ?? 0);
+    const roundUp = (v: number) => Math.max(1000, Math.ceil(v / 1000) * 1000);
+
+    const utilities = spent('Utilities');
+    const marketing = spent('Marketing');
+    const budgetDefs: Array<[string, number]> = [
+      ['Rent', 90000],
+      ['Salaries', 200000],
+      ['Stock Purchase', roundUp(spent('Stock Purchase') * 1.6 + 300000)],
+      ['Transport', roundUp(spent('Transport') * 1.8 + 5000)],
+      // About 85% used: shows as a warning
+      ['Utilities', utilities > 0 ? Math.round(utilities / 0.85 / 100) * 100 : 15000],
+      // Over budget
+      ['Marketing', marketing > 2000 ? Math.floor((marketing * 0.8) / 500) * 500 : 8000],
+    ];
+    await this.budgetRepo.save(
+      budgetDefs
+        .filter(([name]) => catId(name))
+        .map(([name, limit]) =>
+          this.budgetRepo.create({
+            businessId,
+            categoryId: catId(name)!,
+            monthly_limit: limit,
+            alert_threshold: 80,
+          }),
+        ),
+    );
+
+    const userIdFor = async (role: UserRole) => {
+      const email = staff.find((s) => s.role === role)?.email;
+      if (!email) return null;
+      return (await this.userRepo.findOne({ where: { email } }))?.id ?? null;
+    };
+    const ownerMember = await this.memberRepo.findOne({
+      where: { businessId, role: UserRole.OWNER },
+      order: { created_at: 'ASC' },
+    });
+    const employeeId = await userIdFor(UserRole.EMPLOYEE);
+    const accountantId = await userIdFor(UserRole.ACCOUNTANT);
+
+    // Seeded history already holds this month's fixed bills, so start next month.
+    const now = DateTime.now().setZone(tz);
+    const recurringDefs: Array<[string, number, string, string, number]> = [
+      ['Office rent – Moi Avenue', 85000, 'Rent', 'BANK', 1],
+      ['Internet – fibre 100Mbps', 8500, 'Utilities', 'M-PESA', 5],
+      ['Staff salaries', 180000, 'Salaries', 'BANK', 28],
+    ];
+    await this.recurringRepo.save(
+      recurringDefs.map(([description, amount, category, method, day]) =>
+        this.recurringRepo.create({
+          businessId,
+          categoryId: catId(category),
+          description,
+          amount,
+          payment_method: method,
+          day_of_month: day,
+          start_date: now.startOf('month').toISODate()!,
+          end_date: null,
+          active: true,
+          last_generated_month: now.toFormat('yyyy-MM'),
+          createdById: ownerMember?.userId ?? null,
+        }),
+      ),
+    );
+
+    if (!employeeId) return;
+    // Dated before today, because applyDemoTodaySummary clears today's entries.
+    const daysAgo = (n: number) => now.minus({ days: n }).set({ hour: 11 }).toJSDate();
+    const queue: Array<Partial<Expense>> = [
+      { description: 'Client site visit – Westlands (taxi)', amount: 1450, categoryId: catId('Transport'), payment_method: 'M-PESA', expense_date: daysAgo(1), status: 'PENDING' },
+      { description: 'Ethernet crimping tool replacement', amount: 2800, categoryId: catId('Stock Purchase'), payment_method: 'CASH', expense_date: daysAgo(2), status: 'PENDING' },
+      { description: 'Lunch with prospective client', amount: 3200, categoryId: catId('Marketing'), payment_method: 'CARD', expense_date: daysAgo(3), status: 'PENDING' },
+      {
+        description: 'Personal phone accessories',
+        amount: 1900,
+        categoryId: catId('Stock Purchase'),
+        payment_method: 'CASH',
+        expense_date: daysAgo(6),
+        status: 'REJECTED',
+        reviewedById: accountantId,
+        reviewed_at: daysAgo(5),
+        rejection_reason: 'Not a business expense – no receipt attached.',
+      },
+    ];
+    await this.expRepo.save(
+      queue.map((e) => this.expRepo.create({ ...e, businessId, submittedById: employeeId })),
+    );
+    this.logger.log('Seeded budgets, recurring expenses and approval queue');
+  }
+
+  private async ensureStaff(
+    businessId: string,
+    staff: { email: string; fullName: string; phone: string; role: UserRole; password?: string },
+  ) {
+    const user = await this.ensureUser(staff.email, staff.fullName, staff.phone, staff.password);
+    const existing = await this.memberRepo.findOne({
+      where: { userId: user.id, businessId },
+    });
+    if (existing) {
+      existing.role = staff.role;
+      existing.status = 'ACTIVE';
+      await this.memberRepo.save(existing);
+      return;
+    }
+    await this.memberRepo.save(
+      this.memberRepo.create({ userId: user.id, businessId, role: staff.role, status: 'ACTIVE' }),
+    );
+  }
+
+  /**
+   * Keeps "today" populated for the showcase company with a fixed set of sales and expenses.
    */
   private async applyDemoTodaySummary(businessId: string) {
     const { start } = todayRangeUtc('Africa/Nairobi');
@@ -149,6 +366,7 @@ export class SeedService implements OnModuleInit {
       select: ['id'],
     });
     if (todaysSales.length > 0) {
+      await this.payRepo.delete({ saleId: In(todaysSales.map((s) => s.id)) });
       await this.itemRepo.delete({ saleId: In(todaysSales.map((s) => s.id)) });
       await this.saleRepo.delete(todaysSales.map((s) => s.id));
     }
@@ -167,58 +385,69 @@ export class SeedService implements OnModuleInit {
     const cust = (name: string | null) =>
       name ? customers.find((c) => c.name === name) ?? null : null;
 
-    // 930 + 750 + 2,500 + 1,600 + 800 = 6,580 in sales
-    const demoSales = [
+    // Internet provider day: package renewals and new connections
+    type DemoLine = { name: string; type: 'PRODUCT' | 'SERVICE'; qty: number; event?: 'NEW' | 'RENEWAL' };
+    const demoSales: Array<{ time: string; customer: string | null; method: string; discount: number; lines: DemoLine[] }> = [
       {
-        time: '08:05',
-        customer: 'Mary Wanjiku',
-        method: 'M-PESA',
-        discount: 10,
-        lines: [
-          { name: 'Unga Wa Ugali 2kg', type: 'PRODUCT' as const, qty: 2 },
-          { name: 'Kenya Gold Tea Leaves 250g', type: 'PRODUCT' as const, qty: 1 },
-          { name: 'Fresh Milk 500ml', type: 'PRODUCT' as const, qty: 2 },
-          { name: 'Brown Bread 400g', type: 'PRODUCT' as const, qty: 1 },
-          { name: 'Coca-Cola 500ml', type: 'PRODUCT' as const, qty: 2 },
-          { name: 'Sukuma Wiki Bunch', type: 'PRODUCT' as const, qty: 2 },
-        ],
-      },
-      {
-        time: '09:40',
-        customer: null,
-        method: 'CASH',
-        discount: 10,
-        lines: [
-          { name: 'Ladies Haircut', type: 'SERVICE' as const, qty: 1 },
-          { name: 'Beard Trim', type: 'SERVICE' as const, qty: 1 },
-          { name: 'Coca-Cola 500ml', type: 'PRODUCT' as const, qty: 1 },
-        ],
-      },
-      {
-        time: '11:25',
-        customer: 'John Otieno',
-        method: 'M-PESA',
+        time: '08:40',
+        customer: 'Riverside Hotel',
+        method: 'BANK',
         discount: 0,
-        lines: [{ name: 'Phone Screen Replacement', type: 'SERVICE' as const, qty: 1 }],
+        lines: [{ name: 'Chui 60 Mbps', type: 'PRODUCT', qty: 1, event: 'RENEWAL' }],
       },
       {
-        time: '14:10',
+        time: '09:15',
+        customer: 'Kilimani Academy',
+        method: 'BANK',
+        discount: 0,
+        lines: [
+          { name: 'Gazzelle 30 Mbps', type: 'PRODUCT', qty: 1, event: 'RENEWAL' },
+          { name: 'Router Setup & Configuration', type: 'SERVICE', qty: 1 },
+        ],
+      },
+      {
+        time: '10:05',
         customer: 'Grace Achieng',
         method: 'M-PESA',
         discount: 0,
         lines: [
-          { name: 'Braiding Full Head', type: 'SERVICE' as const, qty: 1 },
-          { name: 'Dasani Water 1L', type: 'PRODUCT' as const, qty: 2 },
+          { name: 'Ndovu 25 Mbps', type: 'PRODUCT', qty: 1, event: 'NEW' },
+          { name: 'Home Installation (Wireless)', type: 'SERVICE', qty: 1 },
+          { name: 'TP-Link Archer C6 Router', type: 'PRODUCT', qty: 1 },
         ],
       },
       {
-        time: '17:35',
+        time: '11:30',
         customer: 'Peter Kamau',
-        method: 'CARD',
+        method: 'M-PESA',
         discount: 0,
-        lines: [{ name: 'Laptop Software Install', type: 'SERVICE' as const, qty: 1 }],
+        lines: [{ name: 'Buffalo 15 Mbps', type: 'PRODUCT', qty: 1, event: 'RENEWAL' }],
       },
-    ] as const;
+      {
+        time: '12:20',
+        customer: 'Halima Yusuf',
+        method: 'M-PESA',
+        discount: 0,
+        lines: [{ name: 'Chui 60 Mbps', type: 'PRODUCT', qty: 1, event: 'RENEWAL' }],
+      },
+      {
+        time: '13:45',
+        customer: 'Samuel Kiprop',
+        method: 'CREDIT',
+        discount: 0,
+        lines: [{ name: 'Buffalo 15 Mbps', type: 'PRODUCT', qty: 1, event: 'RENEWAL' }],
+      },
+      {
+        time: '15:10',
+        customer: 'Nairobi Fresh Supermarket',
+        method: 'M-PESA',
+        discount: 1000,
+        lines: [
+          { name: 'Gazzelle 30 Mbps', type: 'PRODUCT', qty: 1, event: 'NEW' },
+          { name: 'Fibre Installation', type: 'SERVICE', qty: 1 },
+        ],
+      },
+    ];
 
     for (const demo of demoSales) {
       const [hours, minutes] = demo.time.split(':').map(Number);
@@ -247,7 +476,7 @@ export class SeedService implements OnModuleInit {
           discount: demo.discount,
           tax: 0,
           total,
-          payment_status: 'PAID',
+          payment_status: demo.method === 'CREDIT' ? 'UNPAID' : 'PAID',
           payment_method: demo.method,
           idempotency_key: crypto.randomUUID(),
         }),
@@ -266,15 +495,16 @@ export class SeedService implements OnModuleInit {
             unit_price: rl.unitPrice,
             cost_price: rl.unitCost,
             total: rl.total,
+            package_event: rl.line.event ?? null,
           }),
         );
       }
     }
 
-    // Expenses of 630 today → net profit 4,130 − 630 = 3,500
+    // A couple of everyday expenses for today
     const demoExpenses = [
-      { description: 'Stock purchase – distributor', amount: 450, category: 'Stock Purchase', method: 'M-PESA' },
-      { description: 'Boda delivery run', amount: 180, category: 'Transport', method: 'CASH' },
+      { description: 'Fibre splice repair – Westlands', amount: 2500, category: 'Fibre & Infrastructure', method: 'M-PESA' },
+      { description: 'Technician fuel – installations', amount: 1500, category: 'Field Transport', method: 'M-PESA' },
     ];
     for (const def of demoExpenses) {
       const cat = await this.catRepo.findOne({
@@ -296,30 +526,264 @@ export class SeedService implements OnModuleInit {
     }
 
     this.logger.log(
-      'Applied showcase today-summary — sales 6,580 / net profit 3,500',
+      'Applied showcase sales and expenses for today',
     );
   }
 
   /**
-   * Admins own nothing — remove every business membership and any owned
-   * business (with its data) so the account stays a pure platform admin.
+   * Turns the showcase company into an internet provider without deleting
+   * anything: WiFi packages, ISP services and expense categories, a
+   * subscription per client, invoice details, and the old electronics demo
+   * items switched off (inactive, still on record).
    */
-  private async stripBusinesses(user: User) {
-    const members = await this.memberRepo.find({ where: { userId: user.id } });
-    for (const m of members) {
-      await this.wipeBusinessData(m.businessId);
-      await this.memberRepo.delete({ id: m.id });
-      await this.bizRepo.delete({ id: m.businessId });
-      this.logger.log(`Stripped business ${m.businessId} from admin ${user.email}`);
+  private async ensureIspCatalog(businessId: string) {
+    const catDefs: Array<[string, string]> = [
+      ['PRODUCT', 'Internet Packages'],
+      ['PRODUCT', 'Routers & Equipment'],
+      ['SERVICE', 'Installation & Setup'],
+      ['SERVICE', 'Support & Maintenance'],
+      ['EXPENSE', 'Bandwidth (Upstream)'],
+      ['EXPENSE', 'Fibre & Infrastructure'],
+      ['EXPENSE', 'Equipment Purchase'],
+      ['EXPENSE', 'Field Transport'],
+      ['EXPENSE', 'Licences & Fees'],
+    ];
+    for (const [type, name] of catDefs) {
+      const exists = await this.catRepo.findOne({ where: { businessId, type: type as Category['type'], name } });
+      if (!exists) await this.catRepo.save(this.catRepo.create({ businessId, type: type as Category['type'], name }));
+    }
+    const cats = await this.catRepo.find({ where: { businessId } });
+
+    // Monthly WiFi packages, as listed on optimaswifi.co.ke/wifi-plans
+    // (cost = estimated bandwidth cost per client)
+    const packages: Array<[string, string, number, number, number]> = [
+      ['Jumbo 8 Mbps', 'PKG-JUMBO-08', 8, 1499, 600],
+      ['Buffalo 15 Mbps', 'PKG-BUFFALO-15', 15, 1999, 800],
+      ['Ndovu 25 Mbps', 'PKG-NDOVU-25', 25, 2499, 1000],
+      ['Gazzelle 30 Mbps', 'PKG-GAZZELLE-30', 30, 2999, 1200],
+      ['Tiger 40 Mbps', 'PKG-TIGER-40', 40, 3999, 1600],
+      ['Chui 60 Mbps', 'PKG-CHUI-60', 60, 4999, 2000],
+    ];
+    // Earlier package names become the official ones in place, so existing
+    // subscriptions and sales stay linked. "Tiger" was added by hand before.
+    const renamed: Array<[string, string]> = [
+      ['Home Lite 5 Mbps', 'Jumbo 8 Mbps'],
+      ['Home Basic 10 Mbps', 'Buffalo 15 Mbps'],
+      ['Home Plus 20 Mbps', 'Ndovu 25 Mbps'],
+      ['Business 30 Mbps', 'Gazzelle 30 Mbps'],
+      ['Tiger', 'Tiger 40 Mbps'],
+      ['Home Max 50 Mbps', 'Chui 60 Mbps'],
+    ];
+    for (const [oldName, newName] of renamed) {
+      const old = await this.prodRepo.findOne({ where: { businessId, name: oldName } });
+      if (!old || (await this.prodRepo.findOne({ where: { businessId, name: newName } }))) continue;
+      const [, sku, speed, price, cost] = packages.find(([name]) => name === newName)!;
+      Object.assign(old, { name: newName, sku, speed_mbps: speed, selling_price: price, cost_price: cost, billing_days: 30, active: true });
+      await this.prodRepo.save(old);
+    }
+    // Not on the website's list: switched off, kept on record
+    await this.prodRepo.update({ businessId, name: 'Business Pro 100 Mbps' }, { active: false });
+    for (const [name, sku, speed, price, cost] of packages) {
+      const existing = await this.prodRepo.findOne({ where: { businessId, name } });
+      if (existing) continue;
+      await this.prodRepo.save(
+        this.prodRepo.create({
+          businessId,
+          name,
+          sku,
+          categoryId: this.cat(cats, 'PRODUCT', 'Internet Packages'),
+          cost_price: cost,
+          selling_price: price,
+          stock_quantity: 0,
+          low_stock_threshold: 0,
+          track_inventory: false,
+          active: true,
+          billing_days: 30,
+          speed_mbps: speed,
+        }),
+      );
     }
 
-    // Also catch businesses still pointing at the user as owner without a membership row
-    const owned = await this.bizRepo.find({ where: { ownerId: user.id } });
-    for (const b of owned) {
-      await this.wipeBusinessData(b.id);
-      await this.memberRepo.delete({ businessId: b.id });
-      await this.bizRepo.delete({ id: b.id });
-      this.logger.log(`Stripped owned business ${b.id} from admin ${user.email}`);
+    const equipment: Array<[string, string, number, number, number]> = [
+      ['Ubiquiti LiteBeam 5AC Receiver', 'UBQ-LBE-5AC', 7000, 9500, 15],
+      ['Fibre ONT Terminal', 'ONT-GPON-01', 4500, 6500, 20],
+    ];
+    for (const [name, sku, cost, price, stock] of equipment) {
+      if (await this.prodRepo.findOne({ where: { businessId, name } })) continue;
+      await this.prodRepo.save(
+        this.prodRepo.create({
+          businessId,
+          name,
+          sku,
+          categoryId: this.cat(cats, 'PRODUCT', 'Routers & Equipment'),
+          cost_price: cost,
+          selling_price: price,
+          stock_quantity: stock,
+          low_stock_threshold: 4,
+          track_inventory: true,
+          active: true,
+        }),
+      );
+    }
+
+    const services: Array<[string, string, number, number]> = [
+      ['Home Installation (Wireless)', 'Installation & Setup', 3000, 120],
+      ['Fibre Installation', 'Installation & Setup', 5000, 180],
+      ['Router Setup & Configuration', 'Installation & Setup', 1000, 45],
+      ['Relocation of Connection', 'Installation & Setup', 2500, 120],
+      ['Site Survey', 'Installation & Setup', 1000, 60],
+      ['On-site Technical Support', 'Support & Maintenance', 1500, 60],
+    ];
+    for (const [name, category, price, minutes] of services) {
+      if (await this.serviceRepo.findOne({ where: { businessId, name } })) continue;
+      await this.serviceRepo.save(
+        this.serviceRepo.create({
+          businessId,
+          name,
+          description: `${name} by an Optimas technician`,
+          categoryId: this.cat(cats, 'SERVICE', category),
+          price,
+          duration_minutes: minutes,
+          active: true,
+        }),
+      );
+    }
+
+    // Electronics-shop demo items no longer fit: switch them off (kept on record)
+    const retiredProducts = [
+      'HP ProBook 450 G10 Laptop', 'Dell Latitude 5440 Laptop', 'Lenovo ThinkCentre M70 Desktop',
+      'Samsung 24" LED Monitor', 'HP LaserJet Pro M404dn Printer', 'HP 59A Toner Cartridge',
+      'A4 Printing Paper (Ream)', 'Hikvision 4MP Dome Camera', 'Hikvision 8-Channel NVR',
+      '1TB Surveillance Hard Drive', 'APC 1000VA UPS', 'Logitech Wireless Keyboard & Mouse',
+      'Kingston 32GB Flash Drive', 'USB-C Laptop Charger 65W',
+    ];
+    const retiredServices = [
+      'CCTV Installation (per camera)', 'Printer Setup & Networking', 'Laptop Repair & Servicing',
+      'OS & Software Installation', 'Data Recovery', 'Monthly IT Support Contract',
+    ];
+    await this.prodRepo.update({ businessId, name: In(retiredProducts) }, { active: false });
+    await this.serviceRepo.update({ businessId, name: In(retiredServices) }, { active: false });
+
+    // Invoice details (placeholders the owner can edit)
+    const business = await this.bizRepo.findOne({ where: { id: businessId } });
+    if (business && !business.kra_pin) {
+      Object.assign(business, {
+        kra_pin: 'P051234567X',
+        address: business.address ?? 'Westlands Business Park, Nairobi',
+        phone: business.phone ?? '+254 700 100 100',
+        email: business.email ?? 'billing@optimas.co.ke',
+        invoice_footer:
+          'Pay via M-Pesa Paybill 247247, Account: your phone number · Equity Bank A/C 0123456789 (Optimas Technologies Ltd) · Thank you for choosing Optimas.',
+      });
+      await this.bizRepo.save(business);
+    }
+
+    // One subscription per client: mostly active, some due soon, a few lapsed
+    if ((await this.subRepo.count({ where: { businessId } })) === 0) {
+      const pkgs = await this.prodRepo.find({ where: { businessId, active: true } });
+      const plan = (name: string) => pkgs.find((p) => p.name === name)!;
+      const customers = await this.custRepo.find({ where: { businessId }, order: { created_at: 'ASC' } });
+      const assignment: Array<[string, string, number]> = [
+        ['Kilimani Academy', 'Gazzelle 30 Mbps', 21],
+        ['Sunrise Pharmacy Ltd', 'Gazzelle 30 Mbps', -3],
+        ['Mwangi & Associates Advocates', 'Gazzelle 30 Mbps', 2],
+        ['Riverside Hotel', 'Chui 60 Mbps', 27],
+        ['Nairobi Fresh Supermarket', 'Gazzelle 30 Mbps', 30],
+        ['Kiprop Logistics Ltd', 'Chui 60 Mbps', -6],
+        ['Grace Achieng', 'Ndovu 25 Mbps', 30],
+        ['Peter Kamau', 'Buffalo 15 Mbps', 29],
+        ['Halima Yusuf', 'Chui 60 Mbps', 18],
+        ['Samuel Kiprop', 'Buffalo 15 Mbps', 1],
+      ];
+      for (const [customerName, pkgName, daysLeft] of assignment) {
+        const customer = customers.find((c) => c.name === customerName);
+        const pkg = plan(pkgName);
+        if (!customer || !pkg) continue;
+        const expires = new Date(Date.now() + daysLeft * 86400000);
+        await this.subRepo.save(
+          this.subRepo.create({
+            businessId,
+            customerId: customer.id,
+            productId: pkg.id,
+            package_name: pkg.name,
+            speed_mbps: pkg.speed_mbps,
+            price: pkg.selling_price,
+            started_at: new Date(expires.getTime() - 90 * 86400000),
+            expires_at: expires,
+            renewals: 2,
+            last_sale_id: null,
+          }),
+        );
+      }
+      // Give clients emails so invoices can be emailed in the demo
+      for (const c of customers) {
+        if (!c.email) {
+          c.email = `${c.name.toLowerCase().replace(/[^a-z]+/g, '.').replace(/^\.|\.$/g, '')}@example.co.ke`;
+          await this.custRepo.save(c);
+        }
+      }
+      this.logger.log('Seeded WiFi packages, ISP services and subscriptions');
+    }
+  }
+
+  /**
+   * Seeded sales were stored without payment rows; add them so receipts work,
+   * then give every sale an invoice number and every payment a receipt number.
+   */
+  private async ensurePaymentsAndNumbers(businessId: string) {
+    const sales = await this.saleRepo.find({ where: { businessId }, order: { created_at: 'ASC' } });
+    const withPayments = new Set(
+      (await this.payRepo.find({ where: { businessId }, select: ['saleId'] })).map((p) => p.saleId),
+    );
+    for (const sale of sales) {
+      if (withPayments.has(sale.id) || sale.payment_status === 'CANCELLED') continue;
+      const amount =
+        sale.payment_status === 'PAID' ? sale.total : sale.payment_status === 'PARTIAL' ? Math.round(sale.total / 2) : 0;
+      if (amount <= 0) continue;
+      await this.payRepo.save(
+        this.payRepo.create({
+          businessId,
+          saleId: sale.id,
+          customerId: sale.customerId,
+          amount,
+          method: sale.payment_method === 'CREDIT' ? 'M-PESA' : sale.payment_method,
+          reference: sale.payment_method === 'M-PESA' ? `S${sale.id.replace(/-/g, '').slice(0, 9).toUpperCase()}` : null,
+          status: 'SUCCESS',
+          transaction_date: sale.created_at,
+        }),
+      );
+    }
+
+    let nextSale =
+      Number((await this.saleRepo.createQueryBuilder('s').select('COALESCE(MAX(s.number),0)', 'm').where('s.businessId = :businessId', { businessId }).getRawOne<{ m: string }>())?.m ?? 0) + 1;
+    for (const sale of sales.filter((x) => x.number == null)) {
+      await this.saleRepo.update(sale.id, { number: nextSale++ });
+    }
+    const payments = await this.payRepo.find({ where: { businessId }, order: { transaction_date: 'ASC' } });
+    let nextReceipt = Math.max(0, ...payments.map((p) => p.receipt_number ?? 0)) + 1;
+    for (const pay of payments.filter((x) => x.receipt_number == null)) {
+      await this.payRepo.update(pay.id, { receipt_number: nextReceipt++ });
+    }
+  }
+
+  /** A couple of logged calls with call-backs due today, so the calls list isn't empty. */
+  private async ensureDemoCalls(businessId: string, userId: string) {
+    if ((await this.callRepo.count({ where: { businessId } })) > 0) return;
+    const customers = await this.custRepo.find({ where: { businessId } });
+    const find = (name: string) => customers.find((c) => c.name === name);
+    const today = new Date();
+    today.setHours(15, 0, 0, 0);
+    const defs: Array<[string, CallLog['outcome'], string, Date | null]> = [
+      ['Sunrise Pharmacy Ltd', 'PROMISED_TO_PAY', 'Accounts will pay the Business 30 renewal today via Paybill.', today],
+      ['Kiprop Logistics Ltd', 'NO_ANSWER', 'Package lapsed — called to renew, no answer.', today],
+      ['Peter Kamau', 'REACHED', 'Happy with Home Basic; may upgrade to Home Plus next month.', null],
+    ];
+    for (const [name, outcome, notes, followUp] of defs) {
+      const c = find(name);
+      if (!c) continue;
+      await this.callRepo.save(
+        this.callRepo.create({ businessId, customerId: c.id, userId, channel: 'PHONE', outcome, notes, follow_up_at: followUp, follow_up_done: false }),
+      );
     }
   }
 
@@ -330,6 +794,8 @@ export class SeedService implements OnModuleInit {
       await this.saleRepo.delete({ businessId });
     }
     await this.expRepo.delete({ businessId });
+    await this.budgetRepo.delete({ businessId });
+    await this.recurringRepo.delete({ businessId });
     await this.prodRepo.delete({ businessId });
     await this.serviceRepo.delete({ businessId });
     await this.custRepo.delete({ businessId });
@@ -338,12 +804,13 @@ export class SeedService implements OnModuleInit {
 
   private async seedCategories(businessId: string) {
     const defs: Array<{ type: string; name: string }> = [
-      { type: 'PRODUCT', name: 'Groceries' },
-      { type: 'PRODUCT', name: 'Beverages' },
-      { type: 'PRODUCT', name: 'Electronics' },
-      { type: 'PRODUCT', name: 'Household' },
-      { type: 'SERVICE', name: 'Salon & Barber' },
-      { type: 'SERVICE', name: 'Repair & Tech' },
+      { type: 'PRODUCT', name: 'Laptops & Computers' },
+      { type: 'PRODUCT', name: 'Printers & Office' },
+      { type: 'PRODUCT', name: 'Networking' },
+      { type: 'PRODUCT', name: 'CCTV & Security' },
+      { type: 'PRODUCT', name: 'Power & Accessories' },
+      { type: 'SERVICE', name: 'Installation' },
+      { type: 'SERVICE', name: 'Repair & Support' },
       { type: 'EXPENSE', name: 'Rent' },
       { type: 'EXPENSE', name: 'Utilities' },
       { type: 'EXPENSE', name: 'Stock Purchase' },
@@ -362,24 +829,24 @@ export class SeedService implements OnModuleInit {
 
   private async seedProducts(businessId: string, cats: Category[]) {
     const defs = [
-      ['Unga Wa Ugali 2kg', 'Groceries', 130, 160, 48, 8],
-      ['Kenya Gold Tea Leaves 250g', 'Groceries', 180, 220, 32, 6],
-      ['Sukuma Wiki Bunch', 'Groceries', 10, 15, 100, 25],
-      ['Fresh Milk 500ml', 'Groceries', 55, 70, 60, 12],
-      ['Brown Bread 400g', 'Groceries', 90, 110, 4, 8],
-      ['Cooking Oil Salad 1L', 'Groceries', 280, 350, 24, 5],
-      ['Geisha Tuna 185g', 'Groceries', 130, 170, 30, 6],
-      ['Blue Band 500g', 'Groceries', 320, 380, 18, 4],
-      ['Coca-Cola 500ml', 'Beverages', 45, 60, 120, 24],
-      ['Dasani Water 1L', 'Beverages', 25, 50, 80, 24],
-      ['Safari Lager 500ml', 'Beverages', 180, 250, 36, 6],
-      ['Kenya Cane 750ml', 'Beverages', 350, 480, 12, 4],
-      ['Samsung Charger Type-C', 'Electronics', 350, 600, 15, 4],
-      ['Oraimo Earbuds FreePods', 'Electronics', 900, 1500, 8, 10],
-      ['Torch LED Rechargeable', 'Electronics', 400, 650, 3, 5],
-      ['Royco Beef Cubes 50pc', 'Household', 200, 260, 40, 8],
-      ['Omo Detergent 1kg', 'Household', 210, 270, 26, 5],
-      ['Colgate Toothpaste 130g', 'Household', 120, 160, 2, 6],
+      ['HP ProBook 450 G10 Laptop', 'Laptops & Computers', 78000, 95000, 8, 2],
+      ['Dell Latitude 5440 Laptop', 'Laptops & Computers', 82000, 99000, 6, 2],
+      ['Lenovo ThinkCentre M70 Desktop', 'Laptops & Computers', 52000, 64000, 5, 2],
+      ['Samsung 24" LED Monitor', 'Laptops & Computers', 14500, 19000, 12, 3],
+      ['HP LaserJet Pro M404dn Printer', 'Printers & Office', 38000, 46500, 4, 2],
+      ['HP 59A Toner Cartridge', 'Printers & Office', 9800, 12500, 15, 5],
+      ['A4 Printing Paper (Ream)', 'Printers & Office', 520, 750, 80, 20],
+      ['TP-Link Archer C6 Router', 'Networking', 4200, 5800, 20, 5],
+      ['TP-Link 24-Port Gigabit Switch', 'Networking', 13500, 17500, 5, 2],
+      ['Cat6 Cable 305m Box', 'Networking', 11500, 14800, 6, 2],
+      ['RJ45 Connectors (100 pcs)', 'Networking', 650, 1000, 30, 10],
+      ['Hikvision 4MP Dome Camera', 'CCTV & Security', 4800, 6800, 25, 6],
+      ['Hikvision 8-Channel NVR', 'CCTV & Security', 13500, 18000, 4, 2],
+      ['1TB Surveillance Hard Drive', 'CCTV & Security', 6200, 8500, 10, 3],
+      ['APC 1000VA UPS', 'Power & Accessories', 14000, 18500, 7, 2],
+      ['Logitech Wireless Keyboard & Mouse', 'Power & Accessories', 2600, 3800, 3, 5],
+      ['Kingston 32GB Flash Drive', 'Power & Accessories', 450, 850, 60, 15],
+      ['USB-C Laptop Charger 65W', 'Power & Accessories', 2200, 3500, 2, 5],
     ] as const;
 
     const products: Product[] = [];
@@ -407,15 +874,15 @@ export class SeedService implements OnModuleInit {
     return this.prodRepo.save(products);
   }
 
-  private async seedServices(businessId: string, cats: Category[]) {
+  private async seedServices(businessId: string, businessName: string, cats: Category[]) {
     const defs = [
-      ['Ladies Haircut', 'Salon & Barber', 500, 45],
-      ['Braiding Full Head', 'Salon & Barber', 1500, 180],
-      ['Manicure & Pedicure', 'Salon & Barber', 800, 90],
-      ['Beard Trim', 'Salon & Barber', 200, 20],
-      ['Phone Screen Replacement', 'Repair & Tech', 2500, 60],
-      ['Laptop Software Install', 'Repair & Tech', 800, 45],
-      ['Shoe Repair', 'Repair & Tech', 300, 30],
+      ['CCTV Installation (per camera)', 'Installation', 2500, 120],
+      ['Network Cabling (per point)', 'Installation', 1800, 60],
+      ['Printer Setup & Networking', 'Installation', 2000, 60],
+      ['Laptop Repair & Servicing', 'Repair & Support', 3500, 90],
+      ['OS & Software Installation', 'Repair & Support', 1500, 60],
+      ['Data Recovery', 'Repair & Support', 6000, 180],
+      ['Monthly IT Support Contract', 'Repair & Support', 15000, 480],
     ] as const;
 
     return this.serviceRepo.save(
@@ -424,7 +891,7 @@ export class SeedService implements OnModuleInit {
           businessId,
           categoryId: this.cat(cats, 'SERVICE', category),
           name,
-          description: `${name} — professional service at Korri's Enterprise`,
+          description: `${name} — professional service at ${businessName}`,
           price: price as number,
           duration_minutes: duration as number,
           active: true,
@@ -435,16 +902,16 @@ export class SeedService implements OnModuleInit {
 
   private async seedCustomers(businessId: string) {
     const defs = [
-      ['Mary Wanjiku', '+254722134567', 12400, 0, 14],
-      ['John Otieno', '+254733456789', 18600, 2500, 9],
-      ['Grace Achieng', '+254711998877', 7300, 1200, 7],
-      ['Peter Kamau', '+254720555123', 21300, 0, 21],
-      ['Fatuma Hassan', '+254745666789', 4100, 0, 5],
-      ['Brian Kimani', '+254798111222', 15200, 4500, 11],
-      ['Njeri Mwangi', '+254701234098', 2900, 0, 3],
-      ['Dennis Ochieng', '+254726888999', 8800, 0, 8],
-      ['Halima Yusuf', '+254759777888', 5600, 0, 6],
-      ['Samuel Kiprop', '+254710333444', 3400, 800, 4],
+      ['Kilimani Academy', '+254722134567', 486000, 0, 14],
+      ['Sunrise Pharmacy Ltd', '+254733456789', 212500, 45000, 9],
+      ['Mwangi & Associates Advocates', '+254711998877', 174000, 18500, 7],
+      ['Riverside Hotel', '+254720555123', 391300, 0, 21],
+      ['Nairobi Fresh Supermarket', '+254745666789', 98400, 0, 5],
+      ['Kiprop Logistics Ltd', '+254798111222', 265200, 64500, 11],
+      ['Grace Achieng', '+254701234098', 18900, 0, 3],
+      ['Peter Kamau', '+254726888999', 104800, 0, 8],
+      ['Halima Yusuf', '+254759777888', 23600, 0, 6],
+      ['Samuel Kiprop', '+254710333444', 41400, 3500, 4],
     ] as const;
 
     const now = Date.now();
@@ -455,7 +922,7 @@ export class SeedService implements OnModuleInit {
           name,
           phone,
           email: null,
-          address: i % 2 === 0 ? 'Nairobi' : null,
+          address: i % 2 === 0 ? 'Nairobi' : 'Westlands, Nairobi',
           notes: null,
           total_spent: spent as number,
           outstanding_balance: owed as number,
@@ -553,28 +1020,28 @@ export class SeedService implements OnModuleInit {
     const now = new Date();
 
     const fixedDefs = [
-      ['Monthly shop rent – Eastleigh', 25000, 'Rent', 'BANK', 32],
-      ['Shop assistant salary – Amina', 12000, 'Salaries', 'M-PESA', 30],
-      ['KPLC electricity bill', 3200, 'Utilities', 'M-PESA', 21],
-      ['Nairobi Water bill', 850, 'Utilities', 'M-PESA', 18],
-      ['Stock purchase – distributor', 14500, 'Stock Purchase', 'M-PESA', 15],
-      ['Internet (Faiba 30Mbps)', 3500, 'Utilities', 'M-PESA', 12],
-      ['Restock beverages – Coca-Cola depo', 6800, 'Stock Purchase', 'M-PESA', 9],
-      ['Social media boost – Instagram', 1500, 'Marketing', 'CARD', 7],
-      ['Shop signage refresh', 4200, 'Marketing', 'CASH', 5],
-      ['Restock household goods', 5300, 'Stock Purchase', 'CASH', 4],
-      ['KPLC prepaid tokens', 1800, 'Utilities', 'M-PESA', 3],
-      ['Salary advance – Amina', 3000, 'Salaries', 'M-PESA', 2],
+      ['Office rent – Moi Avenue', 85000, 'Rent', 'BANK', 32],
+      ['Staff salaries', 180000, 'Salaries', 'BANK', 30],
+      ['KPLC electricity bill', 9800, 'Utilities', 'M-PESA', 21],
+      ['Nairobi Water bill', 1850, 'Utilities', 'M-PESA', 18],
+      ['Stock purchase – laptops (distributor)', 410000, 'Stock Purchase', 'BANK', 15],
+      ['Internet – fibre 100Mbps', 8500, 'Utilities', 'M-PESA', 12],
+      ['Stock purchase – CCTV & networking', 126000, 'Stock Purchase', 'BANK', 9],
+      ['Google & social media ads', 12000, 'Marketing', 'CARD', 7],
+      ['Branded company profiles printing', 6500, 'Marketing', 'CASH', 5],
+      ['Stock purchase – accessories', 38500, 'Stock Purchase', 'M-PESA', 4],
+      ['KPLC prepaid tokens', 3000, 'Utilities', 'M-PESA', 3],
+      ['Salary advance – technician', 10000, 'Salaries', 'M-PESA', 2],
     ];
 
     const variableDefs = [
-      ['Boda delivery run', 350, 'Transport'],
-      ['Boda delivery run', 300, 'Transport'],
-      ['Matatu fare – restock trip', 200, 'Transport'],
-      ['Airtime for shop line', 500, 'Utilities'],
-      ['M-Pesa transaction charges', 150, 'Utilities'],
-      ['Packaging bags roll', 600, 'Stock Purchase'],
-      ['Boda delivery run', 400, 'Transport'],
+      ['Site visit transport', 800, 'Transport'],
+      ['Delivery to client (Uber/Bolt)', 650, 'Transport'],
+      ['Courier – G4S parcel', 450, 'Transport'],
+      ['Airtime & data bundles', 1000, 'Utilities'],
+      ['M-Pesa transaction charges', 350, 'Utilities'],
+      ['Packaging & labels', 900, 'Stock Purchase'],
+      ['Technician lunch allowance', 600, 'Transport'],
     ];
 
     const expenses: Expense[] = [];

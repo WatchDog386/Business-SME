@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   BadgeCheck,
   Camera,
   Mail,
@@ -13,6 +12,7 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { authApi } from '@/api/endpoints';
+import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
 import { useAuthStore } from '@/stores/auth';
 import { Input } from '@/components/ui/input';
@@ -87,19 +87,7 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      {/* App bar */}
-      <div className="relative flex h-12 items-center px-1">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-edge bg-surface text-foreground transition-colors hover:bg-surface-2 active:bg-surface-3"
-          aria-label="Back to dashboard"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">
-          My Profile
-        </h1>
-      </div>
+      <AppBar title="My Profile" onBack={() => navigate('/dashboard')} />
 
       {success && (
         <Alert variant="success" title="Profile updated successfully">
@@ -113,7 +101,6 @@ export function ProfilePage() {
         </Alert>
       )}
 
-      {/* Identity — flat on background */}
       <section className="flex flex-col items-center p-1 text-center">
         <div className="relative">
           <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-edge bg-accent-soft text-3xl font-medium text-accent shadow-sm">
@@ -177,7 +164,6 @@ export function ProfilePage() {
         <p className="mt-2 text-[10px] text-foreground-5">PNG, JPG or WEBP · up to 2MB</p>
       </section>
 
-      {/* Details — flat on background */}
       <section className="px-1">
         <SectionLabel>Personal details</SectionLabel>
         <form

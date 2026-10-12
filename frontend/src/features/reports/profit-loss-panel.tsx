@@ -45,7 +45,7 @@ export function ProfitLossPanel({ from, to }: { from: string; to: string }) {
 
       <div className="space-y-2">
         <h2 className="px-1 text-[13px] font-medium tracking-tight text-foreground">Breakdown</h2>
-        <ul className="divide-y divide-edge">
+        <ul className="divide-y divide-edge max-lg:divide-y-0">
           {rows.map((row) => (
             <li key={row.label} className="flex items-center justify-between px-1 py-3 hover:bg-surface-2 transition-colors">
               <span className="text-sm text-foreground-2">{row.label}</span>
@@ -81,7 +81,7 @@ export function ProfitLossPanel({ from, to }: { from: string; to: string }) {
         {data.revenueByMethod.length > 0 && (
           <div className="space-y-1.5">
             <p className="px-1 text-[11px] font-medium uppercase tracking-wider text-foreground-4">Revenue by payment method</p>
-            <ul className="divide-y divide-edge">
+            <ul className="divide-y divide-edge max-lg:divide-y-0">
               {data.revenueByMethod.map((entry) => {
                 const pct = data.revenue > 0 ? (entry.total / data.revenue) * 100 : 0;
                 const Icon = entry.method === 'M-PESA' ? Smartphone : entry.method === 'CASH' ? Banknote : entry.method === 'CARD' ? CreditCard : Building;

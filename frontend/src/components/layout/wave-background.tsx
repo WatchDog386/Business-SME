@@ -4,10 +4,10 @@ let uid = 0;
 
 export function WaveBackground({
   className,
-  start = '#087F5B',
-  end = '#0A6C4E',
-  start2 = '#1E926D',
-  end2 = '#075B43',
+  start = '#2DA043',
+  end = '#248537',
+  start2 = '#34A94B',
+  end2 = '#1D6A2C',
 }: {
   className?: string;
   start?: string;

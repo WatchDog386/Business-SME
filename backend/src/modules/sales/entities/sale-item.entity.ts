@@ -29,4 +29,8 @@ export class SaleItem extends BaseEntity {
 
   @Column({ type: 'varchar', length: 150, nullable: true })
   item_name: string | null;
+
+  /** For WiFi packages: whether this line started a subscription or renewed one. */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  package_event: 'NEW' | 'RENEWAL' | null;
 }

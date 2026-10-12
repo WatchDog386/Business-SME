@@ -34,4 +34,18 @@ export class Product extends BaseEntity {
 
   @Column({ type: 'boolean', default: true })
   active: boolean;
+
+  // ---- Internet packages (Optimas is an ISP) ----
+
+  /** Days of access one unit buys (e.g. 30). Set = this product is a WiFi package. */
+  @Column({ type: 'int', nullable: true })
+  billing_days: number | null;
+
+  /** Advertised speed of a package, in Mbps. */
+  @Column({ type: 'int', nullable: true })
+  speed_mbps: number | null;
+
+  /** Optional short description (shown on package cards). */
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
 }

@@ -6,15 +6,45 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
+import { DailyReportService } from './daily-report.service';
+import {
+  ExportContext,
+  ExportFile,
+  ReportExportService,
+} from './report-export.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessGuard } from '../../common/guards/business.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentBusiness } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/types/auth-user.interface';
-import { DateRangeQueryDto, ReportRangeQueryDto } from './dto/report.dto';
+import {
+  DateRangeQueryDto,
+  ExpenseExportQueryDto,
+  ReportRangeQueryDto,
+} from './dto/report.dto';
+
+type BusinessCtx = { id: string; name: string; timezone: string; currency: string };
+
+function exportContext(business: BusinessCtx, query: DateRangeQueryDto): ExportContext {
+  return {
+    businessId: business.id,
+    businessName: business.name,
+    timezone: business.timezone,
+    currency: business.currency,
+    from: query.from,
+    to: query.to,
+  };
+}
+
+function sendFile(res: Response, file: ExportFile): void {
+  res.setHeader('Content-Type', file.contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+  res.send(file.buffer);
+}
 
 @ApiTags('reports')
 @Controller('reports')
@@ -22,7 +52,41 @@ import { DateRangeQueryDto, ReportRangeQueryDto } from './dto/report.dto';
 @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.ACCOUNTANT)
 @ApiBearerAuth()
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly exportService: ReportExportService,
+    private readonly dailyReports: DailyReportService,
+  ) {}
+
+  @Get('day')
+  @ApiOperation({ summary: 'Daily report for one day (business timezone); today by default' })
+  @ApiQuery({ name: 'date', required: false, example: '2026-10-11' })
+  day(@CurrentBusiness() business: { id: string; timezone: string }, @Query('date') date?: string) {
+    return this.dailyReports.report(business.id, date, business.timezone);
+  }
+
+  @Get('day/history')
+  @ApiOperation({ summary: 'Revenue, expenses and net profit per day, up to a date' })
+  @ApiQuery({ name: 'days', required: false })
+  @ApiQuery({ name: 'until', required: false })
+  dayHistory(
+    @CurrentBusiness() business: { id: string; timezone: string },
+    @Query('days') days?: string,
+    @Query('until') until?: string,
+  ) {
+    const n = Math.min(31, Math.max(1, Number(days) || 7));
+    return this.dailyReports.history(business.id, n, until, business.timezone);
+  }
+
+  @Get('day/export.pdf')
+  @ApiOperation({ summary: 'Daily report as a PDF' })
+  async dayPdf(
+    @CurrentBusiness() business: BusinessCtx,
+    @Query('date') date: string | undefined,
+    @Res() res: Response,
+  ) {
+    sendFile(res, await this.exportService.dailyPdf(exportContext(business, {}), date));
+  }
 
   @Get('profit-loss')
   @ApiOperation({ summary: 'Profit & loss: revenue, COGS, gross profit, expenses, net profit' })
@@ -102,5 +166,51 @@ export class ReportsController {
       `attachment; filename="sales-${new Date().toISOString().slice(0, 10)}.csv"`,
     );
     res.send(csv);
+  }
+
+  @Get('profit-loss/export.xlsx')
+  @ApiOperation({ summary: 'Export profit & loss as Excel' })
+  async profitLossXlsx(
+    @CurrentBusiness() business: BusinessCtx,
+    @Query() query: DateRangeQueryDto,
+    @Res() res: Response,
+  ) {
+    sendFile(res, await this.exportService.profitLossXlsx(exportContext(business, query)));
+  }
+
+  @Get('profit-loss/export.pdf')
+  @ApiOperation({ summary: 'Export profit & loss as PDF' })
+  async profitLossPdf(
+    @CurrentBusiness() business: BusinessCtx,
+    @Query() query: DateRangeQueryDto,
+    @Res() res: Response,
+  ) {
+    sendFile(res, await this.exportService.profitLossPdf(exportContext(business, query)));
+  }
+
+  @Get('expenses/export.xlsx')
+  @ApiOperation({ summary: 'Export expenses as Excel' })
+  async expensesXlsx(
+    @CurrentBusiness() business: BusinessCtx,
+    @Query() query: ExpenseExportQueryDto,
+    @Res() res: Response,
+  ) {
+    sendFile(
+      res,
+      await this.exportService.expensesXlsx(exportContext(business, query), query.status),
+    );
+  }
+
+  @Get('expenses/export.pdf')
+  @ApiOperation({ summary: 'Export expenses as PDF' })
+  async expensesPdf(
+    @CurrentBusiness() business: BusinessCtx,
+    @Query() query: ExpenseExportQueryDto,
+    @Res() res: Response,
+  ) {
+    sendFile(
+      res,
+      await this.exportService.expensesPdf(exportContext(business, query), query.status),
+    );
   }
 }

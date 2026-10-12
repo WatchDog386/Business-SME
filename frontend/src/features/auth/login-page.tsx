@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,8 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
+import { Lock, Mail, User } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
-import { AuthLayout, AuthFooterLink } from './components/auth-layout';
+import { AuthLayout } from './components/auth-layout';
+import { TwoFactorVerify } from './components/two-factor';
+import type { AuthResult, MfaChallenge } from '@/api/types';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email address.'),
@@ -29,6 +33,11 @@ export function LoginPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  // Two-factor is optional: people who turned it on in Settings enter a code next
+  const [challenge, setChallenge] = useState<MfaChallenge | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
+  // From "Verify and continue" until the dashboard opens, one loader covers everything
+  const [verifying, setVerifying] = useState(false);
 
   const {
     register,
@@ -36,34 +45,43 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
+  /** Runs once the second factor has passed: store the session and go in. */
+  const finishSignIn = async (result: AuthResult) => {
+    setSigningIn(true);
+    setAuth(result.accessToken, result.user);
+    // Invalidate first so dashboard bootstrap has fresh data, then go to loading/success
+    await queryClient.invalidateQueries();
+    try {
+      const businesses = await businessesApi.mine();
+      setBusinesses(businesses);
+      const redirect = '/dashboard';
+      navigate('/auth-success', {
+        replace: true,
+        state: { redirectTo: redirect, subtitle: 'Welcome back!' },
+      });
+    } catch {
+      navigate('/auth-success', {
+        replace: true,
+        state: {
+          redirectTo: '/dashboard',
+          subtitle: 'Welcome back!',
+        },
+      });
+    }
+  };
+
+  const restart = () => {
+    setChallenge(null);
+    setError(null);
+  };
+
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
       authApi.login(values.email, values.password),
-    onSuccess: async (result) => {
-      setAuth(result.accessToken, result.user);
-      // Invalidate first so dashboard bootstrap has fresh data, then go to loading/success
-      await queryClient.invalidateQueries();
-      try {
-        const businesses = await businessesApi.mine();
-        setBusinesses(businesses);
-        const redirect = result.user.isAdmin
-          ? '/admin'
-          : businesses.length > 0
-            ? '/dashboard'
-            : '/onboarding';
-        navigate('/auth-success', {
-          replace: true,
-          state: { redirectTo: redirect, subtitle: 'Welcome back!' },
-        });
-      } catch {
-        navigate('/auth-success', {
-          replace: true,
-          state: {
-            redirectTo: result.user.isAdmin ? '/admin' : '/onboarding',
-            subtitle: 'Welcome back!',
-          },
-        });
-      }
+    onSuccess: (result) => {
+      setError(null);
+      if ('accessToken' in result) void finishSignIn(result);
+      else setChallenge(result);
     },
     onError: (err) => setError(apiErrorMessage(err)),
   });
@@ -72,133 +90,105 @@ export function LoginPage() {
   // ahead of success page — only redirect if already authenticated before this visit.
   if (token && !mutation.isPending && !mutation.isSuccess) return <Navigate to="/dashboard" replace />;
 
+  if (challenge) {
+    const title = 'Two-step verification';
+    const subtitle = `Enter the code from your authenticator app for ${challenge.email}`;
+    return (
+      <AuthLayout
+        title={title}
+        desktopTitle={title}
+        mobileTitle={title}
+        subtitle={subtitle}
+        desktopSubtitle={subtitle}
+        hideLabelsOnMobile
+        hideMobileFooter
+      >
+        <TwoFactorVerify
+          mfaToken={challenge.mfaToken}
+          onSignedIn={(result) => void finishSignIn(result)}
+          onRestart={restart}
+          onVerifying={setVerifying}
+        />
+        {(verifying || signingIn) && <WorkspaceLoader />}
+      </AuthLayout>
+    );
+  }
+
   return (
     <AuthLayout
       title="Welcome back"
+      desktopTitle="Welcome Back!"
+      desktopSubtitle=""
+      mobileTitle="Welcome back!"
+      hideLabelsOnMobile
+      hideMobileFooter
+      subtitle="Sign in with your Optimas staff account."
     >
       <form
-        className="space-y-4"
+        className="flex flex-col gap-4 lg:gap-6"
         onSubmit={handleSubmit((values) => mutation.mutate(values))}
         noValidate
       >
         {error && <Alert variant="error">{error}</Alert>}
         <div>
           <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            aria-invalid={errors.email ? true : undefined}
-            className="h-12 px-5 text-sm rounded-full"
-            {...register('email')}
-          />
+          <div className="relative">
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="Email"
+              aria-invalid={errors.email ? true : undefined}
+              className="h-12 pl-12 pr-5 text-sm rounded-full"
+              {...register('email')}
+            />
+            <Mail className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 lg:hidden" aria-hidden />
+            <User className="pointer-events-none absolute left-5 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-neutral-600 lg:block" aria-hidden />
+          </div>
           {errors.email && (
             <p className="mt-1 text-xs font-medium text-danger">{errors.email.message}</p>
           )}
         </div>
         <div>
           <Label htmlFor="password">Password</Label>
-          <PasswordInput
-            id="password"
-            autoComplete="current-password"
-            placeholder="Your password"
-            aria-invalid={errors.password ? true : undefined}
-            className="h-12 px-5 text-sm rounded-full"
-            {...register('password')}
-          />
+          <div className="relative">
+            <PasswordInput
+              id="password"
+              autoComplete="current-password"
+              placeholder="Password"
+              aria-invalid={errors.password ? true : undefined}
+              className="h-12 pl-12 pr-12 text-sm rounded-full"
+              {...register('password')}
+            />
+            <Lock className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 lg:text-neutral-600" aria-hidden />
+          </div>
           {errors.password && (
             <p className="mt-1 text-xs font-medium text-danger">
               {errors.password.message}
             </p>
           )}
         </div>
-        <div className="flex justify-end">
+        <div className="flex justify-end lg:order-last lg:justify-center lg:pt-2">
           <button
             type="button"
             onClick={() => navigate('/forgot-password')}
-            className="text-sm font-medium text-brand-600 hover:text-brand-700"
+            className="auth-link text-sm font-medium text-[#2F7F81] hover:text-[#256A6C]"
           >
             Forgot password?
           </button>
         </div>
         <Button
           type="submit"
-          className="w-full rounded-full bg-brand-700 hover:bg-brand-800 text-white h-12 font-medium shadow-sm"
+          className={`h-14 w-full rounded-2xl max-lg:fixed max-lg:inset-x-6 max-lg:bottom-[calc(4rem+env(safe-area-inset-bottom))] max-lg:z-10 max-lg:mx-auto max-lg:w-auto max-lg:max-w-sm text-[20px] font-medium text-white shadow-none transition-colors bg-[#3A8F91] hover:bg-[#2F7F81] active:bg-[#2F7F81] lg:h-12 lg:rounded-full lg:bg-[#4a4a4a] lg:text-base lg:font-bold lg:uppercase lg:tracking-wide lg:shadow-lg lg:shadow-neutral-900/20 lg:hover:bg-[#3a3a3a]`}
           size="lg"
           loading={mutation.isPending}
         >
-          Log in
+          <span className="lg:hidden">Sign in</span>
+          <span className="hidden lg:inline">Login</span>
         </Button>
+        {signingIn && <WorkspaceLoader />}
 
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-edge" />
-          </div>
-          <div className="relative flex justify-center text-xs font-medium text-foreground-3 bg-surface-2 px-3">
-            Or continue with
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            type="button"
-            onClick={() => (window.location.href = '/auth/oauth/google')}
-            className="flex h-12 w-full items-center justify-center rounded-full border border-edge bg-surface text-foreground-2 shadow-soft transition-colors hover:bg-surface-3"
-            aria-label="Continue with Google"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
-              <path
-                fill="#4285F4"
-                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.13 0-5.78-2.11-6.73-4.96H1.18v3.15C3.15 21.32 7.23 24 12 24z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.27 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.6H1.18C.43 8.12 0 9.82 0 12s.43 3.88 1.18 5.4l4.09-3.16z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.23 0 3.15 2.68 1.18 6.6l4.09 3.15c.95-2.85 3.6-4.96 6.73-4.96z"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => (window.location.href = '/auth/oauth/facebook')}
-            className="flex h-12 w-full items-center justify-center rounded-full border border-edge bg-surface text-foreground-2 shadow-soft transition-colors hover:bg-surface-3"
-            aria-label="Continue with Facebook"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
-              <path
-                fill="#1877F2"
-                d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => (window.location.href = '/auth/oauth/twitter')}
-            className="flex h-12 w-full items-center justify-center rounded-full border border-edge bg-surface text-foreground-2 shadow-soft transition-colors hover:bg-surface-3"
-            aria-label="Continue with Twitter"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
-              <path
-                fill="#000000"
-                d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
-              />
-            </svg>
-          </button>
-        </div>
       </form>
-      <AuthFooterLink
-        text="New here?"
-        linkText="Create your free account"
-        to="/register"
-      />
     </AuthLayout>
   );
 }

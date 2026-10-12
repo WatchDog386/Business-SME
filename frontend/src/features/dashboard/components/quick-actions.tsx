@@ -1,101 +1,77 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, ShoppingCart, Wallet, UserPlus, PackagePlus, Wrench, BarChart3 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ChevronRight } from 'lucide-react';
+import {
+  DuoCalls,
+  DuoCustomers,
+  DuoExpenses,
+  DuoProducts,
+  DuoReports,
+  DuoSales,
+  DuoServices,
+  DuoSubscribers,
+} from '@/components/brand/duo-icons';
+import { MoreMenu } from '@/components/layout/more-menu';
 
-const actions = [
-  {
-    to: '/sales/new',
-    label: 'Record Sale',
-    hint: 'Log a new transaction',
-    icon: ShoppingCart,
-    iconClass: 'bg-teal-500 text-white',
-  },
-  {
-    to: '/expenses?new=1',
-    label: 'Add Expense',
-    hint: 'Track business costs',
-    icon: Wallet,
-    iconClass: 'bg-amber-500 text-white',
-  },
-  {
-    to: '/customers?new=1',
-    label: 'Add Customer',
-    hint: 'New client profile',
-    icon: UserPlus,
-    iconClass: 'bg-sky-500 text-white',
-  },
-  {
-    to: '/products?new=1',
-    label: 'Add Product',
-    hint: 'New inventory item',
-    icon: PackagePlus,
-    iconClass: 'bg-violet-500 text-white',
-  },
-  {
-    to: '/services?new=1',
-    label: 'Add Service',
-    hint: 'New service offering',
-    icon: Wrench,
-    iconClass: 'bg-rose-500 text-white',
-  },
-  {
-    to: '/reports',
-    label: 'Reports',
-    hint: 'Sales & insights',
-    icon: BarChart3,
-    iconClass: 'bg-indigo-500 text-white',
-  },
+export type QuickAction = { to: string; label: string; icon: (props: { className?: string }) => JSX.Element };
+
+const actions: QuickAction[] = [
+  { to: '/sales', label: 'Sales', icon: DuoSales },
+  { to: '/expenses', label: 'Expenses', icon: DuoExpenses },
+  { to: '/customers', label: 'Customers', icon: DuoCustomers },
+  { to: '/products', label: 'Products', icon: DuoProducts },
+  { to: '/services', label: 'Services', icon: DuoServices },
+  { to: '/reports', label: 'Reports', icon: DuoReports },
+  { to: '/subscribers', label: 'Subscribers', icon: DuoSubscribers },
+  { to: '/calls', label: 'Calls', icon: DuoCalls },
 ];
 
-function QuickLink({ to, icon, label, hint, iconClass }: { to: string; icon: React.ReactNode; label: string; hint: string; iconClass: string }) {
-  return (
-    <Link
-      to={to}
-      className="group flex items-center justify-between rounded-2xl bg-surface-3 p-4 transition-colors hover:bg-surface-2 active:scale-[0.99]"
-    >
-      <span className="flex items-center gap-3 min-w-0">
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
-          {icon}
-        </span>
-        <span className="min-w-0">
-          <span className="block text-[13px] font-medium text-foreground truncate">
-            {label}
-          </span>
-          <span className="block text-[11px] text-foreground-4 truncate">{hint}</span>
-        </span>
-      </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-foreground-5 transition-transform group-hover:translate-x-0.5 group-hover:text-accent" aria-hidden />
-    </Link>
-  );
-}
+const MotionLink = motion(Link);
 
-export function QuickActions() {
-  const [showAll, setShowAll] = useState(false);
-  const visibleActions = showAll ? actions : actions.slice(0, 3);
+/**
+ * Safaricom-app "Quick Actions", straight on the page background: title with a green
+ * "View all" (opens every section), round grey tiles with green-and-red icons.
+ */
+export function QuickActions({ items = actions, viewAll = true }: { items?: QuickAction[]; viewAll?: boolean } = {}) {
+  const [allOpen, setAllOpen] = useState(false);
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-[14px] font-medium tracking-tight text-foreground">Quick Actions</h2>
+    <section className="px-0.5">
+      <div className="mb-4 flex items-center justify-between gap-3 px-1">
+        <h2 className="text-[17px] font-semibold tracking-tight text-foreground">Quick Actions</h2>
+        {viewAll && (
         <button
-          onClick={() => setShowAll(!showAll)}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 transition-colors"
+          type="button"
+          onClick={() => setAllOpen(true)}
+          className="flex items-center gap-1 text-[15px] font-medium text-brand-600 active:opacity-60 [.dark_&]:text-brand-400"
         >
-          {showAll ? 'Show less' : 'View all'}
+          View all
+          <ChevronRight className="h-4 w-4" strokeWidth={2.25} aria-hidden />
         </button>
+        )}
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {visibleActions.map((action) => (
-          <QuickLink
+
+      <div className="grid grid-cols-4 gap-x-1 gap-y-4">
+        {items.map((action, i) => (
+          <MotionLink
             key={action.to}
             to={action.to}
-            icon={<action.icon className="h-4.5 w-4.5" aria-hidden />}
-            label={action.label}
-            hint={action.hint}
-            iconClass={action.iconClass}
-          />
+            className="flex flex-col items-center gap-2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 + i * 0.03, type: 'spring', stiffness: 420, damping: 30 }}
+            whileTap={{ scale: 0.88 }}
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-3 text-brand-600 [.dark_&]:bg-[#333333] [.dark_&]:text-brand-400">
+              <action.icon className="h-7 w-7" />
+            </span>
+            <span className="line-clamp-2 text-center text-[13px] leading-snug text-foreground">{action.label}</span>
+          </MotionLink>
         ))}
       </div>
-    </div>
+
+      <MoreMenu open={allOpen} onOpenChange={setAllOpen} />
+    </section>
   );
 }

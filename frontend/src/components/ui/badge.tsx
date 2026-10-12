@@ -43,6 +43,7 @@ export function statusVariant(status: string): BadgeVariant {
     case 'IN_STOCK':
     case 'DONE':
     case 'ACTIVE':
+    case 'APPROVED':
       return 'success';
     case 'PARTIAL':
     case 'BOOKED':
@@ -56,6 +57,7 @@ export function statusVariant(status: string): BadgeVariant {
     case 'FAILED':
     case 'OUT_OF_STOCK':
     case 'NO_SHOW':
+    case 'REJECTED':
       return 'danger';
     case 'REFUNDED':
       return 'outline';

@@ -26,6 +26,10 @@ export class BusinessMember extends BaseEntity {
   @Column({ type: 'simple-enum', enum: UserRole, default: UserRole.EMPLOYEE })
   role: UserRole;
 
+  /** CLIENT logins only: the client (customer) record this login belongs to. */
+  @Column({ type: 'uuid', nullable: true })
+  customerId: string | null;
+
   @Column({ type: 'simple-enum', enum: MEMBERSHIP_STATUS, default: 'ACTIVE' })
   status: string;
 

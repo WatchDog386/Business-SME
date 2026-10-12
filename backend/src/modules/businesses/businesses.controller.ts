@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessGuard } from '../../common/guards/business.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { ClientAccess } from '../../common/decorators/client-access.decorator';
 import {
   CurrentBusiness,
   CurrentMembership,
@@ -53,6 +54,7 @@ export class BusinessesController {
 
   @Get('current')
   @UseGuards(JwtAuthGuard, BusinessGuard)
+  @ClientAccess()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get the active business' })
   current(@CurrentBusiness() business: { id: string }) {
@@ -87,11 +89,11 @@ export class BusinessesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add a member to the business' })
   addMember(
-    @CurrentBusiness() business: { id: string },
+    @CurrentBusiness() business: { id: string; role?: string },
     @CurrentUser() user: AuthUser,
     @Body() dto: AddMemberDto,
   ) {
-    return this.businessesService.addMember(business.id, dto, { userId: user.id });
+    return this.businessesService.addMember(business.id, dto, { userId: user.id, role: business.role });
   }
 
   @Patch('current/members/:memberId')
@@ -106,6 +108,22 @@ export class BusinessesController {
     @Body() dto: UpdateMemberRoleDto,
   ) {
     return this.businessesService.updateMemberRole(business.id, memberId, dto.role, {
+      userId: user.id,
+    });
+  }
+
+  @Post('current/members/:memberId/reset-2fa')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, BusinessGuard, RolesGuard)
+  @Roles(UserRole.OWNER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Reset a member's two-factor sign-in, e.g. after a lost phone (owner only)" })
+  resetMemberTwoFactor(
+    @CurrentBusiness() business: { id: string },
+    @CurrentUser() user: AuthUser,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
+  ) {
+    return this.businessesService.resetMemberTwoFactor(business.id, memberId, {
       userId: user.id,
     });
   }

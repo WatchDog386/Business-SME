@@ -121,7 +121,11 @@ export class ProductsService {
       selling_price: dto.sellingPrice,
       stock_quantity: dto.stockQuantity ?? 0,
       low_stock_threshold: dto.lowStockThreshold ?? 5,
-      track_inventory: dto.trackInventory ?? true,
+      // WiFi packages are sold as access, not stock
+      track_inventory: dto.billingDays ? false : (dto.trackInventory ?? true),
+      billing_days: dto.billingDays ?? null,
+      speed_mbps: dto.speedMbps ?? null,
+      description: dto.description?.trim() || null,
       active: true,
     });
     await this.productRepo.save(product);
@@ -158,6 +162,10 @@ export class ProductsService {
         ? { track_inventory: dto.trackInventory }
         : {}),
       ...(dto.active !== undefined ? { active: dto.active } : {}),
+      ...(dto.billingDays !== undefined ? { billing_days: dto.billingDays ?? null } : {}),
+      ...(dto.speedMbps !== undefined ? { speed_mbps: dto.speedMbps ?? null } : {}),
+      ...(dto.description !== undefined ? { description: dto.description?.trim() || null } : {}),
+      ...(dto.billingDays ? { track_inventory: false } : {}),
     });
     await this.productRepo.save(product);
     await this.auditService.log({

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
-  ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -16,6 +17,34 @@ import { User } from '../users/entities/user.entity';
 import { UserRole } from '../../common/types/auth-user.interface';
 import { ChangePasswordDto } from './dto/auth.dto';
 import { JwtPayload } from './auth.strategy';
+import {
+  decryptSecret,
+  encryptSecret,
+  generateRecoveryCodes,
+  generateSecret,
+  hashRecoveryCode,
+  otpauthUrl,
+  verifyTotp,
+} from './totp';
+
+/** Second-step ticket handed out after a correct password; never a session. */
+type MfaPurpose = 'mfa-setup' | 'mfa-verify';
+interface MfaTicket {
+  sub: string;
+  purpose: MfaPurpose;
+  jti: string;
+}
+
+/** Password accepted; the client must now set up or enter a 2FA code. */
+export interface MfaChallenge {
+  mfa: 'setup' | 'verify';
+  mfaToken: string;
+  email: string;
+}
+
+const MFA_TICKET_TTL = '10m';
+const MAX_CODE_ATTEMPTS = 5;
+const ISSUER = 'Optimas';
 
 export interface AuthResult {
   accessToken: string;
@@ -26,12 +55,14 @@ export interface AuthResult {
     phone: string | null;
     avatarUrl: string | null;
     emailVerified: boolean;
-    isAdmin: boolean;
   };
 }
 
 @Injectable()
 export class AuthService {
+  /** Wrong-code count per second-step ticket (tickets expire after 10 minutes). */
+  private readonly attempts = new Map<string, { count: number; expires: number }>();
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -39,32 +70,7 @@ export class AuthService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
 
-  async register(data: {
-    email: string;
-    fullName: string;
-    phone?: string;
-    password: string;
-  }): Promise<AuthResult> {
-    const existing = await this.usersService.findByEmail(data.email);
-    if (existing) {
-      throw new ConflictException({
-        code: 'EMAIL_TAKEN',
-        message: 'An account with this email already exists. Try logging in.',
-      });
-    }
-
-    const passwordHash = await bcrypt.hash(data.password, 10);
-    const user = await this.usersService.create({
-      email: data.email,
-      fullName: data.fullName,
-      phone: data.phone,
-      passwordHash,
-    });
-
-    return this.buildAuthResult(user);
-  }
-
-  async login(email: string, password: string): Promise<AuthResult> {
+  async login(email: string, password: string): Promise<MfaChallenge | AuthResult> {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       throw new UnauthorizedException({
@@ -79,7 +85,214 @@ export class AuthService {
         message: 'Wrong email or password.',
       });
     }
+    // Two-factor sign-in is optional: people turn it on in Settings. Only then
+    // does sign-in ask for a code; everyone else gets a session straight away.
+    if (!user.totp_enabled) return this.buildAuthResult(user);
+    return {
+      mfa: 'verify',
+      mfaToken: this.issueTicket(user.id, 'mfa-verify'),
+      email: user.email,
+    };
+  }
+
+  // ---- Two-factor from Settings (signed in) ----
+
+  /** Settings: a fresh secret to add to an authenticator app. */
+  async startTwoFactorSetupForUser(userId: string) {
+    const user = await this.loadTwoFactorUser(userId);
+    if (user.totp_enabled) {
+      throw new BadRequestException({ code: 'TWO_FACTOR_ALREADY_ON', message: 'Two-factor sign-in is already on.' });
+    }
+    const secret = generateSecret();
+    await this.userRepo.update(user.id, { totp_secret_enc: encryptSecret(secret, this.secretKey()) });
+    return { secret, otpauthUrl: otpauthUrl(secret, user.email, ISSUER), account: user.email, issuer: ISSUER };
+  }
+
+  /** Settings: confirms the first code and turns two-factor on; returns recovery codes. */
+  async enableTwoFactorForUser(userId: string, code: string) {
+    const user = await this.loadTwoFactorUser(userId);
+    if (user.totp_enabled || !user.totp_secret_enc) {
+      throw new BadRequestException({ code: 'TWO_FACTOR_SETUP_MISSING', message: 'Start two-factor setup again.' });
+    }
+    // Wrong tries are counted per person, like a sign-in ticket
+    const ticket: MfaTicket = { sub: user.id, purpose: 'mfa-setup', jti: `settings:${user.id}` };
+    const tries = this.attempts.get(ticket.jti);
+    if (tries && tries.count >= MAX_CODE_ATTEMPTS && tries.expires > Date.now()) {
+      throw new HttpException(
+        { code: 'TOO_MANY_ATTEMPTS', message: 'Too many wrong codes. Try again in a few minutes.' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    const counter = verifyTotp(decryptSecret(user.totp_secret_enc, this.secretKey()), code);
+    if (counter === null) this.wrongCode(ticket);
+
+    const recoveryCodes = generateRecoveryCodes();
+    await this.userRepo.update(user.id, {
+      totp_enabled: true,
+      totp_last_counter: counter,
+      totp_recovery_hashes: JSON.stringify(recoveryCodes.map(hashRecoveryCode)),
+    });
+    this.attempts.delete(ticket.jti);
+    return { recoveryCodes };
+  }
+
+  /** Settings: turns two-factor off after checking the account password. */
+  async disableTwoFactorForUser(userId: string, password: string) {
+    // The password hash isn't loaded by default
+    const user = await this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.password_hash')
+      .where('user.id = :id', { id: userId })
+      .getOne();
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      throw new BadRequestException({ code: 'INVALID_PASSWORD', message: 'That password is not right.' });
+    }
+    await this.userRepo.update(userId, {
+      totp_enabled: false,
+      totp_secret_enc: null,
+      totp_last_counter: null,
+      totp_recovery_hashes: null,
+    });
+    return { twoFactorEnabled: false };
+  }
+
+  // ---- Two-factor authentication ----
+
+  /** Starts setup: a fresh secret to scan (desktop) or add by link/key (phone). */
+  async startTwoFactorSetup(mfaToken: string) {
+    const ticket = this.readTicket(mfaToken, 'mfa-setup');
+    const user = await this.loadTwoFactorUser(ticket.sub);
+    if (user.totp_enabled) {
+      throw new BadRequestException({
+        code: 'TWO_FACTOR_ALREADY_ON',
+        message: 'Two-factor sign-in is already set up. Sign in again.',
+      });
+    }
+    const secret = generateSecret();
+    await this.userRepo.update(user.id, { totp_secret_enc: encryptSecret(secret, this.secretKey()) });
+    return {
+      secret,
+      otpauthUrl: otpauthUrl(secret, user.email, ISSUER),
+      account: user.email,
+      issuer: ISSUER,
+    };
+  }
+
+  /** Finishes setup with the first code from the app; returns recovery codes and a session. */
+  async enableTwoFactor(mfaToken: string, code: string) {
+    const ticket = this.readTicket(mfaToken, 'mfa-setup');
+    const user = await this.loadTwoFactorUser(ticket.sub);
+    if (user.totp_enabled || !user.totp_secret_enc) {
+      throw new BadRequestException({
+        code: 'TWO_FACTOR_SETUP_MISSING',
+        message: 'Start two-factor setup again.',
+      });
+    }
+    const counter = verifyTotp(decryptSecret(user.totp_secret_enc, this.secretKey()), code);
+    if (counter === null) this.wrongCode(ticket);
+
+    const recoveryCodes = generateRecoveryCodes();
+    await this.userRepo.update(user.id, {
+      totp_enabled: true,
+      totp_last_counter: counter,
+      totp_recovery_hashes: JSON.stringify(recoveryCodes.map(hashRecoveryCode)),
+    });
+    this.attempts.delete(ticket.jti);
+    return { recoveryCodes, ...this.buildAuthResult(user) };
+  }
+
+  /** Second step of every sign-in: a 6-digit app code or a one-time recovery code. */
+  async verifyTwoFactor(mfaToken: string, code: string) {
+    const ticket = this.readTicket(mfaToken, 'mfa-verify');
+    const user = await this.loadTwoFactorUser(ticket.sub);
+    if (!user.totp_enabled || !user.totp_secret_enc) {
+      throw new BadRequestException({ code: 'TWO_FACTOR_OFF', message: 'Sign in again to set up two-factor sign-in.' });
+    }
+    const trimmed = code.trim();
+
+    if (/^\d{3}\s?\d{3}$/.test(trimmed)) {
+      const counter = verifyTotp(decryptSecret(user.totp_secret_enc, this.secretKey()), trimmed);
+      // A code can only be used once, even within its 30 seconds
+      if (counter === null || (user.totp_last_counter !== null && counter <= user.totp_last_counter)) {
+        this.wrongCode(ticket);
+      }
+      await this.userRepo.update(user.id, { totp_last_counter: counter });
+    } else {
+      const hashes: string[] = JSON.parse(user.totp_recovery_hashes ?? '[]');
+      const hash = hashRecoveryCode(trimmed);
+      if (!hashes.includes(hash)) this.wrongCode(ticket);
+      await this.userRepo.update(user.id, {
+        totp_recovery_hashes: JSON.stringify(hashes.filter((h) => h !== hash)),
+      });
+    }
+    this.attempts.delete(ticket.jti);
     return this.buildAuthResult(user);
+  }
+
+  private issueTicket(userId: string, purpose: MfaPurpose): string {
+    const ticket: MfaTicket = { sub: userId, purpose, jti: randomBytes(12).toString('hex') };
+    return this.jwtService.sign(ticket, { expiresIn: MFA_TICKET_TTL });
+  }
+
+  private readTicket(token: string, purpose: MfaPurpose): MfaTicket {
+    let ticket: MfaTicket;
+    try {
+      ticket = this.jwtService.verify<MfaTicket>(token);
+    } catch {
+      throw new UnauthorizedException({
+        code: 'MFA_TICKET_EXPIRED',
+        message: 'That took too long. Sign in again.',
+      });
+    }
+    if (ticket.purpose !== purpose) {
+      throw new UnauthorizedException({ code: 'MFA_TICKET_INVALID', message: 'Sign in again.' });
+    }
+    const tries = this.attempts.get(ticket.jti);
+    if (tries && tries.count >= MAX_CODE_ATTEMPTS) {
+      throw new HttpException(
+        { code: 'TOO_MANY_ATTEMPTS', message: 'Too many wrong codes. Sign in again.' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    return ticket;
+  }
+
+  /** Records a wrong code against the ticket and rejects the request. */
+  private wrongCode(ticket: MfaTicket): never {
+    const now = Date.now();
+    for (const [key, value] of this.attempts) if (value.expires < now) this.attempts.delete(key);
+    const entry = this.attempts.get(ticket.jti) ?? { count: 0, expires: now + 10 * 60 * 1000 };
+    entry.count += 1;
+    this.attempts.set(ticket.jti, entry);
+    const left = MAX_CODE_ATTEMPTS - entry.count;
+    throw new BadRequestException({
+      code: 'INVALID_2FA_CODE',
+      message:
+        left > 0
+          ? `That code didn't work. Check your authenticator app and try again (${left} ${left === 1 ? 'try' : 'tries'} left).`
+          : 'Too many wrong codes. Sign in again.',
+    });
+  }
+
+  private async loadTwoFactorUser(userId: string): Promise<User> {
+    const user = await this.userRepo
+      .createQueryBuilder('user')
+      .addSelect(['user.totp_secret_enc', 'user.totp_last_counter', 'user.totp_recovery_hashes'])
+      .where('user.id = :id', { id: userId })
+      .getOne();
+    if (!user) {
+      throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Sign in again.' });
+    }
+    return user;
+  }
+
+  /** Key for encrypting authenticator secrets; set TOTP_ENCRYPTION_KEY in production. */
+  private secretKey(): string {
+    return (
+      this.config.get<string>('TOTP_ENCRYPTION_KEY') ??
+      this.config.get<string>('jwt.secret') ??
+      'dev-secret-change-me'
+    );
   }
 
   async me(userId: string) {
@@ -97,7 +310,7 @@ export class AuthService {
       phone: user.phone,
       avatarUrl: user.avatar_url,
       emailVerified: user.email_verified,
-      isAdmin: this.isAdminEmail(user.email),
+      twoFactorEnabled: user.totp_enabled,
     };
   }
 
@@ -118,7 +331,6 @@ export class AuthService {
       phone: user.phone,
       avatarUrl: user.avatar_url,
       emailVerified: user.email_verified,
-      isAdmin: this.isAdminEmail(user.email),
     };
   }
 
@@ -190,6 +402,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       fullName: user.full_name,
+      mfa: true,
     };
     const accessToken = this.jwtService.sign(payload);
     return {
@@ -201,14 +414,8 @@ export class AuthService {
         phone: user.phone,
         avatarUrl: user.avatar_url,
         emailVerified: user.email_verified,
-        isAdmin: this.isAdminEmail(user.email),
-      },
+        },
     };
   }
 
-  private isAdminEmail(email: string): boolean {
-    return this.config
-      .get<string[]>('adminEmails', [])
-      .includes(email.toLowerCase());
-  }
 }

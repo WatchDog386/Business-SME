@@ -1,7 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowLeft,
   Pencil,
   Plus,
   ShoppingCart,
@@ -10,6 +9,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { customersApi, salesApi } from '@/api/endpoints';
+import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
@@ -17,13 +17,18 @@ import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
 import { PageLoader } from '@/components/ui/spinner';
 import { Dialog } from '@/components/ui/dialog';
 import { formatKES, formatDate, formatDateTime } from '@/lib/utils';
+import { invoiceNo } from '@/features/isp/document-actions';
 import { useState } from 'react';
 import { CustomerForm } from './customer-form';
+import { ClientAppAccess } from './client-app-access';
+import { ContactButtons, LogCallSheet } from '@/features/isp/contact';
+import { CallHistory, SubscriptionCard } from '@/features/isp/subscription';
 
 export function CustomerDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
 
   const customerQuery = useQuery({
     queryKey: ['customers', id],
@@ -49,26 +54,22 @@ export function CustomerDetailPage() {
 
   return (
     <div className="space-y-4 pb-10">
-      <div className="relative flex h-12 items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-foreground transition-colors hover:bg-surface-3"
-          aria-label="Back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">Customer</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="rounded-full" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-3.5 w-3.5" />
-            Edit
-          </Button>
-          <Button size="sm" className="rounded-full bg-accent text-white hover:bg-accent-strong" onClick={() => navigate(`/sales/new?customer=${customer.id}`)}>
-            <Plus className="h-3.5 w-3.5" />
-            Record sale
-          </Button>
-        </div>
-      </div>
+      <AppBar
+        title="Customer"
+        onBack={() => navigate(-1)}
+        right={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="rounded-full" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
+            </Button>
+            <Button size="sm" className="rounded-full bg-accent text-white hover:bg-accent-strong" onClick={() => navigate(`/sales/new?customer=${customer.id}`)}>
+              <Plus className="h-3.5 w-3.5" />
+              Record sale
+            </Button>
+          </div>
+        }
+      />
 
       {/* Customer header — flat, polished */}
       <div className="space-y-4">
@@ -105,6 +106,19 @@ export function CustomerDetailPage() {
         </div>
       </div>
 
+      {/* WiFi package + quick contact */}
+      <SubscriptionCard customerId={customer.id} />
+      <div className="flex items-center justify-between gap-3 px-1 py-2">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-foreground">Contact {customer.name.split(' ')[0]}</p>
+          <p className="truncate text-[12px] text-foreground-4">{customer.phone ?? 'No phone number saved'}</p>
+        </div>
+        <ContactButtons phone={customer.phone} message={`Hello ${customer.name}, this is Optimas.`} onLog={() => setLogOpen(true)} />
+      </div>
+
+      {/* The client's own app login (admins only) */}
+      <ClientAppAccess customerId={customer.id} name={customer.name} email={customer.email} />
+
       {/* Purchase history — flat, professional */}
       <section className="space-y-2">
         <div className="flex items-center justify-between px-1">
@@ -125,12 +139,12 @@ export function CustomerDetailPage() {
           </div>
         )}
         {salesQuery.data && salesQuery.data.items.length > 0 && (
-          <ul className="divide-y divide-edge">
+          <ul className="divide-y divide-edge max-lg:divide-y-0">
             {salesQuery.data.items.map((sale) => (
               <li key={sale.id}>
                 <Link to={`/sales/${sale.id}`} className="flex items-center justify-between gap-3 px-1 py-3 hover:bg-surface-2 transition-colors">
                   <div>
-                    <p className="text-sm font-medium tabular-nums text-foreground">#{sale.id.slice(0, 8).toUpperCase()}</p>
+                    <p className="text-sm font-medium tabular-nums text-foreground">{sale.number ? invoiceNo(sale.number) : `#${sale.id.slice(0, 8).toUpperCase()}`}</p>
                     <p className="text-xs text-foreground-5">
                       {formatDateTime(sale.created_at)} · {sale.payment_method}
                     </p>
@@ -145,6 +159,18 @@ export function CustomerDetailPage() {
           </ul>
         )}
       </section>
+
+      {/* Calls with this client */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-[13px] font-medium tracking-tight text-foreground">Calls</h2>
+          <button type="button" onClick={() => setLogOpen(true)} className="text-xs font-medium text-accent">
+            Log a call
+          </button>
+        </div>
+        <CallHistory customerId={customer.id} />
+      </section>
+      <LogCallSheet open={logOpen} onOpenChange={setLogOpen} customerId={customer.id} customerName={customer.name} />
 
       <Dialog
         open={editOpen}

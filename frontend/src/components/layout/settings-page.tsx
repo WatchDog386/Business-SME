@@ -1,14 +1,16 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import {
   BarChart3,
+  Download,
   Wallet,
   Package,
+  PiggyBank,
   Scissors,
-  Store,
   UserCircle,
   Banknote,
-  ChevronRight,
   Settings,
   Sun,
   Moon,
@@ -20,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { useActiveBusiness } from '@/stores/business';
 import { useAuthStore } from '@/stores/auth';
 import { useTheme } from '@/lib/theme';
+import { TwoFactorSetting } from './two-factor-setting';
 
 type Tint = keyof typeof tints;
 
@@ -47,12 +50,12 @@ const businessItems: Item[] = [
   { to: '/products', icon: Package, label: 'Products', description: 'Inventory & stock levels', tint: 'warning' },
   { to: '/services', icon: Scissors, label: 'Services', description: 'Your service catalog', tint: 'rose' },
   { to: '/expenses', icon: Wallet, label: 'Expenses', description: 'Track your spending', tint: 'success' },
+  { to: '/budgets', icon: PiggyBank, label: 'Budgets', description: 'Monthly limits & alerts', tint: 'cyan' },
 ];
 
 const accountItems: Item[] = [
   { to: '/profile', icon: UserCircle, label: 'My Profile', description: 'Personal details & avatar', tint: 'info' },
   { to: '/account', icon: Banknote, label: 'My Account', description: 'Settings & preferences', tint: 'cyan' },
-  { to: '/onboarding', icon: Store, label: 'Add another business', description: 'Set up and switch stores', tint: 'accent' },
 ];
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -66,28 +69,20 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function Row({
   item,
   onClick,
-  last = false,
 }: {
   item: Item;
   onClick: () => void;
-  last?: boolean;
 }) {
   const Icon = item.icon;
   return (
     <button
       onClick={onClick}
-      className="relative flex w-full items-center gap-3 px-1 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3"
+      className="relative -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-3 text-left rounded-xl px-1 py-2.5 transition-[transform,background-color] active:scale-[0.99] active:bg-surface-3"
     >
-      {!last && (
-        <span
-          aria-hidden
-          className="absolute bottom-0 left-[46px] right-0 h-px bg-edge/60"
-        />
-      )}
       <span
         className={cn(
           'flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px]',
-          item.tint ? tints[item.tint] : 'bg-surface-3 text-foreground-2',
+          item.tint ? tints[item.tint] : 'bg-surface text-foreground-2',
         )}
       >
         <Icon className="h-4 w-4" aria-hidden />
@@ -100,7 +95,6 @@ function Row({
           </span>
         )}
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-foreground-5" aria-hidden />
     </button>
   );
 }
@@ -111,6 +105,7 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
+  const { canInstall, install } = useInstallPrompt();
   const active = useActiveBusiness();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -130,8 +125,8 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
     navigate(to);
   };
 
-  return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-surface-2 scrollbar-none animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[70] overflow-y-auto bg-white scrollbar-none animate-fade-in [.dark_&]:bg-surface-2">
       <div className="mx-auto max-w-md px-4 pb-10 pt-7">
         {/* Header */}
         <header className="flex items-start justify-between gap-3 leading-tight">
@@ -145,10 +140,10 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
           <ThemeSwitch />
         </header>
 
-        {/* Identity — dull tile like admin dashboard */}
+        {/* Identity — flat on background */}
         <button
           onClick={() => go('/profile')}
-          className="mt-6 flex w-full items-center gap-3.5 rounded-xl bg-surface-3 p-4 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3"
+          className="mt-6 -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-3.5 text-left rounded-xl px-1 py-2.5 transition-[transform,background-color] active:scale-[0.99] active:bg-surface-3"
         >
           <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-lg font-semibold text-accent">
             {user?.avatarUrl ? (
@@ -170,33 +165,39 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
               </span>
             )}
           </span>
-          <ChevronRight className="h-4.5 w-4.5 shrink-0 text-foreground-5" aria-hidden />
         </button>
 
         {/* Business group — flat on background */}
         <section className="mt-6">
           <SectionLabel>Business</SectionLabel>
-          {businessItems.map((item, i) => (
-            <Row key={item.label} item={item} onClick={() => go(item.to)} last={i === businessItems.length - 1} />
-          ))}
+          <div className="space-y-1">
+            {businessItems.map((item) => (
+              <Row key={item.label} item={item} onClick={() => go(item.to)} />
+            ))}
+          </div>
         </section>
 
         {/* Account group — flat on background */}
         <section className="mt-6">
           <SectionLabel>Account</SectionLabel>
-          {accountItems.map((item, i) => (
-            <Row
-              key={item.label}
-              item={item}
-              onClick={() => go(item.to)}
-              last={i === accountItems.length - 1}
-            />
-          ))}
+          <div className="space-y-1">
+            {accountItems.map((item) => (
+              <Row key={item.label} item={item} onClick={() => go(item.to)} />
+            ))}
+            <TwoFactorSetting />
+          </div>
         </section>
+
+        {canInstall && (
+          <Button className="mt-6 w-full bg-[#549913] text-white hover:bg-[#467F10]" onClick={() => void install()}>
+            <Download className="h-4 w-4" aria-hidden />
+            Install Optimas app
+          </Button>
+        )}
 
         {/* Actions — part of the page */}
         <div className="grid grid-cols-2 gap-3 pt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button className="bg-black text-white hover:bg-zinc-800" onClick={() => onOpenChange(false)}>
             Back
           </Button>
           <Button
@@ -212,10 +213,11 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
         </div>
 
         <p className="pt-5 text-center text-[11px] text-foreground-5">
-          OmniTrack · Settings
+          Optimas Technologies Ltd · Settings
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

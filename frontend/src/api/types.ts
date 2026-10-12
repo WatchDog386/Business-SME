@@ -1,6 +1,8 @@
 import type { Paginated } from './client';
 
-export type UserRole = 'OWNER' | 'MANAGER' | 'EMPLOYEE' | 'ACCOUNTANT';
+export type UserRole = 'OWNER' | 'MANAGER' | 'EMPLOYEE' | 'ACCOUNTANT' | 'CLIENT';
+/** Everyone who works for the business (a CLIENT login is a WiFi client). */
+export type StaffRole = Exclude<UserRole, 'CLIENT'>;
 
 export interface User {
   id: string;
@@ -9,13 +11,33 @@ export interface User {
   phone: string | null;
   avatarUrl: string | null;
   emailVerified: boolean;
+  /** Two-factor sign-in, turned on by the person in Settings. */
+  twoFactorEnabled?: boolean;
   /** True for the app-owner platform-admin accounts. */
-  isAdmin?: boolean;
 }
 
 export interface AuthResult {
   accessToken: string;
   user: User;
+}
+
+/** Password accepted; a second step (two-factor) is always required. */
+export interface MfaChallenge {
+  mfa: 'setup' | 'verify';
+  mfaToken: string;
+  email: string;
+}
+
+export interface TwoFactorSetup {
+  secret: string;
+  otpauthUrl: string;
+  account: string;
+  issuer: string;
+}
+
+export interface TwoFactorEnabled extends AuthResult {
+  /** Single-use backup codes, shown once. */
+  recoveryCodes: string[];
 }
 
 export interface Business {
@@ -34,6 +56,8 @@ export interface Business {
   ownerId: string | null;
   created_at: string;
   updated_at: string;
+  /** The signed-in user's role in this business (from /businesses/mine). */
+  role?: UserRole;
 }
 
 export interface BusinessMember {
@@ -46,6 +70,7 @@ export interface BusinessMember {
     fullName: string;
     email: string;
     phone: string | null;
+    twoFactorEnabled?: boolean;
   };
 }
 
@@ -91,6 +116,11 @@ export interface Product {
   updated_at: string;
   category_name?: string | null;
   stock_status?: StockStatus;
+  /** Set when this product is a WiFi package: days of access per unit (e.g. 30). */
+  billing_days?: number | null;
+  speed_mbps?: number | null;
+  /** Optional short description (shown on package cards). */
+  description?: string | null;
 }
 
 export interface Service {
@@ -133,6 +163,8 @@ export interface Sale {
   updated_at: string;
   customer_name?: string | null;
   item_count?: number;
+  /** Invoice number (INV-000123). */
+  number?: number | null;
 }
 
 export interface SaleItem {
@@ -147,6 +179,7 @@ export interface SaleItem {
   item_name: string | null;
   product_name?: string | null;
   service_name?: string | null;
+  package_event?: 'NEW' | 'RENEWAL' | null;
 }
 
 export interface Payment {
@@ -160,6 +193,8 @@ export interface Payment {
   status: string;
   transaction_date: string;
   created_at: string;
+  /** Receipt number (RCT-000045). */
+  receipt_number?: number | null;
 }
 
 export interface SaleDetail extends Sale {
@@ -178,9 +213,60 @@ export interface Expense {
   receipt_url: string | null;
   employeeId: string | null;
   expense_date: string;
+  status: ExpenseStatus;
+  submittedById: string | null;
+  reviewedById: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  recurringExpenseId: string | null;
   created_at: string;
   updated_at: string;
   category_name?: string | null;
+}
+
+export type ExpenseStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface Budget {
+  id: string;
+  businessId: string;
+  categoryId: string;
+  monthly_limit: number;
+  alert_threshold: number;
+  category_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type BudgetLevel = 'OK' | 'WARNING' | 'EXCEEDED';
+
+export interface BudgetStatus {
+  id: string;
+  categoryId: string;
+  category_name: string;
+  limit: number;
+  alert_threshold: number;
+  spent: number;
+  remaining: number;
+  percent: number;
+  level: BudgetLevel;
+}
+
+export interface RecurringExpense {
+  id: string;
+  businessId: string;
+  categoryId: string | null;
+  description: string;
+  amount: number;
+  payment_method: string;
+  day_of_month: number;
+  start_date: string;
+  end_date: string | null;
+  active: boolean;
+  last_generated_month: string | null;
+  category_name: string | null;
+  next_run_date: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DashboardData {
@@ -209,6 +295,70 @@ export interface DashboardData {
   }>;
   topProducts: Array<{ name: string; quantity: string; revenue: string }>;
   salesSeries: Array<{ date: string; total: string }>;
+  /** Budgets at or over their alert threshold this month, worst first. */
+  budgetAlerts: BudgetStatus[];
+  /** Expenses waiting for an approver. */
+  pendingApprovals: number;
+  /** WiFi packages sold today: new subscriptions + renewals. */
+  packagesToday?: { count: number; new: number; renewals: number; revenue: number };
+  subscribers?: SubscriberStats;
+  /** Clients to call today (call-backs, expiring/expired packages, balances). */
+  callsDue?: number;
+}
+
+// ---- Internet provider ----
+
+export type SubscriptionStatus = 'ACTIVE' | 'EXPIRING' | 'EXPIRED';
+
+export interface SubscriberStats {
+  active: number;
+  expiringSoon: number;
+  expired: number;
+}
+
+export interface Subscription {
+  id: string;
+  customerId: string;
+  productId: string;
+  packageName: string;
+  speedMbps: number | null;
+  price: number;
+  startedAt: string;
+  expiresAt: string;
+  renewals: number;
+  status: SubscriptionStatus;
+  daysLeft: number;
+  customer?: { id: string; name: string; phone: string | null; email: string | null } | null;
+}
+
+export type CallOutcome = 'REACHED' | 'NO_ANSWER' | 'BUSY' | 'PROMISED_TO_PAY' | 'CALL_BACK' | 'WRONG_NUMBER';
+
+export interface CallLog {
+  id: string;
+  customerId: string;
+  channel: 'PHONE' | 'WHATSAPP';
+  outcome: CallOutcome;
+  notes: string | null;
+  followUpAt: string | null;
+  followUpDone: boolean;
+  calledAt: string;
+  calledBy: string;
+}
+
+export interface CallDue {
+  customer: { id: string; name: string; phone: string | null; outstandingBalance: number };
+  reasons: Array<'FOLLOW_UP' | 'EXPIRING' | 'EXPIRED' | 'BALANCE'>;
+  followUp: { id: string; at: string; notes: string | null; outcome: CallOutcome } | null;
+  subscription: { packageName: string; expiresAt: string; status: SubscriptionStatus } | null;
+}
+
+export type DocKind = 'invoice' | 'receipt';
+
+export interface DocumentShare {
+  token: string;
+  text: string;
+  reference: string;
+  customer: { name: string; phone: string | null; email: string | null } | null;
 }
 
 export interface ProfitLoss {
@@ -252,102 +402,6 @@ export interface InventoryTransaction {
   referenceId: string | null;
   reason: string | null;
   created_at: string;
-}
-
-export type BillingMethod = 'MPESA' | 'CARD' | 'BANK' | 'PAYPAL';
-
-export interface SubscriptionPayment {
-  id: string;
-  businessId: string;
-  plan: string;
-  amount: number;
-  method: BillingMethod;
-  reference: string;
-  payer_email: string | null;
-  status: 'PENDING' | 'PAID' | 'FAILED';
-  paid_at: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface BillingInitResult {
-  reference: string;
-  amount: number;
-  plan: string;
-  method: BillingMethod;
-  requiresManualConfirmation: boolean;
-}
-
-export interface AdminSummary {
-  totalBusinesses: number;
-  activeSubscriptions: number;
-  monthRevenue: number;
-  lifetimeRevenue: number;
-  pendingPayments: number;
-}
-
-export interface AdminBusiness extends Business {
-  owner_email: string | null;
-  owner_name: string | null;
-  member_count: number;
-}
-
-export interface AdminBusinessDetail {
-  business: AdminBusiness;
-  owner: {
-    id: string;
-    email: string;
-    fullName: string;
-    phone: string | null;
-    avatar_url: string | null;
-    emailVerified: boolean;
-  } | null;
-  members: Array<{
-    id: string;
-    userId: string;
-    role: string;
-    status: string;
-    created_at: string;
-    user: {
-      id: string;
-      email: string;
-      fullName: string;
-      phone: string | null;
-      avatar_url: string | null;
-    } | null;
-  }>;
-  stats: {
-    products: number;
-    services: number;
-    customers: number;
-    sales: number;
-    expenses: number;
-    totalRevenue: number;
-    totalExpenses: number;
-  };
-  recentSales: Sale[];
-  recentCustomers: Customer[];
-  subscriptionHistory: SubscriptionPayment[];
-}
-
-export interface AdminUserRow {
-  id: string;
-  email: string;
-  fullName: string;
-  phone: string | null;
-  emailVerified: boolean;
-  createdAt: string;
-  isAdmin: boolean;
-  businessCount: number;
-}
-
-export interface PlatformSettings {
-  adminEmails: string[];
-  paystackConfigured: boolean;
-  plans: Array<{ id: string; price: number }>;
-  currency: string;
-  billingCycle: string;
 }
 
 export type {

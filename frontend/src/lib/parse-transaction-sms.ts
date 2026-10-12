@@ -10,8 +10,9 @@ export interface ParsedTransaction {
 
 const AMOUNT_RE = /(?:ksh|kes|shs?|tzs?|ugx)[\s.]*([0-9][0-9,]*(?:\.\d{1,2})?)/i;
 const CODE_RE = /\b([A-Z][A-Z0-9]{8,11})\b/;
-const PAID_TO_RE = /paid\s+to\s+([A-Za-z][A-Za-z'. ]+?)(?=\s+on\s|\s+for\s|[.,\n]|$)/i;
-const FROM_RE = /(?:received|from)\s+([A-Z][A-Z'. ]+?)(?=\s+on\s|[.,\n]|$)/;
+// The name stops before " on ", " for ", a phone number, or punctuation
+const PAID_TO_RE = /paid\s+to\s+([A-Za-z][A-Za-z'. ]+?)(?=\s+on\s|\s+for\s|\s+\+?\d|[.,\n]|$)/i;
+const FROM_RE = /(?:received|from)\s+([A-Z][A-Z'. ]+?)(?=\s+on\s|\s+\+?\d|[.,\n]|$)/;
 const PHONE_RE = /(\+?2547\d{8}|\+?2541\d{8}|07\d{8}|01\d{8})/;
 const DATE_RE = /on\s+(\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})/i;
 const TIME_RE = /at\s+(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)/i;

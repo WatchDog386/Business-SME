@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  ArrowLeft,
   Receipt,
   Plus,
   XCircle,
@@ -13,6 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { salesApi } from '@/api/endpoints';
+import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,8 @@ import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PageLoader } from '@/components/ui/spinner';
-import { formatKES, formatDateTime } from '@/lib/utils';
+import { cn, formatKES, formatDateTime } from '@/lib/utils';
+import { DocumentActions, invoiceNo } from '@/features/isp/document-actions';
 import { DEFAULT_PAYMENT_METHODS } from '@/lib/constants';
 
 const paymentSchema = z.object({
@@ -78,31 +79,10 @@ export function SaleDetailPage() {
 
   return (
     <div className="space-y-4 pb-10 font-sans text-[14px]">
-      {/* Header — polished like notification */}
-      <div className="relative flex h-12 items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-foreground transition-colors hover:bg-surface-3"
-          aria-label="Back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">Sale detail</h1>
-        <div className="flex gap-2">
-          {canCancel && (
-            <Button size="sm" className="rounded-full bg-red-600 text-white hover:bg-red-700" onClick={() => setCancelOpen(true)}>
-              <XCircle className="h-3.5 w-3.5" />
-              Cancel
-            </Button>
-          )}
-          {remaining > 0 && sale.payment_status !== 'CANCELLED' && (
-            <Button size="sm" className="rounded-full bg-brand-700 text-white hover:bg-brand-800" onClick={() => setPaymentOpen(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              Record payment
-            </Button>
-          )}
-        </div>
-      </div>
+      <AppBar
+        title="Sale detail"
+        onBack={() => navigate(-1)}
+      />
 
       {/* Sale header — flat, advanced */}
       <div className="space-y-3">
@@ -113,7 +93,9 @@ export function SaleDetailPage() {
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold tracking-tight text-foreground">#{sale.id.slice(0, 8).toUpperCase()}</h2>
+                <h2 className="text-sm font-semibold tracking-tight text-foreground">
+                  {sale.number ? invoiceNo(sale.number) : `#${sale.id.slice(0, 8).toUpperCase()}`}
+                </h2>
                 <Badge variant={statusVariant(sale.payment_status)}>{statusLabel(sale.payment_status)}</Badge>
               </div>
               <p className="text-xs text-foreground-4">{formatDateTime(sale.created_at)} · {sale.customer?.name ?? 'Walk-in customer'}</p>
@@ -127,13 +109,40 @@ export function SaleDetailPage() {
         <div className="h-px bg-edge/60 mx-1" aria-hidden />
       </div>
 
+      {/* Sale actions, out of the header so it stays uncluttered */}
+      {(canCancel || (remaining > 0 && sale.payment_status !== 'CANCELLED')) && (
+        <div className="grid grid-cols-2 gap-3">
+          {remaining > 0 && sale.payment_status !== 'CANCELLED' && (
+            <Button className={cn('h-11 rounded-full', !canCancel && 'col-span-2')} onClick={() => setPaymentOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Record payment
+            </Button>
+          )}
+          {canCancel && (
+            <Button
+              variant="outline"
+              className={cn(
+                'h-11 rounded-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700',
+                !(remaining > 0 && sale.payment_status !== 'CANCELLED') && 'col-span-2',
+              )}
+              onClick={() => setCancelOpen(true)}
+            >
+              <XCircle className="h-4 w-4" />
+              Cancel sale
+            </Button>
+          )}
+        </div>
+      )}
+
+      {sale.payment_status !== 'CANCELLED' && <DocumentActions sale={sale} />}
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Items — flat, polished */}
         <section className="space-y-2">
           <h2 className="px-1 text-[13px] font-medium tracking-tight text-foreground">Items — {sale.items.length}</h2>
-          <ul className="space-y-2">
+          <ul className="divide-y divide-edge max-lg:divide-y-0">
             {sale.items.map((item) => (
-              <li key={item.id} className="flex items-center justify-between gap-3 bg-surface-3 px-3 py-3">
+              <li key={item.id} className="flex items-center justify-between gap-3 px-1 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{item.product_name ?? item.service_name ?? item.item_name}</p>
                   <p className="text-xs tabular-nums text-foreground-5">{item.quantity} × {formatKES(item.unit_price)}</p>
@@ -168,7 +177,7 @@ export function SaleDetailPage() {
             {sale.payments.length === 0 ? (
               <p className="px-1 text-sm text-foreground-4">No payments recorded yet.</p>
             ) : (
-              <ul className="divide-y divide-edge">
+              <ul className="divide-y divide-edge max-lg:divide-y-0">
                 {sale.payments.map((payment) => (
                   <li key={payment.id} className="flex items-center justify-between px-1 py-3 hover:bg-surface-2 transition-colors">
                     <div>

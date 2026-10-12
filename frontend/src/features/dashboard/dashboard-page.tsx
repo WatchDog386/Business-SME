@@ -1,38 +1,57 @@
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { useQuery } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
 import { dashboardApi } from '@/api/endpoints';
 import { Alert } from '@/components/ui/alert';
 import { apiErrorMessage } from '@/api/client';
 import { DashboardHeader } from './components/dashboard-header';
-import { FeaturedCard } from './components/featured-card';
+import { SummaryCards } from './components/summary-cards';
 import { SalesChart } from './components/sales-chart';
 import { QuickActions } from './components/quick-actions';
-import { AdsBanner } from './components/ads-banner';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Alerts } from './components/alerts';
+import { RecentTransactions } from './components/recent-transactions';
+import { IspOverview } from './components/isp-overview';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { DesktopDashboard } from './desktop-dashboard';
+import { ScanSaleDialog } from './components/scan-sale-dialog';
+import { DuoScan } from '@/components/brand/duo-icons';
+import { useRole } from '@/hooks/use-role';
+import { EmployeeDashboard } from './employee-dashboard';
+import { ClientDashboard } from '@/features/client/client-dashboard';
 
+/**
+ * One dashboard per kind of user: admins (owner, manager, accountant) get the
+ * full business view, employees their working day, clients their own WiFi.
+ */
 export function DashboardPage() {
+  const { isClient, isEmployee } = useRole();
+  if (isClient) return <ClientDashboard />;
+  if (isEmployee) return <EmployeeDashboard />;
+  return <AdminDashboard />;
+}
+
+/** Admin dashboard: the whole business. */
+function AdminDashboard() {
   const { data, error, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: dashboardApi.get,
   });
+  const isDesktop = useIsDesktop();
+  const [scanOpen, setScanOpen] = useState(false);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6 pb-2 animate-fade-in">
-        <Skeleton className="h-20 w-full rounded-2xl" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-24 rounded-2xl" />
-        </div>
-        <Skeleton className="h-12 rounded-xl" />
-        <Skeleton className="h-48 rounded-2xl" />
-        <Skeleton className="h-12 rounded-xl" />
-        <Skeleton className="h-40 rounded-2xl" />
-      </div>
-    );
-  }
+  // Phone dashboard sits on pure white (light theme); other pages keep the soft grey
+  useEffect(() => {
+    if (isDesktop) return;
+    document.body.classList.add('page-white', 'dash-glow-body');
+    return () => document.body.classList.remove('page-white', 'dash-glow-body');
+  }, [isDesktop]);
+
+  // Same loader as "Loading your workspace" after sign-in, so nothing changes
+  // on screen until the dashboard is ready.
+  if (isLoading) return <WorkspaceLoader />;
 
   if (error || !data) {
     return (
@@ -42,19 +61,65 @@ export function DashboardPage() {
     );
   }
 
+  if (isDesktop) return <DesktopDashboard data={data} />;
+
+  // Sections rise in one after another as the screen opens
+  const rise = (order: number) => ({
+    initial: { opacity: 0, y: 18 },
+    animate: { opacity: 1, y: 0 },
+    transition: { delay: order * 0.07, type: 'spring' as const, stiffness: 300, damping: 30 },
+  });
+
   return (
-    <div className="space-y-6 pb-2">
+    <div className="relative isolate space-y-6 pb-2">
+      {/* Soft sky glow at the top of the page, continuing from the pinned header */}
+      <div className="dash-glow pointer-events-none absolute -left-4 -right-4 top-0 -z-10 h-80" aria-hidden />
+      {/* Not wrapped: its top row must sit directly in the page to stay pinned */}
       <DashboardHeader />
-      <FeaturedCard data={data} />
-      <QuickActions />
-      <AdsBanner />
-      <SalesChart series={data.salesSeries} weekRevenue={data.weekRevenue} />
-      <div className="flex items-center gap-3 rounded-3xl border border-brand-800 bg-brand-700 px-4 py-3 shadow-sm">
-        <ShieldCheck className="h-5 w-5 shrink-0 text-white" aria-hidden />
-        <p className="text-xs leading-relaxed text-white">
-          © 2024 Kenya SME Platform. All rights reserved.
-        </p>
-      </div>
+      <motion.div {...rise(1)}>
+        <SummaryCards data={data} />
+      </motion.div>
+      <motion.div {...rise(2)}>
+        <QuickActions />
+      </motion.div>
+      <motion.div {...rise(3)}>
+        <IspOverview data={data} />
+      </motion.div>
+      <motion.div {...rise(3)}>
+        <Alerts data={data} />
+      </motion.div>
+      <motion.div {...rise(4)}>
+        <SalesChart series={data.salesSeries} weekRevenue={data.weekRevenue} />
+      </motion.div>
+      <motion.div {...rise(5)}>
+        <RecentTransactions transactions={data.recentTransactions} />
+      </motion.div>
+      <motion.div {...rise(6)} className="flex items-center justify-center gap-2 py-2 text-foreground-5">
+        <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden />
+        <p className="text-[11px]">© {new Date().getFullYear()} Optimas Technologies Ltd.</p>
+      </motion.div>
+
+      {/* Floating "Scan to sell" pill above the footer bar, like Safaricom's "Scan to pay":
+          scan an M-Pesa message or receipt to record the sale. On <body> so the
+          sliding page animation can't move it. */}
+      {createPortal(
+      <motion.button
+        type="button"
+        onClick={() => setScanOpen(true)}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        whileTap={{ scale: 0.96 }}
+        className="fixed right-4 z-30 flex h-14 items-center gap-3 rounded-2xl bg-[#2F2F33] pl-4 pr-5 text-white shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
+        style={{ bottom: 'calc(1.25rem + 64px + 14px + env(safe-area-inset-bottom))' }}
+        aria-label="Scan to record a sale"
+      >
+        <DuoScan className="h-7 w-7 text-brand-400" />
+        <span className="text-[17px] font-medium tracking-wide">Scan to sell</span>
+      </motion.button>,
+        document.body,
+      )}
+      <ScanSaleDialog open={scanOpen} onOpenChange={setScanOpen} />
     </div>
   );
 }

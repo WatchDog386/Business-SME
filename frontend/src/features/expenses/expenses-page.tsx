@@ -1,39 +1,87 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Wallet } from 'lucide-react';
-import { categoriesApi, expensesApi } from '@/api/endpoints';
+import { Check, ChevronRight, Paperclip, Repeat, Search, Wallet, X } from 'lucide-react';
+import { categoriesApi, dashboardApi, expensesApi, reportsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
+import { Badge, statusLabel, statusVariant } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PageHeader } from '@/components/layout/page-header';
+import { CARD_THEMES, FiberHeroCard, ProfileHeader, RoundFilters } from '@/components/brand/fiber-card';
+import { useActiveBusiness } from '@/stores/business';
 import { Card } from '@/components/ui/card';
 import { PageLoader } from '@/components/ui/spinner';
 import { formatKES, formatDate } from '@/lib/utils';
+import { useRole } from '@/hooks/use-role';
 import { ExpenseForm } from './expense-form';
-import type { Expense } from '@/api/types';
+import type { Expense, ExpenseStatus, UserRole } from '@/api/types';
+
+const ROLE_LABEL: Record<UserRole, string> = {
+  OWNER: 'Admin',
+  MANAGER: 'Manager',
+  ACCOUNTANT: 'Accountant',
+  EMPLOYEE: 'Employee',
+  CLIENT: 'Client',
+};
 
 const PAGE_SIZE = 20;
 
+/** Browsers block opening data: URLs directly, so go through a blob URL. */
+async function openReceipt(url: string) {
+  if (!url.startsWith('data:')) {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  const blob = await (await fetch(url)).blob();
+  const objectUrl = URL.createObjectURL(blob);
+  window.open(objectUrl, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+}
+
 export function ExpensesPage() {
   const queryClient = useQueryClient();
+  const { canApprove, canManage, role } = useRole();
+  const business = useActiveBusiness();
+  // Figures for the card and the "today" panel (shared caches with the dashboard and Reports)
+  const dashboard = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.get });
+  const dayReport = useQuery({
+    queryKey: ['daily-report', 'today'],
+    queryFn: () => reportsApi.day(),
+    enabled: canApprove,
+    retry: false,
+  });
   const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ExpenseStatus | ''>(
+    searchParams.get('status') === 'PENDING' ? 'PENDING' : '',
+  );
   const [formOpen, setFormOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setFormOpen(true);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [editExpense, setEditExpense] = useState<Expense | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Expense | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [rejectExpense, setRejectExpense] = useState<Expense | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const categoriesQuery = useQuery({
     queryKey: ['categories', 'EXPENSE'],
@@ -43,7 +91,12 @@ export function ExpensesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: [
       'expenses',
-      { page, search: debouncedSearch, categoryId: categoryFilter },
+      {
+        page,
+        search: debouncedSearch,
+        categoryId: categoryFilter,
+        status: statusFilter,
+      },
     ],
     queryFn: () =>
       expensesApi.list({
@@ -51,37 +104,145 @@ export function ExpensesPage() {
         limit: PAGE_SIZE,
         search: debouncedSearch || undefined,
         categoryId: categoryFilter || undefined,
+        status: statusFilter || undefined,
       }),
   });
+
+  const refreshAll = async () => {
+    await Promise.all(
+      ['expenses', 'dashboard', 'reports', 'budgets'].map((key) =>
+        queryClient.invalidateQueries({ queryKey: [key] }),
+      ),
+    );
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => expensesApi.remove(id),
     onSuccess: async () => {
       setConfirmDelete(null);
       setDeleteError(null);
-      await queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      await refreshAll();
     },
     onError: (err) => setDeleteError(apiErrorMessage(err)),
   });
 
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => expensesApi.approve(id),
+    onSuccess: async (expense) => {
+      setReviewError(null);
+      setNotice(`Approved "${expense.description}".`);
+      await refreshAll();
+    },
+    onError: (err) => setReviewError(apiErrorMessage(err)),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      expensesApi.reject(id, reason),
+    onSuccess: async (expense) => {
+      setRejectExpense(null);
+      setRejectReason('');
+      setReviewError(null);
+      setNotice(`Rejected "${expense.description}".`);
+      await refreshAll();
+    },
+    onError: (err) => setReviewError(apiErrorMessage(err)),
+  });
+
+  // Employees may only change their own submissions while pending.
+  const canEdit = (expense: Expense) => canApprove || expense.status === 'PENDING';
+  const canDelete = (expense: Expense) => canManage || (!canApprove && expense.status === 'PENDING');
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const filtered = Boolean(debouncedSearch || statusFilter || categoryFilter);
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Expenses"
-        description="Everything you spend — rent, stock, salaries, transport and more."
-        actions={
-          <Button onClick={() => setFormOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Add expense
-          </Button>
-        }
+      {/* Same layout as the Staff page: profile header, bank card, round filters */}
+      <ProfileHeader roleLabel={role ? ROLE_LABEL[role] : undefined} />
+
+      <FiberHeroCard
+        theme={CARD_THEMES.expenses}
+        label="Spent today"
+        value={dashboard.data ? formatKES(dashboard.data.today.expenses) : '—'}
+        note={dashboard.data?.pendingApprovals ? `${dashboard.data.pendingApprovals} pending` : undefined}
+        maskedValue={data?.total ?? 0}
+        footerLeft={business?.name ?? 'Optimas'}
+        footerRight={data ? `${data.total} expenses` : undefined}
+        icon={Wallet}
+        action={{ label: canApprove ? 'Add expense' : 'Submit expense', onClick: () => setFormOpen(true) }}
       />
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="relative">
+      <RoundFilters<ExpenseStatus | 'ALL'>
+        hideIcons
+        value={statusFilter || 'ALL'}
+        onChange={(id) => {
+          setStatusFilter(id === 'ALL' ? '' : id);
+          setPage(1);
+        }}
+        items={[
+          { id: 'ALL', label: 'All', icon: Wallet, iconClass: 'text-brand-600', hoverClass: 'hover:bg-brand-50', selectedClass: 'bg-brand-50 border-brand-500' },
+          { id: 'PENDING', label: 'Pending', icon: Wallet, count: dashboard.data?.pendingApprovals || undefined, iconClass: 'text-amber-500', hoverClass: 'hover:bg-amber-50', selectedClass: 'bg-amber-50 border-amber-500' },
+          { id: 'APPROVED', label: 'Approved', icon: Check, iconClass: 'text-emerald-600', hoverClass: 'hover:bg-emerald-50', selectedClass: 'bg-emerald-50 border-emerald-500' },
+          { id: 'REJECTED', label: 'Rejected', icon: X, iconClass: 'text-red-600', hoverClass: 'hover:bg-red-50', selectedClass: 'bg-red-50 border-red-500' },
+        ]}
+      />
+
+      {/* Today at a glance, in the Reports page style */}
+      {dayReport.data && (
+        <section className="rounded-[28px] bg-[#DDEBD9] p-4 [.dark_&]:bg-[#1D2B22]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-foreground-4">Today · live</span>
+            <Link
+              to="/reports"
+              className="flex h-7 items-center gap-0.5 rounded-full bg-white/80 px-2.5 text-[11px] font-semibold text-foreground [.dark_&]:bg-white/10"
+            >
+              Report
+              <ChevronRight className="h-3 w-3" aria-hidden />
+            </Link>
+          </div>
+          <div className="mb-3 mt-1 flex items-baseline justify-between gap-2">
+            <h2 className="text-[22px] font-semibold tracking-tight text-foreground">Expenses</h2>
+            <span className="text-[22px] font-semibold tabular-nums text-foreground">
+              {dayReport.data.expenses.count}
+              <span className="ml-1 text-[11px] font-medium text-foreground-4">Items</span>
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {[
+              { label: 'Total spent', sub: 'Approved today', value: formatKES(dayReport.data.expenses.total), icon: Wallet },
+              { label: 'Awaiting approval', sub: `${dayReport.data.expenses.pendingCount} pending`, value: formatKES(dayReport.data.expenses.pendingTotal), icon: Repeat },
+            ].map((t) => (
+              <div key={t.label} className="flex min-h-[96px] flex-col justify-between rounded-2xl bg-white p-3 [.dark_&]:bg-black/30">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="block text-[12px] font-medium leading-tight text-foreground-2">{t.label}</span>
+                    <span className="block truncate text-[10px] text-foreground-4">{t.sub}</span>
+                  </span>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1C1F1B] text-white [.dark_&]:bg-white [.dark_&]:text-[#1C1F1B]">
+                    <t.icon className="h-3.5 w-3.5" aria-hidden />
+                  </span>
+                </div>
+                <p className="truncate text-[18px] font-semibold tabular-nums tracking-tight text-foreground">{t.value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {notice && (
+        <Alert variant="success">
+          {notice}
+        </Alert>
+      )}
+      {reviewError && !rejectExpense && (
+        <Alert variant="error" title="Could not update the expense">
+          {reviewError}
+        </Alert>
+      )}
+
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-5" aria-hidden />
           <Input
             value={search}
@@ -91,24 +252,34 @@ export function ExpensesPage() {
               window.setTimeout(() => setDebouncedSearch(event.target.value), 300);
             }}
             placeholder="Search expenses..."
-            className="pl-9"
+            className="h-11 rounded-full bg-field pl-9"
           />
         </div>
-        <Select
-          value={categoryFilter}
-          onChange={(event) => {
-            setCategoryFilter(event.target.value);
-            setPage(1);
-          }}
-          placeholder="All categories"
-        >
-          {categoriesQuery.data?.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </Select>
+        {canApprove && (
+          <Link
+            to="/expenses/recurring"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90"
+            aria-label="Recurring expenses"
+            title="Recurring expenses"
+          >
+            <Repeat className="h-4 w-4" />
+          </Link>
+        )}
       </div>
+      <Select
+        value={categoryFilter}
+        onChange={(event) => {
+          setCategoryFilter(event.target.value);
+          setPage(1);
+        }}
+        placeholder="All categories"
+      >
+        {categoriesQuery.data?.map((category) => (
+          <option key={category.id} value={category.id}>
+            {category.name}
+          </option>
+        ))}
+      </Select>
 
       {error && (
         <Alert variant="error" title="Could not load expenses">
@@ -121,58 +292,120 @@ export function ExpensesPage() {
       {data && data.items.length === 0 && (
         <EmptyState
           icon={Wallet}
-          title={debouncedSearch ? 'No expenses found' : 'No expenses yet'}
+          title={filtered ? 'No expenses found' : 'No expenses yet'}
           description={
-            debouncedSearch
-              ? 'Try a different search.'
+            filtered
+              ? 'Try a different search or status.'
               : 'Record expenses like rent and supplies to see your real profit.'
           }
-          actionLabel={debouncedSearch ? undefined : 'Add an expense'}
+          actionLabel={filtered ? undefined : 'Add an expense'}
           onAction={() => setFormOpen(true)}
         />
       )}
 
       {data && data.items.length > 0 && (
-        <Card>
-          <ul className="divide-y divide-edge">
+        <Card className="max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:shadow-none">
+          <ul className="stagger-list divide-y divide-edge max-lg:divide-y-0">
             {data.items.map((expense) => (
-              <li key={expense.id} className="px-4 py-3 sm:px-5">
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {expense.description}
-                    </p>
+              <li key={expense.id} className="px-1 py-3 lg:px-5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F7E3E6] text-[#9B2B3D] [.dark_&]:bg-[#9B2B3D]/20 [.dark_&]:text-[#F2B8C0]">
+                    <Wallet className="h-5 w-5" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1 basis-40">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">
+                        {expense.description}
+                      </p>
+                      <Badge variant={statusVariant(expense.status)}>
+                        {statusLabel(expense.status)}
+                      </Badge>
+                      {expense.recurringExpenseId && (
+                        <Badge variant="outline">
+                          <Repeat className="h-3 w-3" aria-hidden />
+                          Recurring
+                        </Badge>
+                      )}
+                    </div>
                     <p className="truncate text-xs text-foreground-5">
                       {expense.category_name ?? 'Uncategorized'} ·{' '}
                       {formatDate(expense.expense_date)} · {expense.payment_method}
                     </p>
+                    {expense.status === 'REJECTED' && expense.rejection_reason && (
+                      <p className="mt-1 text-xs text-danger">
+                        Rejected: {expense.rejection_reason}
+                      </p>
+                    )}
                   </div>
                   <p className="text-sm font-medium text-danger">
                     −{formatKES(expense.amount)}
                   </p>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditExpense(expense)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-danger hover:bg-danger-soft"
-                      onClick={() => setConfirmDelete(expense)}
-                    >
-                      Delete
-                    </Button>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {expense.receipt_url && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void openReceipt(expense.receipt_url!)}
+                        aria-label={`View receipt for ${expense.description}`}
+                      >
+                        <Paperclip className="h-4 w-4" />
+                        Receipt
+                      </Button>
+                    )}
+                    {canApprove && expense.status === 'PENDING' && (
+                      <>
+                        <Button
+                          variant="success"
+                          size="sm"
+                          loading={
+                            approveMutation.isPending &&
+                            approveMutation.variables === expense.id
+                          }
+                          onClick={() => approveMutation.mutate(expense.id)}
+                        >
+                          <Check className="h-4 w-4" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setReviewError(null);
+                            setRejectReason('');
+                            setRejectExpense(expense);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {canEdit(expense) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditExpense(expense)}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                    {canDelete(expense) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-danger hover:bg-danger-soft"
+                        onClick={() => setConfirmDelete(expense)}
+                      >
+                        Delete
+                      </Button>
+                    )}
                   </div>
                 </div>
               </li>
             ))}
           </ul>
           {data.total > PAGE_SIZE && (
-            <div className="flex items-center justify-between border-t border-edge px-4 py-3">
+            <div className="flex items-center justify-between border-t border-edge px-4 py-3 max-lg:border-t-0 max-lg:px-1">
               <p className="text-xs text-foreground-5">
                 Page {page} of {totalPages} · {data.total} expenses
               </p>
@@ -202,10 +435,24 @@ export function ExpensesPage() {
       <Dialog
         open={formOpen}
         onOpenChange={setFormOpen}
-        title="Add an expense"
-        description="Expenses are subtracted from your gross profit to get net profit."
+        title={canApprove ? 'Add an expense' : 'Submit an expense'}
+        description={
+          canApprove
+            ? 'Expenses are subtracted from your gross profit to get net profit.'
+            : 'Attach a receipt so it can be approved quickly.'
+        }
       >
-        <ExpenseForm onClose={() => setFormOpen(false)} />
+        <ExpenseForm
+          onClose={() => setFormOpen(false)}
+          submitLabel={canApprove ? 'Add expense' : 'Submit for approval'}
+          onSaved={(expense) =>
+            setNotice(
+              expense.status === 'PENDING'
+                ? `"${expense.description}" was submitted and is awaiting approval.`
+                : `"${expense.description}" was recorded.`,
+            )
+          }
+        />
       </Dialog>
 
       <Dialog
@@ -223,9 +470,56 @@ export function ExpensesPage() {
               categoryId: editExpense.categoryId,
               payment_method: editExpense.payment_method,
               expense_date: editExpense.expense_date,
+              receipt_url: editExpense.receipt_url,
             }}
           />
         )}
+      </Dialog>
+
+      <Dialog
+        open={Boolean(rejectExpense)}
+        onOpenChange={(open) => !open && setRejectExpense(null)}
+        title="Reject this expense?"
+        description={`"${rejectExpense?.description}" of ${rejectExpense ? formatKES(rejectExpense.amount) : ''}. The submitter will see your reason.`}
+      >
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!rejectExpense) return;
+            if (!rejectReason.trim()) {
+              setReviewError('Give a reason for rejecting this expense.');
+              return;
+            }
+            rejectMutation.mutate({ id: rejectExpense.id, reason: rejectReason.trim() });
+          }}
+        >
+          {reviewError && <Alert variant="error">{reviewError}</Alert>}
+          <div>
+            <Label htmlFor="reject-reason">Reason</Label>
+            <Textarea
+              id="reject-reason"
+              value={rejectReason}
+              maxLength={300}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="e.g. No receipt attached, or not a business expense"
+              autoFocus
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRejectExpense(null)}
+              disabled={rejectMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="destructive" loading={rejectMutation.isPending}>
+              Reject expense
+            </Button>
+          </div>
+        </form>
       </Dialog>
 
       <Dialog

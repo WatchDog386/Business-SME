@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
+  ChevronLeft,
   Bike,
   BookOpen,
   Camera,
@@ -19,7 +19,6 @@ import {
   Headphones,
   Laptop,
   LayoutGrid,
-  Loader2,
   Milk,
   Package,
   Pill,
@@ -42,6 +41,7 @@ import {
 } from '@/api/endpoints';
 import type { Customer, Product, Service } from '@/api/types';
 import { cn } from '@/lib/utils';
+import { SpeedWheel } from '@/components/ui/workspace-loader';
 
 type Scope = 'all' | 'products' | 'services' | 'customers';
 
@@ -240,12 +240,12 @@ export function SearchDialog({
         <div className="relative flex h-14 shrink-0 items-center px-2">
           <button
             onClick={() => onOpenChange(false)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-edge bg-white text-foreground transition-colors hover:bg-surface-2 active:bg-surface-3"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-3 text-foreground transition-transform active:scale-90"
             aria-label="Back"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ChevronLeft className="h-6 w-6" strokeWidth={2} />
           </button>
-          <h2 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-tight text-foreground">
+          <h2 className="absolute left-1/2 -translate-x-1/2 text-[17px] font-medium tracking-tight text-foreground">
             Search
           </h2>
         </div>
@@ -290,9 +290,8 @@ export function SearchDialog({
         {/* Grouped result cards */}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-6">
           {loading && (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm text-foreground-4">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              Loading…
+            <div role="status" aria-label="Loading" className="flex items-center justify-center py-12">
+              <SpeedWheel />
             </div>
           )}
 

@@ -8,7 +8,11 @@ import { Customer } from '../customers/entities/customer.entity';
 import { Product } from '../products/entities/product.entity';
 import { SalesService } from '../sales/sales.service';
 import { ExpensesService } from '../expenses/expenses.service';
+import { BudgetsService } from '../budgets/budgets.service';
+import { RecurringExpensesService } from '../recurring-expenses/recurring-expenses.service';
 import { todayRangeUtc, lastNDaysRangeUtc } from '../../common/utils/dates';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { CallsService } from '../calls/calls.service';
 
 @Injectable()
 export class DashboardService {
@@ -25,12 +29,19 @@ export class DashboardService {
     private readonly productRepo: Repository<Product>,
     private readonly salesService: SalesService,
     private readonly expensesService: ExpensesService,
+    private readonly budgetsService: BudgetsService,
+    private readonly recurringExpensesService: RecurringExpensesService,
+    private readonly subscriptionsService: SubscriptionsService,
+    private readonly callsService: CallsService,
   ) {}
 
   async getDashboard(businessId: string, timezone: string) {
     const today = todayRangeUtc(timezone);
     const week = lastNDaysRangeUtc(7, timezone);
     const month = lastNDaysRangeUtc(30, timezone);
+
+    // Catch up on recurring expenses before totals are computed.
+    await this.recurringExpensesService.generateDue(businessId, timezone);
 
     const [todaySales, todayCogs, todayExpenses, outstandingDebts, lowStock, recentCustomers, salesSeries] =
       await Promise.all([
@@ -46,13 +57,21 @@ export class DashboardService {
     const grossProfit = todaySales - todayCogs;
     const netProfit = grossProfit - todayExpenses;
 
-    const [recentTransactions, monthRevenue, topProducts, salesCount] =
-      await Promise.all([
-        this.recentTransactions(businessId, 10),
-        this.sumSales(businessId, month.start, month.end),
-        this.topProducts(businessId, month.start, month.end, 5),
-        this.countSales(businessId, today.start, today.end),
-      ]);
+    const [
+      recentTransactions,
+      monthRevenue,
+      topProducts,
+      salesCount,
+      budgetAlerts,
+      pendingApprovals,
+    ] = await Promise.all([
+      this.recentTransactions(businessId, 10),
+      this.sumSales(businessId, month.start, month.end),
+      this.topProducts(businessId, month.start, month.end, 5),
+      this.countSales(businessId, today.start, today.end),
+      this.budgetsService.alerts(businessId, timezone),
+      this.expensesService.countPending(businessId),
+    ]);
 
     return {
       today: {
@@ -71,6 +90,37 @@ export class DashboardService {
       recentTransactions,
       topProducts,
       salesSeries,
+      budgetAlerts,
+      pendingApprovals,
+      // Internet provider figures
+      packagesToday: await this.packagesSold(businessId, today.start, today.end),
+      subscribers: await this.subscriptionsService.stats(businessId),
+      callsDue: await this.callsService.dueCount(businessId),
+    };
+  }
+
+  /** WiFi packages sold in a period, split into new subscriptions and renewals. */
+  private async packagesSold(businessId: string, from: Date, to: Date) {
+    const rows = await this.itemRepo
+      .createQueryBuilder('item')
+      .innerJoin(Sale, 'sale', 'sale.id = item.saleId')
+      .select('item.package_event', 'event')
+      .addSelect('COALESCE(SUM(item.quantity), 0)', 'qty')
+      .addSelect('COALESCE(SUM(item.total), 0)', 'revenue')
+      .where('sale.businessId = :businessId', { businessId })
+      .andWhere("sale.payment_status != 'CANCELLED'")
+      .andWhere('sale.created_at >= :from AND sale.created_at < :to', { from, to })
+      .andWhere('item.package_event IS NOT NULL')
+      .groupBy('item.package_event')
+      .getRawMany<{ event: string; qty: string; revenue: string }>();
+    const pick = (e: string) => rows.find((r) => r.event === e);
+    const newCount = Number(pick('NEW')?.qty ?? 0);
+    const renewals = Number(pick('RENEWAL')?.qty ?? 0);
+    return {
+      count: newCount + renewals,
+      new: newCount,
+      renewals,
+      revenue: rows.reduce((sum, r) => sum + Number(r.revenue), 0),
     };
   }
 
@@ -158,6 +208,7 @@ export class DashboardService {
       this.expenseRepo
         .createQueryBuilder('expense')
         .where('expense.businessId = :businessId', { businessId })
+        .andWhere("expense.status = 'APPROVED'")
         .orderBy('expense.created_at', 'DESC')
         .take(limit)
         .getMany(),

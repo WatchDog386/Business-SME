@@ -24,12 +24,12 @@ export function WelcomeBanner() {
           updates with your revenue, costs and profit instantly.
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
-          <Button onClick={() => navigate('/products/new')} className="bg-white text-accent hover:bg-white/90">
+          <Button onClick={() => navigate('/products?new=1')} className="bg-white text-accent hover:bg-white/90">
             Add a product
           </Button>
           <Button
             variant="outline"
-            onClick={() => navigate('/services/new')}
+            onClick={() => navigate('/services?new=1')}
             className="border-white/40 bg-transparent text-white hover:bg-white/10"
           >
             Add a service
