@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { IsEmail, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessGuard } from '../../common/guards/business.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -36,8 +36,11 @@ class ClientPayDto {
 }
 
 class GrantAccessDto {
+  /** Optional: without it the client signs in with their account number. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== '')
   @IsEmail({}, { message: 'Enter a valid email address.' })
-  email: string;
+  email?: string;
 
   @IsString()
   @MinLength(8, { message: 'The password must be at least 8 characters.' })
@@ -123,7 +126,7 @@ export class ClientAccessController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Create or reset the client app login (email + password)' })
+  @ApiOperation({ summary: 'Create or reset the client app login (account number or email + password)' })
   grant(
     @CurrentBusiness() business: { id: string },
     @CurrentUser() user: AuthUser,

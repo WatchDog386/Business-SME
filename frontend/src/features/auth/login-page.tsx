@@ -20,7 +20,8 @@ import { TwoFactorVerify } from './components/two-factor';
 import type { AuthResult, MfaChallenge } from '@/api/types';
 
 const schema = z.object({
-  email: z.string().email('Enter a valid email address.'),
+  // Staff use their email; clients can use their account number (e.g. CY-348)
+  email: z.string().trim().min(1, 'Enter your email or account number.'),
   password: z.string().min(1, 'Enter your password.'),
 });
 
@@ -131,13 +132,15 @@ export function LoginPage() {
       >
         {error && <Alert variant="error">{error}</Alert>}
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Email or account number</Label>
           <div className="relative">
             <Input
               id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="Email"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="Email or account number"
               aria-invalid={errors.email ? true : undefined}
               className="h-12 pl-12 pr-5 text-sm rounded-full"
               {...register('email')}

@@ -270,10 +270,11 @@ export function SubscriberForm({
       >
         {error && <Alert variant="error">{error}</Alert>}
         <Section title="Customer profile">
-          <Field label="Account number" htmlFor="sf-account">
+          <Field label="Account number" htmlFor="sf-account" hint="Clients sign in to the app with this, e.g. CY-348.">
             <Input
               id="sf-account"
-              inputMode="numeric"
+              autoComplete="off"
+              autoCapitalize="characters"
               value={accountNumber}
               onChange={(e) => {
                 setAccountNumber(e.target.value);

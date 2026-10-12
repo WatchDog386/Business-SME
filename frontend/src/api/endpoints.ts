@@ -408,13 +408,15 @@ export const clientApi = {
 /** Staff give a client their app login from the client's page. */
 export interface ClientAccess {
   enabled: boolean;
+  /** Real email only; clients without one sign in with the account number. */
   email: string | null;
+  accountNumber: string | null;
   createdAt: string | null;
 }
 
 export const clientAccessApi = {
   get: (customerId: string) => api<ClientAccess>({ method: 'GET', url: `/customers/${customerId}/app-access` }),
-  grant: (customerId: string, data: { email: string; password: string }) =>
+  grant: (customerId: string, data: { email?: string; password: string }) =>
     api<ClientAccess>({ method: 'POST', url: `/customers/${customerId}/app-access`, data }),
   revoke: (customerId: string) => api<ClientAccess>({ method: 'DELETE', url: `/customers/${customerId}/app-access` }),
 };

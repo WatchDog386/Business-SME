@@ -117,7 +117,7 @@ export function CustomerDetailPage() {
       </div>
 
       {/* The client's own app login (admins only) */}
-      <ClientAppAccess customerId={customer.id} name={customer.name} email={customer.email} />
+      <ClientAppAccess customerId={customer.id} name={customer.name} email={customer.email} accountNumber={customer.account_number} />
 
       {/* Purchase history — flat, professional */}
       <section className="space-y-2">

@@ -35,6 +35,15 @@ interface PendingPay {
  * balance, payments and receipts, and can pay or renew with M-Pesa. Staff
  * create the client's login from the client's page.
  */
+/** Internal login address for clients who sign in with their account number. */
+const ACCOUNT_LOGIN_DOMAIN = 'account.optimas.invalid';
+function accountLoginEmail(customerId: string): string {
+  return `client-${customerId}@${ACCOUNT_LOGIN_DOMAIN}`;
+}
+export function isAccountLogin(email: string): boolean {
+  return email.endsWith(`@${ACCOUNT_LOGIN_DOMAIN}`);
+}
+
 @Injectable()
 export class ClientPortalService {
   private readonly pending = new Map<string, PendingPay>();
@@ -165,19 +174,29 @@ export class ClientPortalService {
       where: { businessId, customerId, role: UserRole.CLIENT },
       relations: { user: true },
     });
+    const customer = await this.customer(businessId, customerId);
+    const email = member && !isAccountLogin(member.user.email) ? member.user.email : null;
     return member
-      ? { enabled: member.status === 'ACTIVE', email: member.user.email, createdAt: member.created_at }
-      : { enabled: false, email: null, createdAt: null };
+      ? { enabled: member.status === 'ACTIVE', email, accountNumber: customer.account_number, createdAt: member.created_at }
+      : { enabled: false, email: null, accountNumber: customer.account_number, createdAt: null };
   }
 
   async grantAccess(
     businessId: string,
     customerId: string,
-    input: { email: string; password: string },
+    input: { email?: string; password: string },
     actorId: string,
   ) {
     const customer = await this.customer(businessId, customerId);
-    const email = input.email.trim().toLowerCase();
+    const realEmail = input.email?.trim().toLowerCase() || null;
+    if (!realEmail && !customer.account_number) {
+      throw new BadRequestException({
+        code: 'ACCOUNT_NUMBER_REQUIRED',
+        message: 'Give this subscriber an account number first (Edit), or enter an email.',
+      });
+    }
+    // No email: an internal address keeps the login unique; they sign in with the account number
+    const email = realEmail ?? accountLoginEmail(customerId);
 
     let user = await this.users.findByEmail(email);
     if (user) {
@@ -215,7 +234,7 @@ export class ClientPortalService {
         this.memberRepo.create({ businessId, userId: user.id, role: UserRole.CLIENT, customerId, status: 'ACTIVE' }),
       );
     }
-    if (!customer.email) await this.customerRepo.update(customer.id, { email });
+    if (!customer.email && realEmail) await this.customerRepo.update(customer.id, { email: realEmail });
 
     await this.audit.log({
       businessId,

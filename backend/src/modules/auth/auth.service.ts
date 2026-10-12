@@ -70,19 +70,27 @@ export class AuthService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
 
-  async login(email: string, password: string): Promise<MfaChallenge | AuthResult> {
-    const user = await this.usersService.findByEmail(email);
+  /**
+   * Staff sign in with their email. Clients can also sign in with the account
+   * number the office gave them (e.g. CY-348), matched without regard to case.
+   */
+  async login(identifier: string, password: string): Promise<MfaChallenge | AuthResult> {
+    const id = identifier.trim();
+    const candidates = id.includes('@')
+      ? [await this.usersService.findByEmail(id)].filter((u): u is User => Boolean(u))
+      : await this.clientsByAccountNumber(id);
+    // The same account number can exist in two businesses; the password decides
+    let user: User | null = null;
+    for (const candidate of candidates) {
+      if (await bcrypt.compare(password, candidate.password_hash)) {
+        user = candidate;
+        break;
+      }
+    }
     if (!user) {
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
-        message: 'Wrong email or password.',
-      });
-    }
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) {
-      throw new UnauthorizedException({
-        code: 'INVALID_CREDENTIALS',
-        message: 'Wrong email or password.',
+        message: id.includes('@') ? 'Wrong email or password.' : 'Wrong account number or password.',
       });
     }
     // Two-factor sign-in is optional: people turn it on in Settings. Only then
@@ -91,8 +99,25 @@ export class AuthService {
     return {
       mfa: 'verify',
       mfaToken: this.issueTicket(user.id, 'mfa-verify'),
-      email: user.email,
+      email: id.includes('@') ? user.email : id,
     };
+  }
+
+  /** Active client logins whose subscriber has this account number. */
+  private async clientsByAccountNumber(accountNumber: string): Promise<User[]> {
+    if (!accountNumber) return [];
+    const rows = await this.userRepo
+      .createQueryBuilder('u')
+      .select('u.email', 'email')
+      .innerJoin('business_members', 'm', 'm."userId" = u.id AND m.role = :role AND m.status = :status', {
+        role: UserRole.CLIENT,
+        status: 'ACTIVE',
+      })
+      .innerJoin('customers', 'c', 'c.id = m."customerId"')
+      .where('LOWER(c.account_number) = LOWER(:accountNumber)', { accountNumber })
+      .getRawMany<{ email: string }>();
+    const users = await Promise.all(rows.map((r) => this.usersService.findByEmail(r.email)));
+    return users.filter((u): u is User => Boolean(u));
   }
 
   // ---- Two-factor from Settings (signed in) ----
