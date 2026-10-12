@@ -11,7 +11,7 @@ const ADMIN_TABS: Tab[] = [
   { to: '/sales', label: 'Sales', icon: ShoppingCart },
   { to: '/staff', label: 'Staff', icon: UserPlus },
   { to: '/dashboard', label: 'Home', icon: Plus },
-  { to: '/customers', label: 'Customers', icon: Users },
+  { to: '/subscribers', label: 'Subscribers', icon: Wifi },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
 ];
 // Employees can't open Staff or Reports: they get Subscribers and Calls instead
