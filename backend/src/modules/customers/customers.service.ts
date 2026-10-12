@@ -102,7 +102,9 @@ export class CustomersService {
     actorId: string,
   ): Promise<Customer> {
     const accountNumber = dto.accountNumber?.trim() || (await this.nextAccountNumber(businessId));
+    const username = dto.username?.trim() || accountNumber;
     await this.assertAccountFree(businessId, accountNumber);
+    await this.assertUsernameFree(businessId, username);
     const customer = this.repo.create({
       businessId,
       name: dto.name,
@@ -112,7 +114,7 @@ export class CustomersService {
       notes: dto.notes ?? null,
       ...subscriberColumns(dto),
       account_number: accountNumber,
-      username: dto.username?.trim() || accountNumber,
+      username,
       new_installation: dto.newInstallation ?? false,
     });
     await this.repo.save(customer);
@@ -138,6 +140,10 @@ export class CustomersService {
     if (dto.accountNumber !== undefined && dto.accountNumber.trim() !== customer.account_number) {
       await this.assertAccountFree(businessId, dto.accountNumber.trim(), id);
     }
+    // The username is how a subscriber signs in, so it has to stay unique
+    if (dto.username !== undefined && dto.username.trim() !== customer.username) {
+      await this.assertUsernameFree(businessId, dto.username.trim(), id);
+    }
     Object.assign(customer, {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
@@ -159,38 +165,47 @@ export class CustomersService {
     return customer;
   }
 
+  /**
+   * Removes a subscriber (owner/manager): their package, calls and app login
+   * go too. Past sales stay in the books, just no longer linked to them.
+   */
   async remove(businessId: string, id: string, actorId: string): Promise<void> {
     const customer = await this.get(businessId, id);
-    const saleCount = await this.repo.manager
-      .createQueryBuilder()
-      .select('COUNT(*)', 'count')
-      .from('sales', 'sale')
-      .where('sale.businessId = :businessId AND sale.customerId = :id', {
-        businessId,
-        id,
-      })
-      .getRawOne<{ count: string }>();
-
-    if (Number(saleCount?.count ?? 0) > 0) {
-      throw new ConflictException({
-        code: 'CUSTOMER_HAS_SALES',
-        message: 'This customer has sales and cannot be deleted.',
-      });
-    }
-
-    await this.repo.manager
-      .createQueryBuilder()
-      .delete()
-      .from('subscriptions')
-      .where('"businessId" = :businessId AND "customerId" = :id', { businessId, id })
-      .execute();
-    await this.repo.remove(customer);
+    await this.repo.manager.transaction(async (em) => {
+      const where = '"businessId" = :businessId AND "customerId" = :id';
+      await em.createQueryBuilder().update('sales').set({ customerId: null }).where(where, { businessId, id }).execute();
+      await em.createQueryBuilder().delete().from('subscriptions').where(where, { businessId, id }).execute();
+      await em.createQueryBuilder().delete().from('call_logs').where(where, { businessId, id }).execute();
+      // Their client app login: the membership, and the user if it only existed for this subscriber
+      const logins = await em
+        .createQueryBuilder()
+        .select('m.id', 'memberId')
+        .addSelect('m."userId"', 'userId')
+        .from('business_members', 'm')
+        .where('m."businessId" = :businessId AND m."customerId" = :id', { businessId, id })
+        .getRawMany<{ memberId: string; userId: string }>();
+      for (const { memberId, userId } of logins) {
+        await em.createQueryBuilder().delete().from('business_members').where('id = :memberId', { memberId }).execute();
+        const others = await em
+          .createQueryBuilder()
+          .select('COUNT(*)', 'n')
+          .from('business_members', 'm')
+          .where('m."userId" = :userId', { userId })
+          .getRawOne<{ n: string }>();
+        if (Number(others?.n ?? 0) === 0) {
+          await em.createQueryBuilder().delete().from('audit_logs').where('"userId" = :userId', { userId }).execute();
+          await em.createQueryBuilder().delete().from('users').where('id = :userId', { userId }).execute();
+        }
+      }
+      await em.remove(customer);
+    });
     await this.auditService.log({
       businessId,
       userId: actorId,
       action: 'CUSTOMER_DELETED',
       entity: 'customer',
       entityId: id,
+      metadata: { name: customer.name, accountNumber: customer.account_number },
     });
   }
 
@@ -232,6 +247,26 @@ export class CustomersService {
       throw new ConflictException({
         code: 'ACCOUNT_NUMBER_TAKEN',
         message: `Account number ${accountNumber} already belongs to ${taken.name}.`,
+      });
+    }
+  }
+
+  /**
+   * Usernames are how subscribers sign in, so two subscribers in the same
+   * business may never share one. Compared without regard to case, because
+   * sign-in is.
+   */
+  private async assertUsernameFree(businessId: string, username: string, exceptId?: string) {
+    if (!username) return;
+    const taken = await this.repo
+      .createQueryBuilder('c')
+      .where('c.businessId = :businessId', { businessId })
+      .andWhere('LOWER(c.username) = LOWER(:username)', { username })
+      .getOne();
+    if (taken && taken.id !== exceptId) {
+      throw new ConflictException({
+        code: 'USERNAME_TAKEN',
+        message: `Username ${username} is already used by ${taken.name}. Pick another one.`,
       });
     }
   }

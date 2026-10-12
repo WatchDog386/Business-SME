@@ -31,9 +31,9 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Check email and password; returns a session, or a two-factor challenge when it is on' })
+  @ApiOperation({ summary: 'Check username (or email) and password; returns a session, or a two-factor challenge when it is on' })
   login(@Body() dto: LoginDto) {
-    return this.authService.login(dto.email, dto.password);
+    return this.authService.login(dto.identifier ?? dto.email ?? '', dto.password);
   }
 
   @Post('2fa/setup')

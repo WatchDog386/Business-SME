@@ -27,20 +27,20 @@ export function ClientAppAccess({
   customerId,
   name,
   email,
-  accountNumber,
+  username,
 }: {
   customerId: string;
   name: string;
   email: string | null;
-  /** Clients sign in with this; email is optional. */
-  accountNumber: string | null;
+  /** Clients sign in with their username; email is optional. */
+  username: string | null;
 }) {
   const { isAdmin } = useRole();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ email: email ?? '', password: makePassword() });
   const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
-  const login = accountNumber ?? '';
+  const login = username ?? '';
   const [copied, setCopied] = useState(false);
 
   const access = useQuery({
@@ -65,7 +65,7 @@ export function ClientAppAccess({
   const a = access.data;
   const first = name.split(' ')[0];
   const message = created
-    ? `Hello ${first}, you can now use the Optimas app to see your WiFi package and pay with M-Pesa.\nSign in at ${window.location.origin}/login\n${login ? `Account number: ${login}` : `Email: ${created.email}`}\nPassword: ${created.password}\nPlease keep it private.`
+    ? `Hello ${first}, you can now use the Optimas app to see your WiFi package and pay with M-Pesa.\nSign in at ${window.location.origin}/login\n${login ? `Username: ${login}` : `Email: ${created.email}`}\nPassword: ${created.password}\nPlease keep it private.`
     : '';
 
   const openSheet = () => {
@@ -85,7 +85,7 @@ export function ClientAppAccess({
         <span className="block text-[14px] font-semibold text-foreground">Client app</span>
         <span className="block truncate text-[12px] text-foreground-4">
           {a?.enabled
-            ? `${a.accountNumber ? `Account ${a.accountNumber}` : a.email} · since ${a.createdAt ? formatDate(a.createdAt) : '—'}`
+            ? `${a.username ? `Username ${a.username}` : a.email} · since ${a.createdAt ? formatDate(a.createdAt) : '—'}`
             : `Let ${first} see their package and pay with M-Pesa`}
         </span>
       </span>
@@ -100,7 +100,7 @@ export function ClientAppAccess({
         title={a?.enabled ? 'Reset app login' : 'Give app access'}
         description={
           login
-            ? `${name} signs in with account number ${login} and this password, and sees only their own WiFi.`
+            ? `${name} signs in with username ${login} and this password, and sees only their own WiFi.`
             : `${name} signs in with this email and password and sees only their own WiFi.`
         }
       >

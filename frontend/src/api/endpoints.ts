@@ -41,10 +41,13 @@ import type {
 // ---- Auth ----
 
 export const authApi = {
-  /** Checks the password; always answers with a two-factor step, never a session. */
-  login: (email: string, password: string) =>
+  /**
+   * Checks the password; always answers with a two-factor step, never a session.
+   * `identifier` is a subscriber's username or account number, or a staff email.
+   */
+  login: (identifier: string, password: string) =>
     // A session straight away, or a code challenge when two-factor is on
-    api<MfaChallenge | AuthResult>({ method: 'POST', url: '/auth/login', data: { email, password } }),
+    api<MfaChallenge | AuthResult>({ method: 'POST', url: '/auth/login', data: { identifier, password } }),
   /** Settings: start, confirm or turn off two-factor sign-in for the signed-in person. */
   twoFactorSetupMe: () => api<TwoFactorSetup>({ method: 'POST', url: '/auth/2fa/me/setup' }),
   twoFactorEnableMe: (code: string) =>
@@ -410,6 +413,8 @@ export interface ClientAccess {
   enabled: boolean;
   /** Real email only; clients without one sign in with the account number. */
   email: string | null;
+  /** Subscribers sign in with this. */
+  username: string | null;
   accountNumber: string | null;
   createdAt: string | null;
 }

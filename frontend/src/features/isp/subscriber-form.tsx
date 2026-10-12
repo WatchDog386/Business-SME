@@ -12,6 +12,7 @@ import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PageLoader } from '@/components/ui/spinner';
 import { cn, formatKES, uuid } from '@/lib/utils';
+import { useRole } from '@/hooks/use-role';
 
 const SERVICE_TYPES: { id: ServiceType; label: string }[] = [
   { id: 'HOTSPOT', label: 'Hotspot' },
@@ -82,15 +83,32 @@ export function SubscriberForm({
   customerId,
   onDone,
   onCancel,
+  onRemoved,
 }: {
   /** Set to edit that subscriber; leave out to add a new one. */
   customerId?: string;
   onDone: () => void;
   onCancel: () => void;
+  /** After an admin removes the subscriber; defaults to onDone. */
+  onRemoved?: () => void;
 }) {
   const id = customerId;
   const editing = Boolean(id);
   const queryClient = useQueryClient();
+  const { role } = useRole();
+  const canRemove = role === 'OWNER' || role === 'MANAGER';
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const removal = useMutation({
+    mutationFn: () => customersApi.remove(id!),
+    onSuccess: async () => {
+      await Promise.all(
+        ['subscriptions', 'subscribers', 'customers', 'customer-options', 'sales', 'dashboard'].map((key) =>
+          queryClient.invalidateQueries({ queryKey: [key] }),
+        ),
+      );
+      (onRemoved ?? onDone)();
+    },
+  });
 
   const optionsQuery = useQuery({ queryKey: ['customer-options'], queryFn: () => customersApi.options() });
   const productsQuery = useQuery({
@@ -270,7 +288,7 @@ export function SubscriberForm({
       >
         {error && <Alert variant="error">{error}</Alert>}
         <Section title="Customer profile">
-          <Field label="Account number" htmlFor="sf-account" hint="Clients sign in to the app with this, e.g. CY-348.">
+          <Field label="Account number" htmlFor="sf-account">
             <Input
               id="sf-account"
               autoComplete="off"
@@ -282,7 +300,7 @@ export function SubscriberForm({
               }}
             />
           </Field>
-          <Field label="Username" htmlFor="sf-username" hint="Service login; follows the account number unless changed.">
+          <Field label="Username" htmlFor="sf-username" hint="The client signs in to the app with this. Follows the account number unless you change it.">
             <Input
               id="sf-username"
               autoComplete="off"
@@ -530,7 +548,25 @@ export function SubscriberForm({
           </div>
         </Section>
 
+        {/* Admins can remove the subscriber: a second tap confirms */}
+        {editing && canRemove && confirmRemove && (
+          <Alert variant="error">
+            Remove {name || 'this subscriber'}? Their package, calls and app login are deleted. Past sales stay in your records.
+            {removal.error && <span className="mt-1 block font-semibold">{apiErrorMessage(removal.error)}</span>}
+          </Alert>
+        )}
         <div className="flex justify-end gap-3 pt-1">
+          {editing && canRemove && (
+            <Button
+              type="button"
+              variant="outline"
+              className="mr-auto text-danger"
+              loading={removal.isPending}
+              onClick={() => (confirmRemove ? removal.mutate() : setConfirmRemove(true))}
+            >
+              {confirmRemove ? 'Yes, remove' : 'Remove'}
+            </Button>
+          )}
           <Button variant="outline" type="button" onClick={onCancel}>
             Cancel
           </Button>

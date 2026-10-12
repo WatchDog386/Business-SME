@@ -20,8 +20,8 @@ import { TwoFactorVerify } from './components/two-factor';
 import type { AuthResult, MfaChallenge } from '@/api/types';
 
 const schema = z.object({
-  // Staff use their email; clients can use their account number (e.g. CY-348)
-  email: z.string().trim().min(1, 'Enter your email or account number.'),
+  // Subscribers sign in with their username or account number; staff use their email
+  identifier: z.string().trim().min(1, 'Enter your username or email.'),
   password: z.string().min(1, 'Enter your password.'),
 });
 
@@ -78,7 +78,7 @@ export function LoginPage() {
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
-      authApi.login(values.email, values.password),
+      authApi.login(values.identifier, values.password),
     onSuccess: (result) => {
       setError(null);
       if ('accessToken' in result) void finishSignIn(result);
@@ -132,7 +132,7 @@ export function LoginPage() {
       >
         {error && <Alert variant="error">{error}</Alert>}
         <div>
-          <Label htmlFor="email">Email or account number</Label>
+          <Label htmlFor="email">Username or email</Label>
           <div className="relative">
             <Input
               id="email"
@@ -140,16 +140,16 @@ export function LoginPage() {
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
-              placeholder="Email or account number"
-              aria-invalid={errors.email ? true : undefined}
+              placeholder="Username or email"
+              aria-invalid={errors.identifier ? true : undefined}
               className="h-12 pl-12 pr-5 text-sm rounded-full"
-              {...register('email')}
+              {...register('identifier')}
             />
             <Mail className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 lg:hidden" aria-hidden />
             <User className="pointer-events-none absolute left-5 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-neutral-600 lg:block" aria-hidden />
           </div>
-          {errors.email && (
-            <p className="mt-1 text-xs font-medium text-danger">{errors.email.message}</p>
+          {errors.identifier && (
+            <p className="mt-1 text-xs font-medium text-danger">{errors.identifier.message}</p>
           )}
         </div>
         <div>

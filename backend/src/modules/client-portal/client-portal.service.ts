@@ -176,9 +176,10 @@ export class ClientPortalService {
     });
     const customer = await this.customer(businessId, customerId);
     const email = member && !isAccountLogin(member.user.email) ? member.user.email : null;
+    const login = { username: customer.username, accountNumber: customer.account_number };
     return member
-      ? { enabled: member.status === 'ACTIVE', email, accountNumber: customer.account_number, createdAt: member.created_at }
-      : { enabled: false, email: null, accountNumber: customer.account_number, createdAt: null };
+      ? { enabled: member.status === 'ACTIVE', email, ...login, createdAt: member.created_at }
+      : { enabled: false, email: null, ...login, createdAt: null };
   }
 
   async grantAccess(
@@ -189,13 +190,13 @@ export class ClientPortalService {
   ) {
     const customer = await this.customer(businessId, customerId);
     const realEmail = input.email?.trim().toLowerCase() || null;
-    if (!realEmail && !customer.account_number) {
+    if (!realEmail && !customer.username && !customer.account_number) {
       throw new BadRequestException({
-        code: 'ACCOUNT_NUMBER_REQUIRED',
-        message: 'Give this subscriber an account number first (Edit), or enter an email.',
+        code: 'USERNAME_REQUIRED',
+        message: 'Give this subscriber a username first (Edit), or enter an email.',
       });
     }
-    // No email: an internal address keeps the login unique; they sign in with the account number
+    // No email: an internal address keeps the login unique; they sign in with their username
     const email = realEmail ?? accountLoginEmail(customerId);
 
     let user = await this.users.findByEmail(email);

@@ -226,7 +226,7 @@ export function SubscriberRegister({ onAdd, onEdit }: { onAdd: () => void; onEdi
         open={Boolean(deleting)}
         onOpenChange={(o) => !o && setDeleting(null)}
         title={`Delete ${deleting?.name ?? 'subscriber'}?`}
-        description="This removes the subscriber and their package. Subscribers with invoices can't be deleted, to keep the records."
+        description="Their package, calls and app login are deleted. Past sales stay in your records."
         confirmLabel="Delete"
         destructive
         loading={remove.isPending}

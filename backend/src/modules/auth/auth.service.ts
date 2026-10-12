@@ -71,15 +71,16 @@ export class AuthService {
   ) {}
 
   /**
-   * Staff sign in with their email. Clients can also sign in with the account
-   * number the office gave them (e.g. CY-348), matched without regard to case.
+   * Staff sign in with their email. Subscribers sign in with the username or
+   * account number the office gave them (e.g. `mary` or `1617`), matched
+   * without regard to case.
    */
   async login(identifier: string, password: string): Promise<MfaChallenge | AuthResult> {
     const id = identifier.trim();
     const candidates = id.includes('@')
       ? [await this.usersService.findByEmail(id)].filter((u): u is User => Boolean(u))
-      : await this.clientsByAccountNumber(id);
-    // The same account number can exist in two businesses; the password decides
+      : await this.subscribersByLoginId(id);
+    // The same username can exist in two businesses; the password decides
     let user: User | null = null;
     for (const candidate of candidates) {
       if (await bcrypt.compare(password, candidate.password_hash)) {
@@ -90,7 +91,7 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
-        message: id.includes('@') ? 'Wrong email or password.' : 'Wrong account number or password.',
+        message: id.includes('@') ? 'Wrong email or password.' : 'Wrong username or password.',
       });
     }
     // Two-factor sign-in is optional: people turn it on in Settings. Only then
@@ -103,9 +104,13 @@ export class AuthService {
     };
   }
 
-  /** Active client logins whose subscriber has this account number. */
-  private async clientsByAccountNumber(accountNumber: string): Promise<User[]> {
-    if (!accountNumber) return [];
+  /**
+   * Active client logins whose subscriber matches this username or account
+   * number. Usernames and account numbers share one lookup: the subscriber
+   * form defaults the username to the account number, so either may be typed.
+   */
+  private async subscribersByLoginId(loginId: string): Promise<User[]> {
+    if (!loginId) return [];
     const rows = await this.userRepo
       .createQueryBuilder('u')
       .select('u.email', 'email')
@@ -114,7 +119,8 @@ export class AuthService {
         status: 'ACTIVE',
       })
       .innerJoin('customers', 'c', 'c.id = m."customerId"')
-      .where('LOWER(c.account_number) = LOWER(:accountNumber)', { accountNumber })
+      .where('LOWER(c.username) = LOWER(:loginId)', { loginId })
+      .orWhere('LOWER(c.account_number) = LOWER(:loginId)', { loginId })
       .getRawMany<{ email: string }>();
     const users = await Promise.all(rows.map((r) => this.usersService.findByEmail(r.email)));
     return users.filter((u): u is User => Boolean(u));

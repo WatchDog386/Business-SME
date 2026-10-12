@@ -117,7 +117,7 @@ export function CustomerDetailPage() {
       </div>
 
       {/* The client's own app login (admins only) */}
-      <ClientAppAccess customerId={customer.id} name={customer.name} email={customer.email} accountNumber={customer.account_number} />
+      <ClientAppAccess customerId={customer.id} name={customer.name} email={customer.email} username={customer.username} />
 
       {/* Purchase history — flat, professional */}
       <section className="space-y-2">
@@ -178,7 +178,14 @@ export function CustomerDetailPage() {
         title="Edit customer"
         description="Update this customer's details."
       >
-        {editOpen && <SubscriberForm customerId={customer.id} onDone={() => setEditOpen(false)} onCancel={() => setEditOpen(false)} />}
+        {editOpen && (
+          <SubscriberForm
+            customerId={customer.id}
+            onDone={() => setEditOpen(false)}
+            onCancel={() => setEditOpen(false)}
+            onRemoved={() => navigate('/subscribers', { replace: true })}
+          />
+        )}
       </Dialog>
     </div>
   );
