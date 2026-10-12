@@ -15,6 +15,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
 import { PageLoader } from '@/components/ui/spinner';
 import { cn, formatKES, formatDateTime } from '@/lib/utils';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { DesktopSalesPage } from './desktop-sales-page';
 
 const PAGE_SIZE = 20;
 
@@ -38,7 +40,13 @@ function shortKsh(amount: number): string {
   return amount.toLocaleString('en-KE');
 }
 
+/** Desktop gets its own table view; phones keep the card layout. Separate components so each keeps its own hooks. */
 export function SalesPage() {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? <DesktopSalesPage /> : <SalesMobilePage />;
+}
+
+function SalesMobilePage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [searchParams, setSearchParams] = useSearchParams();

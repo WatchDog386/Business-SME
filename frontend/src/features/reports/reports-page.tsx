@@ -26,6 +26,8 @@ import { PageLoader } from '@/components/ui/spinner';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
 import { cn, formatKES } from '@/lib/utils';
 import { barColor, barStripes } from '@/lib/chart-colors';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { DesktopReportsPage } from './desktop-reports-page';
 
 const TZ = 'Africa/Nairobi';
 const isoDay = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -90,7 +92,16 @@ const METHOD_STYLE: Record<string, { label: string; icon: typeof Wallet; tint: s
  * past day can be opened, shared on WhatsApp or downloaded as a PDF.
  */
 export function ReportsPage() {
+  const isDesktop = useIsDesktop();
+  const [searchParams] = useSearchParams();
+  // Desktop opens the period overview; ?view=daily (or phones) opens the daily report
+  if (isDesktop && searchParams.get('view') !== 'daily') return <DesktopReportsPage />;
+  return <DailyReportPage />;
+}
+
+function DailyReportPage() {
   const navigate = useNavigate();
+  const isDesktop = useIsDesktop();
   const today = nairobiDay();
   // ?date=YYYY-MM-DD opens that day (e.g. from the "Yesterday's report" notification)
   const [searchParams] = useSearchParams();
@@ -126,7 +137,7 @@ export function ReportsPage() {
       <header className="page-head flex items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate(isDesktop ? '/reports' : '/dashboard')}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90"
           aria-label="Back"
         >

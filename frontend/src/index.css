@@ -34,6 +34,13 @@
     --warning-soft: 254 243 199;   
     --info: 2 132 199;             
     --info-soft: 240 249 255;      
+
+    /* Desktop sidebar (navy, TrioPay-style) */
+    --nav-bg: 14 33 53;
+    --nav-text: 226 232 240;
+    --nav-muted: 138 154 174;
+    --nav-active: 77 163 255;
+    --nav-hover: 255 255 255;
   }
 
   html {
@@ -85,6 +92,8 @@
     --warning-soft: 53 38 9;
     --info: 96 165 250;
     --info-soft: 13 36 56;
+
+    --nav-bg: 11 22 38;
   }
 
   .dark body {
@@ -268,28 +277,32 @@
    * raised here too, since they would not scale with the root size.
    */
   @media (min-width: 1024px) {
+    :root {
+      /* Desktop: Inter, compact dashboard proportions (phones keep Figtree) */
+      --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
     html {
-      font-size: 17px;
+      font-size: 16px;
     }
     body {
       font-family: var(--font-sans);
-      font-size: 15px;
-      -webkit-font-smoothing: auto;
-      -moz-osx-font-smoothing: auto;
+      font-size: 14px;
+      letter-spacing: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    html:not(.dark) body {
+      background-color: #f7f8fa;
     }
     html .text-\[9px\],
     html .text-\[10px\] {
-      font-size: 12px;
+      font-size: 11px;
     }
     html .text-\[11px\] {
+      font-size: 12px;
+    }
+    html .text-\[12px\] {
       font-size: 13px;
-    }
-    html .text-\[12px\],
-    html .text-\[13px\] {
-      font-size: 14px;
-    }
-    html .text-\[15px\] {
-      font-size: 16px;
     }
   }
 

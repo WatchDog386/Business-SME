@@ -21,6 +21,8 @@ import { formatKES, formatDate } from '@/lib/utils';
 import { useRole } from '@/hooks/use-role';
 import { ExpenseForm } from './expense-form';
 import type { Expense, ExpenseStatus, UserRole } from '@/api/types';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { DesktopExpensesPage } from './desktop-expenses-page';
 
 const ROLE_LABEL: Record<UserRole, string> = {
   OWNER: 'Admin',
@@ -44,7 +46,13 @@ async function openReceipt(url: string) {
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 
+/** Desktop gets its own table view; phones keep the card layout. Separate components so each keeps its own hooks. */
 export function ExpensesPage() {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? <DesktopExpensesPage /> : <ExpensesMobilePage />;
+}
+
+function ExpensesMobilePage() {
   const queryClient = useQueryClient();
   const { canApprove, canManage, role } = useRole();
   const business = useActiveBusiness();

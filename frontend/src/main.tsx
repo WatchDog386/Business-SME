@@ -6,6 +6,7 @@ import { MotionConfig } from 'framer-motion';
 import App from './App';
 import { initTheme } from './lib/theme';
 import '@fontsource-variable/figtree';
+import '@fontsource-variable/inter';
 import './index.css';
 
 initTheme();

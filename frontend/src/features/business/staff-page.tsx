@@ -34,6 +34,8 @@ import { CHARCOAL, FiberHeroCard, LIME, ProfileHeader, RoundFilters, type RoundF
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
 import { cn, formatDate, timeAgo } from '@/lib/utils';
 import { useRole } from '@/hooks/use-role';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { DesktopStaffPage } from './desktop-staff-page';
 
 interface NewMember {
   email: string;
@@ -616,7 +618,13 @@ function AddMemberForm({
   );
 }
 
+/** Desktop gets its own table view; phones keep the card layout. Separate components so each keeps its own hooks. */
 export function StaffPage() {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? <DesktopStaffPage /> : <StaffMobilePage />;
+}
+
+function StaffMobilePage() {
   const active = useActiveBusiness();
   if (!active) return <Navigate to="/dashboard" replace />;
   return <StaffScreen businessId={active.id} businessName={active.name} />;

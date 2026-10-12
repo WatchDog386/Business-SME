@@ -63,7 +63,7 @@ export function UserMenu() {
   const avatar = (size: string) => (
     <span
       className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-brand-600 bg-brand-50 text-xs font-semibold text-brand-700',
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-foreground-3 text-[11px] font-semibold text-foreground-3',
         size,
       )}
     >
@@ -83,19 +83,19 @@ export function UserMenu() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-xl p-0.5 transition-colors hover:bg-surface-3"
+        className="flex items-center gap-1 rounded-full p-0.5 transition-colors hover:bg-surface-2"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
       >
-        {avatar('h-9 w-9')}
-        <ChevronDown className={cn('h-4 w-4 text-foreground-4 transition-transform', open && 'rotate-180')} aria-hidden />
+        {avatar('h-8 w-8')}
+        <ChevronDown className={cn('h-3.5 w-3.5 text-foreground-4 transition-transform', open && 'rotate-180')} aria-hidden />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-12 z-50 w-72 overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl animate-scale-in"
+          className="absolute right-0 top-11 z-50 w-72 overflow-hidden rounded-lg border border-edge bg-surface shadow-2xl animate-scale-in"
         >
           <div className="flex items-center gap-3 border-b border-edge p-4">
             {avatar('h-11 w-11')}
@@ -115,7 +115,7 @@ export function UserMenu() {
                 key={item.label}
                 role="menuitem"
                 onClick={item.onClick}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-foreground-2 hover:bg-surface-2"
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-foreground-2 hover:bg-surface-2"
               >
                 <item.icon className="h-4 w-4 text-foreground-4" aria-hidden />
                 {item.label}
@@ -125,7 +125,7 @@ export function UserMenu() {
               role="menuitemcheckbox"
               aria-checked={isDark}
               onClick={() => setTheme(isDark ? 'light' : 'dark')}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-foreground-2 hover:bg-surface-2"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-foreground-2 hover:bg-surface-2"
             >
               {isDark ? <Sun className="h-4 w-4 text-foreground-4" aria-hidden /> : <Moon className="h-4 w-4 text-foreground-4" aria-hidden />}
               {isDark ? 'Light mode' : 'Dark mode'}
@@ -137,7 +137,7 @@ export function UserMenu() {
                   setOpen(false);
                   void install();
                 }}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-foreground-2 hover:bg-surface-2"
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-foreground-2 hover:bg-surface-2"
               >
                 <Download className="h-4 w-4 text-foreground-4" aria-hidden />
                 Install Optimas app
@@ -152,7 +152,7 @@ export function UserMenu() {
                 logout();
                 navigate('/login');
               }}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-danger hover:bg-danger-soft"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-danger hover:bg-danger-soft"
             >
               <LogOut className="h-4 w-4" aria-hidden />
               Log out

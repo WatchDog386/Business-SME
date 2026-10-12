@@ -4,10 +4,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Minus, Trash2, Search, CheckCircle2, ShoppingCart, ChevronDown, Lock } from 'lucide-react';
+import { Plus, Minus, Trash2, Search, CheckCircle2, ShoppingCart, ChevronDown, Lock, PackagePlus, Wifi, Package } from 'lucide-react';
 import { customersApi, productsApi, servicesApi, salesApi } from '@/api/endpoints';
 import { Dialog } from '@/components/ui/dialog';
 import { PackageCard, planStyle } from '@/features/products/package-card';
+import { ProductForm, type ProductKind } from '@/features/products/product-form';
 import { PaymentCapture, type CapturedPayment, type PayMode } from './components/payment-capture';
 import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
@@ -18,7 +19,7 @@ import { Select } from '@/components/ui/select';
 import { Alert } from '@/components/ui/alert';
 import { PageLoader } from '@/components/ui/spinner';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
-import { formatKES, uuid } from '@/lib/utils';
+import { cn, formatKES, uuid } from '@/lib/utils';
 import { DEFAULT_PAYMENT_METHODS } from '@/lib/constants';
 import { useActiveBusiness } from '@/stores/business';
 import type { Customer } from '@/api/types';
@@ -61,6 +62,9 @@ export function RecordSalePage() {
   // All hooks must run on every render — never place them below an early return.
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [catalogSearch, setCatalogSearch] = useState('');
+  // Sell something already in the catalogue, or record a new product/package and sell it straight away
+  const [saleSource, setSaleSource] = useState<'existing' | 'new'>('existing');
+  const [newKind, setNewKind] = useState<ProductKind>('product');
   const [customerId, setCustomerId] = useState<string | null>(presetCustomer);
   // Client name typed at checkout: an existing client is matched by name, a new one is created
   const [clientName, setClientName] = useState('');
@@ -251,6 +255,15 @@ export function RecordSalePage() {
       .sort((x, y) => x.selling_price - y.selling_price);
   }, [productsQuery.data, catalogSearch]);
 
+  // Products that aren't WiFi packages (routers, cables…)
+  const goods = useMemo(() => {
+    const list = Array.isArray(productsQuery.data) ? productsQuery.data : (productsQuery.data?.items ?? []);
+    const query = catalogSearch.trim().toLowerCase();
+    return list
+      .filter((p) => !p.billing_days && p.active && (!query || p.name.toLowerCase().includes(query)))
+      .sort((x, y) => x.name.localeCompare(y.name));
+  }, [productsQuery.data, catalogSearch]);
+
   function addItem(item: {
     type: 'PRODUCT' | 'SERVICE';
     id: string;
@@ -354,6 +367,8 @@ export function RecordSalePage() {
     setPayMode('prompt');
     setShowDiscount(false);
     setPageStep(1);
+    setSaleSource('existing');
+    setCatalogSearch('');
     setSuccessSale(null);
     idempotencyKey.current = uuid();
     reset({
@@ -436,9 +451,86 @@ export function RecordSalePage() {
         }
       />
 
+      {/* Step 1: choose where the item comes from */}
+      {pageStep === 1 && (
+        <div className="grid grid-cols-2 gap-1 rounded-2xl bg-surface-3 p-1 lg:max-w-md lg:rounded-md">
+          {(
+            [
+              { id: 'existing', label: 'Existing product', icon: Package },
+              { id: 'new', label: 'New product or package', icon: PackagePlus },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setSaleSource(opt.id)}
+              aria-pressed={saleSource === opt.id}
+              className={cn(
+                'flex h-10 items-center justify-center gap-1.5 rounded-xl text-[13px] font-medium transition-colors lg:rounded',
+                saleSource === opt.id ? 'bg-surface text-foreground shadow-sm' : 'text-foreground-3 hover:text-foreground',
+              )}
+            >
+              <opt.icon className="h-4 w-4" aria-hidden />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* New item: record its details and selling price, then it goes straight into the cart.
+          Kept outside the sale form: forms can't be nested. */}
+      {pageStep === 1 && saleSource === 'new' && (
+        <section className="space-y-4 rounded-2xl border border-edge bg-surface p-4 lg:max-w-2xl lg:rounded-md lg:p-6">
+          <div>
+            <h2 className="text-[15px] font-medium text-foreground">Record a new item</h2>
+            <p className="mt-0.5 text-[12.5px] text-foreground-4">
+              It is saved to your catalogue and added to this sale, so next time it is under Existing product.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {(
+              [
+                { id: 'product', label: 'Product', icon: Package },
+                { id: 'package', label: 'WiFi package', icon: Wifi },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setNewKind(opt.id)}
+                aria-pressed={newKind === opt.id}
+                className={cn(
+                  'inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors lg:rounded-md',
+                  newKind === opt.id ? 'border-accent bg-accent-soft text-accent-text' : 'border-edge text-foreground-3 hover:bg-surface-2',
+                )}
+              >
+                <opt.icon className="h-4 w-4" aria-hidden />
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <ProductForm
+            key={newKind}
+            kind={newKind}
+            submitLabel="Save & add to sale"
+            onClose={() => setSaleSource('existing')}
+            onCreated={(product) => {
+              addItem({
+                type: 'PRODUCT',
+                id: product.id,
+                name: product.name,
+                unitPrice: product.selling_price,
+                stock: product.track_inventory ? product.stock_quantity : null,
+              });
+              setPageStep(2);
+            }}
+          />
+        </section>
+      )}
+
       <form id="record-sale-form" onSubmit={handleSubmit((values) => mutation.mutate(values))} noValidate>
 
-      <div className={pageStep === 1 ? 'space-y-6' : 'hidden'}>
+      <div className={pageStep === 1 && saleSource === 'existing' ? 'space-y-6' : 'hidden'}>
           {/* Catalog — search and select (Step 1) */}
           <section className="space-y-2">
             <div className="relative">
@@ -446,18 +538,23 @@ export function RecordSalePage() {
               <Input
                 value={catalogSearch}
                 onChange={(event) => setCatalogSearch(event.target.value)}
-                placeholder="Search packages…"
+                placeholder="Search products and packages…"
                 className="h-11 rounded-full pl-10"
               />
             </div>
 
             {productsQuery.isLoading ? (
               <PageLoader inline message="Loading" />
-            ) : packages.length === 0 ? (
+            ) : packages.length === 0 && goods.length === 0 ? (
               <div className="px-1 py-8 text-center">
-                <p className="text-[13px] text-foreground-4">No WiFi packages found. Try a different search or add packages in Products.</p>
+                <p className="text-[13px] text-foreground-4">Nothing found. Try a different search, or record it as a new product or package.</p>
+                <Button type="button" variant="outline" className="mt-3" onClick={() => setSaleSource('new')}>
+                  <PackagePlus className="h-4 w-4" aria-hidden />
+                  New product or package
+                </Button>
               </div>
             ) : (
+              <>
               <div className="grid grid-cols-2 gap-3 pt-1 lg:grid-cols-3">
                 {packages.map((pkg, i) => (
                   <PackageCard
@@ -471,6 +568,43 @@ export function RecordSalePage() {
                   />
                 ))}
               </div>
+              {goods.length > 0 && (
+                <div className="space-y-2 pt-3">
+                  <SectionHeading>Products</SectionHeading>
+                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                    {goods.map((p) => {
+                      const inCart = lineItems.find((l) => l.type === 'PRODUCT' && l.id === p.id)?.quantity ?? 0;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() =>
+                            addItem({
+                              type: 'PRODUCT',
+                              id: p.id,
+                              name: p.name,
+                              unitPrice: p.selling_price,
+                              stock: p.track_inventory ? p.stock_quantity : null,
+                            })
+                          }
+                          className={cn(
+                            'flex flex-col items-start rounded-2xl border bg-surface p-4 text-left transition-colors hover:bg-surface-2 lg:rounded-md',
+                            inCart ? 'border-accent' : 'border-edge',
+                          )}
+                        >
+                          <span className="line-clamp-2 text-[14px] font-medium text-foreground">{p.name}</span>
+                          <span className="mt-1 text-[13px] tabular-nums text-foreground-2">{formatKES(p.selling_price)}</span>
+                          <span className="mt-2 text-[11.5px] text-foreground-4">
+                            {p.track_inventory ? `${p.stock_quantity} in stock` : 'Not stock-tracked'}
+                            {inCart ? ` · ${inCart} in cart` : ''}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              </>
             )}
            </section>
             {lineItems.length > 0 && (

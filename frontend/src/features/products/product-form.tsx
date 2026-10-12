@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert } from '@/components/ui/alert';
+import type { Product } from '@/api/types';
 
 export type ProductKind = 'package' | 'product';
 
@@ -61,24 +62,34 @@ export function ProductForm({
   onClose,
   defaultValues,
   kind: kindProp = 'product',
+  onCreated,
+  submitLabel,
 }: {
   onClose: () => void;
   kind?: ProductKind;
   defaultValues?: Existing;
+  /** Called with the saved item, e.g. to put a just-created product straight into a sale. */
+  onCreated?: (product: Product) => void;
+  /** Replaces the default "Add product" / "Add package" button label. */
+  submitLabel?: string;
 }) {
   const kind: ProductKind = defaultValues ? (defaultValues.billing_days ? 'package' : 'product') : kindProp;
+  const extra = { onCreated, submitLabel };
   return kind === 'package' ? (
-    <PackageForm onClose={onClose} defaultValues={defaultValues} />
+    <PackageForm onClose={onClose} defaultValues={defaultValues} {...extra} />
   ) : (
-    <ItemForm onClose={onClose} defaultValues={defaultValues} />
+    <ItemForm onClose={onClose} defaultValues={defaultValues} {...extra} />
   );
 }
 
-function useSaved(onClose: () => void) {
+type FormExtras = { onCreated?: (product: Product) => void; submitLabel?: string };
+
+function useSaved(onClose: () => void, onCreated?: (product: Product) => void) {
   const queryClient = useQueryClient();
-  return async () => {
+  return async (product: Product) => {
     await queryClient.invalidateQueries({ queryKey: ['products'] });
     await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    onCreated?.(product);
     onClose();
   };
 }
@@ -145,8 +156,13 @@ function useAutoCode(
 
 /* ---------------- WiFi package ---------------- */
 
-function PackageForm({ onClose, defaultValues }: { onClose: () => void; defaultValues?: Existing }) {
-  const saved = useSaved(onClose);
+function PackageForm({
+  onClose,
+  defaultValues,
+  onCreated,
+  submitLabel,
+}: { onClose: () => void; defaultValues?: Existing } & FormExtras) {
+  const saved = useSaved(onClose, onCreated);
   // Packages go in "Internet Packages" automatically; there's no category to pick
   const categoriesQuery = useQuery({ queryKey: ['categories', 'PRODUCT'], queryFn: () => categoriesApi.list('PRODUCT') });
   const internetCategory = categoriesQuery.data?.find((c) => /internet packages?/i.test(c.name))?.id;
@@ -226,15 +242,20 @@ function PackageForm({ onClose, defaultValues }: { onClose: () => void; defaultV
           <Textarea id="pkg-description" rows={3} placeholder="e.g. Multiple devices, low latency" {...register('description')} />
         </div>
       </div>
-      <FormButtons onClose={onClose} pending={mutation.isPending} label={defaultValues ? 'Save changes' : 'Add package'} />
+      <FormButtons onClose={onClose} pending={mutation.isPending} label={submitLabel ?? (defaultValues ? 'Save changes' : 'Add package')} />
     </form>
   );
 }
 
 /* ---------------- Product (stock item) ---------------- */
 
-function ItemForm({ onClose, defaultValues }: { onClose: () => void; defaultValues?: Existing }) {
-  const saved = useSaved(onClose);
+function ItemForm({
+  onClose,
+  defaultValues,
+  onCreated,
+  submitLabel,
+}: { onClose: () => void; defaultValues?: Existing } & FormExtras) {
+  const saved = useSaved(onClose, onCreated);
   const isEdit = Boolean(defaultValues);
   const categoriesQuery = useQuery({ queryKey: ['categories', 'PRODUCT'], queryFn: () => categoriesApi.list('PRODUCT') });
 
@@ -339,7 +360,7 @@ function ItemForm({ onClose, defaultValues }: { onClose: () => void; defaultValu
           <Textarea id="product-description" rows={3} placeholder="Anything worth knowing about this product" {...register('description')} />
         </div>
       </div>
-      <FormButtons onClose={onClose} pending={mutation.isPending} label={isEdit ? 'Save changes' : 'Add product'} />
+      <FormButtons onClose={onClose} pending={mutation.isPending} label={submitLabel ?? (isEdit ? 'Save changes' : 'Add product')} />
     </form>
   );
 }

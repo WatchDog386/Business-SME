@@ -171,6 +171,7 @@ export const productsApi = {
     trackInventory?: boolean;
     billingDays?: number | null;
     speedMbps?: number | null;
+    description?: string | null;
   }) => api<Product>({ method: 'POST', url: '/products', data }),
   update: (
     id: string,
@@ -185,6 +186,7 @@ export const productsApi = {
       active: boolean;
       billingDays: number | null;
       speedMbps: number | null;
+      description: string | null;
     }>,
   ) => api<Product>({ method: 'PATCH', url: `/products/${id}`, data }),
   remove: (id: string) =>

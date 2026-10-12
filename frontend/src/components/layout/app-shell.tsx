@@ -89,8 +89,8 @@ export function AppShell() {
             // Bottom room so the last item scrolls clear of the floating nav bar
             // overflow-x-clip: pages slide in from the side; without it the page is briefly
             // wider than the screen and the fixed footer bar shifts with it
-            'min-w-0 flex-1 overflow-x-clip px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] lg:px-8 lg:pb-10',
-            isDashboard ? 'pt-2 lg:pt-8' : 'pt-6 lg:py-8',
+            'min-w-0 flex-1 overflow-x-clip px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] lg:px-6 lg:pb-10',
+            isDashboard ? 'pt-2 lg:pt-6' : 'pt-6 lg:pt-6',
           )}
         >
           <div className="mx-auto w-full max-w-6xl lg:max-w-none">

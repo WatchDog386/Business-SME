@@ -14,8 +14,16 @@ import { PageLoader } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
 import { apiErrorMessage } from '@/api/client';
 import { cn, formatKES } from '@/lib/utils';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { DesktopAccountPage } from './desktop-account-page';
 
+/** Desktop gets the daily books with a balances panel; phones keep the summary tiles. */
 export function AccountPage() {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? <DesktopAccountPage /> : <AccountMobilePage />;
+}
+
+function AccountMobilePage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard'],
     queryFn: dashboardApi.get,

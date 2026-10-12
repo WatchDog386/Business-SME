@@ -69,6 +69,14 @@ export default {
         'info-soft': 'rgb(var(--info-soft) / <alpha-value>)',
         'info-border': 'rgb(var(--info-border) / <alpha-value>)',
         'info-text': 'rgb(var(--info-text) / <alpha-value>)',
+        // Desktop navy sidebar
+        nav: {
+          bg: 'rgb(var(--nav-bg) / <alpha-value>)',
+          text: 'rgb(var(--nav-text) / <alpha-value>)',
+          muted: 'rgb(var(--nav-muted) / <alpha-value>)',
+          active: 'rgb(var(--nav-active) / <alpha-value>)',
+          hover: 'rgb(var(--nav-hover) / <alpha-value>)',
+        },
         // Static "Shevify" brand accents used for gradients & highlights.
         shevify: {
           red: '#eb4537',

@@ -16,6 +16,8 @@ import { Card } from '@/components/ui/card';
 import { formatKES } from '@/lib/utils';
 import { ServiceForm } from './service-form';
 import type { Service } from '@/api/types';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { DesktopServicesPage } from './desktop-services-page';
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -120,7 +122,13 @@ function ServiceRow({
   );
 }
 
+/** Desktop gets its own table view; phones keep the card layout. Separate components so each keeps its own hooks. */
 export function ServicesPage() {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? <DesktopServicesPage /> : <ServicesMobilePage />;
+}
+
+function ServicesMobilePage() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState('');

@@ -23,10 +23,10 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  default: 'h-11 px-5 text-sm',
-  sm: 'h-9 px-3.5 text-sm',
-  lg: 'h-[52px] px-6 text-sm',
-  icon: 'h-11 w-11',
+  default: 'h-11 px-5 text-sm lg:h-9 lg:px-4 lg:text-[13px]',
+  sm: 'h-9 px-3.5 text-sm lg:h-8 lg:px-3 lg:text-[13px]',
+  lg: 'h-[52px] px-6 text-sm lg:h-10',
+  icon: 'h-11 w-11 lg:h-9 lg:w-9',
 };
 
 export interface ButtonProps
@@ -44,7 +44,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100',
+        'inline-flex items-center justify-center gap-2 rounded-full font-medium lg:rounded-md transition-all duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100',
         variantClasses[variant],
         sizeClasses[size],
         className,

@@ -18,6 +18,8 @@ import { SubscriberForm } from './subscriber-form';
 import { SubscriberRegister } from './subscriber-register';
 import { ContactButtons, LogCallSheet } from './contact';
 import { StatusPill, daysText } from './subscription';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { DesktopSubscribersPage } from './desktop-subscribers-page';
 
 type Filter = SubscriptionStatus | 'ALL';
 
@@ -47,7 +49,13 @@ function initials(name: string) {
 }
 
 /** Every client's WiFi package, soonest expiry first. Same layout as the Clients page; renew from the client's page. */
+/** Desktop gets its own table view; phones keep the card layout. Separate components so each keeps its own hooks. */
 export function SubscribersPage() {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? <DesktopSubscribersPage /> : <SubscribersMobilePage />;
+}
+
+function SubscribersMobilePage() {
   const navigate = useNavigate();
   const business = useActiveBusiness();
   const { role } = useRole();

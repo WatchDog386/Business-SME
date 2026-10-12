@@ -16,6 +16,8 @@ import { useActiveBusiness } from '@/stores/business';
 import { useRole } from '@/hooks/use-role';
 import { CHARCOAL, FiberHeroCard, LIME, ProfileHeader, RoundFilters } from '@/components/brand/fiber-card';
 import { CustomerForm } from './customer-form';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { DesktopCustomersPage } from './desktop-customers-page';
 
 const PAGE_SIZE = 20;
 
@@ -57,7 +59,13 @@ function initials(name: string) {
     .slice(0, 2);
 }
 
+/** Desktop gets its own table view; phones keep the card layout. Separate components so each keeps its own hooks. */
 export function CustomersPage() {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? <DesktopCustomersPage /> : <CustomersMobilePage />;
+}
+
+function CustomersMobilePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const business = useActiveBusiness();
