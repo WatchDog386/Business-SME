@@ -22,3 +22,6 @@ error.txt
 output.txt
 frontend/null
 python-ai-assistant/__pycache__/
+
+# Built Android apps
+*.apk
