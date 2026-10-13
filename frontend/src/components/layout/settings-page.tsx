@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button';
 import { useActiveBusiness } from '@/stores/business';
 import { useAuthStore } from '@/stores/auth';
 import { TwoFactorSetting } from './two-factor-setting';
-import { AppBarButton } from './app-bar';
 import { BubbleTile, ProfileRing, profileCompletion } from './profile-visuals';
 
 interface Item {
@@ -82,25 +81,30 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
 
   return createPortal(
     <div className="fixed inset-0 z-[70] overflow-y-auto bg-surface-2 scrollbar-none animate-fade-in">
-      {/* Header: back on the left, title centred, close on the right (where the theme switch used to be) */}
-      <header className="sticky top-0 z-10 bg-surface-2 pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex h-14 max-w-md items-center px-2">
-          <AppBarButton onClick={close} aria-label="Back">
-            <ChevronLeft className="h-5 w-5" />
-          </AppBarButton>
-          <h1 className="flex-1 text-center text-[17px] font-semibold tracking-tight text-foreground">Settings</h1>
+      {/* Header: the same floating dark card with the same shadow as the dashboard header */}
+      <header className="sticky top-0 z-10 bg-surface-2 px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
+        <div className="mx-auto flex h-14 max-w-md items-center justify-between rounded-3xl bg-[#1F1F22] px-2 text-white shadow-[0_10px_24px_-10px_rgba(15,23,42,0.45)]">
           <button
             type="button"
             onClick={close}
-            className="flex h-11 w-11 items-center justify-center text-foreground transition-transform active:scale-90"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 pl-1.5 text-white transition-transform active:scale-90"
+            aria-label="Back"
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden />
+          </button>
+          <h1 className="flex-1 text-center text-[17px] font-semibold tracking-tight">Settings</h1>
+          <button
+            type="button"
+            onClick={close}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white transition-transform active:scale-90"
             aria-label="Close"
           >
-            <X className="h-6 w-6" aria-hidden />
+            <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
       </header>
 
-      <div className="mx-auto max-w-md px-4 pb-10 pt-8">
+      <div className="mx-auto max-w-md px-4 pb-10 pt-6">
         {/* Identity, centred: ring avatar with profile completion */}
         <section className="flex flex-col items-center text-center">
           <ProfileRing
