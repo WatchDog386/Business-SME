@@ -77,11 +77,14 @@ export function Chips<T extends string>({
   value,
   onChange,
   className,
+  outline = false,
 }: {
   items: ChipItem<T>[];
   value: T;
   onChange: (id: T) => void;
   className?: string;
+  /** Outlined pills, the same style as the dashboard's Manage button. */
+  outline?: boolean;
 }) {
   return (
     <div className={cn('-mx-4 flex gap-2.5 overflow-x-auto px-4 scrollbar-none lg:mx-0 lg:px-0', className)}>
@@ -94,8 +97,16 @@ export function Chips<T extends string>({
             onClick={() => onChange(item.id)}
             aria-pressed={active}
             className={cn(
-              'flex h-10 shrink-0 items-center gap-1.5 rounded-full px-5 text-[13px] font-medium transition-colors active:scale-[0.97]',
-              active ? 'bg-brand-600 text-white [.dark_&]:bg-brand-500' : 'bg-surface-3 text-foreground-2',
+              'flex shrink-0 items-center gap-1.5 transition-colors active:scale-[0.97]',
+              outline
+                ? cn(
+                    'h-9 rounded-full border-2 px-5 text-[15px] font-semibold text-brand-600 [.dark_&]:text-brand-400',
+                    active ? 'border-brand-600 [.dark_&]:border-brand-400' : 'border-edge-2',
+                  )
+                : cn(
+                    'h-10 rounded-full px-5 text-[13px] font-medium',
+                    active ? 'bg-brand-600 text-white [.dark_&]:bg-brand-500' : 'bg-surface-3 text-foreground-2',
+                  ),
             )}
           >
             {item.icon && <item.icon className="h-4 w-4" />}

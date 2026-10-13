@@ -118,15 +118,18 @@
       margin-left: -1rem;
       margin-right: -1rem;
       padding: calc(env(safe-area-inset-top) + 0.5rem) 1rem 0.5rem !important;
-      /* Same as the page, so it's seamless until content scrolls under it */
-      background: #ffffff;
-      transition: box-shadow 0.2s ease;
+      /* Transparent at rest so the page colour runs all the way up to the top edge, like the login page */
+      background: transparent;
+      transition: box-shadow 0.2s ease, background-color 0.2s ease;
     }
     html.page-scrolled .page-head {
       box-shadow: 0 8px 16px -14px rgba(15, 23, 42, 0.35);
+      background: rgba(255, 255, 255, 0.92);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
     }
-    .dark .page-head {
-      background: #121212;
+    html.dark.page-scrolled .page-head {
+      background: rgba(18, 18, 18, 0.92);
     }
   }
 

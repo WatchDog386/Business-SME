@@ -1,5 +1,7 @@
+import { useId } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { CARD_THEMES, CardPatternLayer } from '@/components/brand/fiber-card';
 import { motion } from 'framer-motion';
 import { RefreshCw, Wifi } from 'lucide-react';
 import { callsApi, subscriptionsApi } from '@/api/endpoints';
@@ -28,6 +30,7 @@ export function daysText(daysLeft: number): string {
 /** A client's WiFi package with status and a one-tap renew. */
 export function SubscriptionCard({ customerId }: { customerId: string }) {
   const navigate = useNavigate();
+  const uid = useId().replace(/:/g, '');
   const { data: sub, isLoading } = useQuery({
     queryKey: ['subscription', customerId],
     queryFn: () => subscriptionsApi.forCustomer(customerId),
@@ -60,20 +63,18 @@ export function SubscriptionCard({ customerId }: { customerId: string }) {
   const pct = Math.max(0, Math.min(100, (sub.daysLeft / 30) * 100));
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1E1E1E] to-[#2DA043] p-5 text-white">
-      <span className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/10" aria-hidden />
+    <section className="relative overflow-hidden rounded-[22px] bg-[linear-gradient(135deg,#136B47_0%,#0B4A33_55%,#063524_100%)] p-5 text-white shadow-[0_18px_40px_-18px_rgba(0,0,0,0.6)]">
+      <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice" aria-hidden>
+        <CardPatternLayer theme={CARD_THEMES.network} w={400} h={260} uid={uid} />
+      </svg>
       <div className="relative flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
-            <Wifi className="h-5 w-5" aria-hidden />
-          </span>
-          <div>
-            <p className="text-[16px] font-semibold leading-tight">{sub.packageName}</p>
-            <p className="text-[12px] text-white/70">
-              {sub.speedMbps ? `${sub.speedMbps} Mbps · ` : ''}
-              {formatKES(sub.price)}/month
-            </p>
-          </div>
+        <div className="min-w-0">
+          <p className="text-[12px] text-white/70">WiFi package</p>
+          <p className="mt-0.5 truncate text-[18px] font-semibold leading-tight">{sub.packageName}</p>
+          <p className="mt-1 text-[13px] text-white/75">
+            {sub.speedMbps ? `${sub.speedMbps} Mbps · ` : ''}
+            {formatKES(sub.price)}/month
+          </p>
         </div>
         <StatusPill status={sub.status} />
       </div>
@@ -83,7 +84,7 @@ export function SubscriptionCard({ customerId }: { customerId: string }) {
           <span className="font-semibold">{daysText(sub.daysLeft)}</span>
           <span className="text-white/70">{sub.status === 'EXPIRED' ? 'Ended' : 'Until'} {formatDate(sub.expiresAt)}</span>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/15">
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15">
           <motion.div
             className={cn('h-full rounded-full', style.bar)}
             initial={{ width: 0 }}
@@ -93,14 +94,23 @@ export function SubscriptionCard({ customerId }: { customerId: string }) {
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => navigate(`/sales/new?customer=${customerId}&product=${sub.productId}`)}
-        className="relative mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white text-[14px] font-semibold text-[#1E1E1E] active:scale-[0.98]"
-      >
-        <RefreshCw className="h-4 w-4" aria-hidden />
-        Renew {sub.packageName}
-      </button>
+      <div className="relative mt-5 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => navigate(`/sales/new?customer=${customerId}&product=${sub.productId}`)}
+          className="flex h-12 items-center justify-center gap-2 rounded-xl border border-white/35 bg-white/10 text-[14px] font-medium text-white backdrop-blur-sm active:scale-[0.98]"
+        >
+          <RefreshCw className="h-4 w-4" aria-hidden />
+          Renew
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(`/sales?customer=${customerId}`)}
+          className="flex h-12 items-center justify-center rounded-xl border border-white/35 bg-white/10 text-[14px] font-medium text-white backdrop-blur-sm active:scale-[0.98]"
+        >
+          Sales
+        </button>
+      </div>
     </section>
   );
 }

@@ -91,7 +91,7 @@ export const CARD_THEMES = {
 } satisfies Record<string, CardTheme>;
 
 /** Pattern layer, clipped to the card. Each one hints at what the card measures. */
-function CardPatternLayer({ theme, w, h, uid }: { theme: CardTheme; w: number; h: number; uid: string }) {
+export function CardPatternLayer({ theme, w, h, uid }: { theme: CardTheme; w: number; h: number; uid: string }) {
   const glow = theme.glow;
   const blur = `url(#${uid}-glow)`;
   switch (theme.pattern) {

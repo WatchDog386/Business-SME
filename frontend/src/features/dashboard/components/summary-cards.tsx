@@ -142,9 +142,9 @@ export function SummaryCards({ data }: { data: DashboardData }) {
                 <span className="flex items-center gap-2.5">
                   {masked(
                     slide.headline ?? (
-                      <span className={slide.key === 'sales' ? 'relative top-1 text-[26px] font-normal text-black' : 'text-[26px]'}>
-                        <span className={slide.key === 'sales' ? 'mr-1' : 'mr-1 text-[15px] font-medium opacity-70'}>{slide.key === 'sales' ? 'KES' : 'Ksh'}</span>
-                        {slide.key === 'sales' ? formatAmount(slide.amount, 2) : formatAmount(slide.amount)}
+                      <span className="relative top-1 text-[26px] font-normal text-black">
+                        <span className="mr-1">KES</span>
+                        {formatAmount(slide.amount, 2)}
                       </span>
                     ),
                   )}

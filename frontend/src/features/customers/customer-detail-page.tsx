@@ -44,7 +44,7 @@ export function CustomerDetailPage() {
 
   if (customerQuery.error || !customerQuery.data) {
     return (
-      <Alert variant="error" title="Customer not found">
+      <Alert variant="error" title="Subscriber not found">
         {apiErrorMessage(customerQuery.error)}
       </Alert>
     );
@@ -55,15 +55,11 @@ export function CustomerDetailPage() {
   return (
     <div className="space-y-4 pb-10">
       <AppBar
-        title="Customer"
+        title="Subscriber"
         onBack={() => navigate(-1)}
         right={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="rounded-full" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-3.5 w-3.5" />
-              Edit
-            </Button>
-            <Button size="sm" className="rounded-full bg-accent text-white hover:bg-accent-strong" onClick={() => navigate(`/sales/new?customer=${customer.id}`)}>
+          <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
+            <Button className="h-9 rounded-full bg-accent px-4 text-white hover:bg-accent-strong" onClick={() => navigate(`/sales/new?customer=${customer.id}`)}>
               <Plus className="h-3.5 w-3.5" />
               Record sale
             </Button>
@@ -97,6 +93,10 @@ export function CustomerDetailPage() {
               )}
             </div>
           </div>
+          <Button variant="outline" className="ml-auto h-9 shrink-0 rounded-full px-4" onClick={() => setEditOpen(true)}>
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </Button>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 px-1">
           <Stat label="Total spent" value={formatKES(customer.total_spent)} />
@@ -132,7 +132,7 @@ export function CustomerDetailPage() {
           <div className="px-1 py-8 text-center">
             <ShoppingCart className="mx-auto h-8 w-8 text-foreground-5" aria-hidden />
             <p className="mt-2 text-sm font-medium text-foreground">No purchases yet</p>
-            <p className="mt-1 text-xs text-foreground-4">This customer hasn't bought anything yet.</p>
+            <p className="mt-1 text-xs text-foreground-4">This subscriber hasn't bought anything yet.</p>
             <Button size="sm" className="mt-4 rounded-full bg-accent text-white" onClick={() => navigate(`/sales/new?customer=${customer.id}`)}>
               Record a sale
             </Button>
@@ -175,8 +175,8 @@ export function CustomerDetailPage() {
       <Dialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        title="Edit customer"
-        description="Update this customer's details."
+        title="Edit subscriber"
+        description="Update this subscriber's details."
       >
         {editOpen && (
           <SubscriberForm

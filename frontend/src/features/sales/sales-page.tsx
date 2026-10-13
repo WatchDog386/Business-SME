@@ -20,10 +20,6 @@ import { DesktopSalesPage } from './desktop-sales-page';
 
 const PAGE_SIZE = 20;
 
-// Same look as the Products page header section
-const LIME = '#B8F28B';
-const TILE = 'bg-[#F2F2F4] [.dark_&]:bg-[#1E1E1E]';
-
 function initialsOf(name: string): string {
   return name
     .split(/\s+/)
@@ -118,6 +114,7 @@ function SalesMobilePage() {
       </header>
 
       <Chips
+        outline
         items={statusTabs}
         value={statusFilter}
         onChange={(id) => {
@@ -155,13 +152,28 @@ function SalesMobilePage() {
       {/* Three equal tiles, like Products */}
       <div className="grid grid-cols-3 gap-2">
         {[
-          { label: 'Today', value: dashboard.data ? shortKsh(dashboard.data.today.sales) : '—' },
-          { label: 'Sales', value: data ? String(data.total) : '—' },
-          { label: 'Owed', value: dashboard.data ? shortKsh(dashboard.data.outstandingDebts) : '—' },
+          {
+            label: 'Today',
+            value: dashboard.data ? shortKsh(dashboard.data.today.sales) : '—',
+            bg: 'bg-emerald-50 [.dark_&]:bg-surface',
+            text: 'text-emerald-700 [.dark_&]:text-emerald-400',
+          },
+          {
+            label: 'Sales',
+            value: data ? String(data.total) : '—',
+            bg: 'bg-blue-50 [.dark_&]:bg-surface',
+            text: 'text-blue-700 [.dark_&]:text-blue-400',
+          },
+          {
+            label: 'Owed',
+            value: dashboard.data ? shortKsh(dashboard.data.outstandingDebts) : '—',
+            bg: 'bg-red-50 [.dark_&]:bg-surface',
+            text: 'text-red-700 [.dark_&]:text-red-400',
+          },
         ].map((tile) => (
-          <div key={tile.label} className={cn('flex h-[68px] flex-col items-center justify-center rounded-[22px] px-2', TILE)}>
-            <span className="text-[11px] leading-4 text-foreground-4">{tile.label}</span>
-            <span className="mt-1 h-5 text-[14px] leading-5 tabular-nums">{tile.value}</span>
+          <div key={tile.label} className={cn('flex h-[68px] flex-col items-center justify-center rounded-[22px] px-2', tile.bg)}>
+            <span className={cn('text-[11px] font-medium leading-4', tile.text)}>{tile.label}</span>
+            <span className={cn('mt-1 h-5 text-[14px] font-semibold leading-5 tabular-nums', tile.text)}>{tile.value}</span>
           </div>
         ))}
       </div>
@@ -170,8 +182,7 @@ function SalesMobilePage() {
         type="button"
         onClick={() => navigate('/sales/new')}
         whileTap={{ scale: 0.98 }}
-        className="flex h-[60px] w-full items-center justify-center rounded-[22px] text-[16px] font-medium text-black"
-        style={{ backgroundColor: LIME }}
+        className="flex h-11 w-full items-center justify-center rounded-full border-2 border-edge-2 text-[15px] font-semibold text-brand-600 [.dark_&]:text-brand-400"
       >
         Record sale
       </motion.button>
