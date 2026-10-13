@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
+  Bell,
   CheckCircle2,
   Download,
   Loader2,
@@ -18,7 +19,6 @@ import {
   DuoProducts,
   DuoReports,
   DuoSales,
-  DuoSearch,
 } from '@/components/brand/duo-icons';
 import { QuickActions, type QuickAction } from '@/features/dashboard/components/quick-actions';
 import { PackageCard, planStyle } from '@/features/products/package-card';
@@ -83,7 +83,7 @@ function Panel({ className, children }: { className?: string; children: React.Re
   return (
     <section
       className={cn(
-        'rounded-[26px] border border-white/15 bg-black/30 shadow-[0_10px_24px_-10px_rgba(0,0,0,0.6)] backdrop-blur-[2px]',
+        'rounded-lg border border-white/15 bg-black/55 shadow-[0_10px_24px_-10px_rgba(0,0,0,0.6)] backdrop-blur-md',
         className,
       )}
     >
@@ -198,8 +198,8 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
 
       <div ref={topRef} />
 
-      {/* Top bar: avatar, centred greeting, then the account button */}
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 bg-black/45 px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
+      {/* Top bar: avatar, centred greeting, then notifications and the account button */}
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-4 bg-black/45 py-3 pl-5 pr-9 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
         <GlossyBall className="h-12 w-12 shrink-0">
           <span className="-skew-x-12 text-[20px] font-black leading-none [text-shadow:0_2px_3px_rgba(0,0,0,0.45)]">
             {initials(data.customer.name).slice(0, 1)}
@@ -208,6 +208,14 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
         <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-white">
           Hello {firstName} 👋
         </h1>
+        <button
+          type="button"
+          onClick={() => jump(paymentsRef)}
+          className="relative shrink-0 text-white transition-transform active:scale-90"
+          aria-label="Notifications and receipts"
+        >
+          <Bell className="h-6 w-6" strokeWidth={1.9} aria-hidden />
+        </button>
         <button
           type="button"
           onClick={() => navigate('/my-account')}
@@ -219,18 +227,15 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
       </header>
 
       <div className="px-4 pt-3">
-        {/* Search, styled like the admin dashboard's search bar; filters the packages */}
-        <label className="flex w-full items-center gap-2.5 rounded-full border border-transparent bg-white/90 px-4 py-3 shadow-[0_6px_18px_-6px_rgba(15,23,42,0.35)]">
-          <DuoSearch className="h-5 w-5 shrink-0 text-brand-600" aria-hidden />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search packages…"
-            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:font-medium placeholder:text-slate-500"
-            autoComplete="off"
-            aria-label="Search packages"
-          />
-        </label>
+        {/* Search, filtered against the packages below */}
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search packages…"
+          className="w-full rounded-full border border-white/15 bg-black/40 px-4 py-3 text-sm font-medium text-white outline-none placeholder:font-medium placeholder:text-white/60"
+          autoComplete="off"
+          aria-label="Search packages"
+        />
 
         {/* Hero: a single card for the subscribed package, in the reference's card style */}
         {current ? (
@@ -258,11 +263,13 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
                 {data.customer.name}
               </p>
 
-              <p className="mt-3 text-[22px] font-semibold leading-tight">
-                {current.name.replace(/\s*\d+\s*mbps\s*$/i, '')}
-              </p>
-              <p className="text-[15px] font-medium text-white/85">
-                {current.speedMbps ? `${current.speedMbps} Mbps` : 'Unlimited internet'}
+              <p className="mt-3 flex items-baseline justify-between gap-3">
+                <span className="min-w-0 truncate text-[22px] font-semibold leading-tight">
+                  {current.name.replace(/\s*\d+\s*mbps\s*$/i, '')}
+                </span>
+                <span className="shrink-0 text-[15px] font-medium text-white/85">
+                  {current.speedMbps ? `${current.speedMbps} Mbps` : 'Unlimited'}
+                </span>
               </p>
 
               <div className="mt-3 grid grid-cols-2 gap-3">
