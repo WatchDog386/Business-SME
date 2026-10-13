@@ -4,9 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   Copy,
   Download,
   Loader2,
+  MessageCircle,
+  Phone,
   Receipt,
   RefreshCw,
   Smartphone,
@@ -126,6 +129,7 @@ export function ClientDashboard() {
   const [payFor, setPayFor] = useState<Pkg | null>(null);
   const [tab, setTab] = useState<'packages' | 'payments'>('packages');
   const [query, setQuery] = useState('');
+  const [helpOpen, setHelpOpen] = useState(false);
   const { data, isLoading, error } = useQuery({ queryKey: ['client-me'], queryFn: clientApi.me });
   const topRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -459,24 +463,50 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
                 </ul>
               )}
             </Panel>
-
-            {/* Help */}
-            {data.business.phone && (
-              <Panel className="mt-4 p-4">
-                <p className="text-[15px] font-semibold text-white">Need help with your WiFi?</p>
-                <p className="mt-0.5 text-[12px] text-white/75">Call or message {data.business.name}.</p>
-                <div className="mt-3 grid grid-cols-2 gap-2.5">
-                  <PillButton onClick={() => window.location.assign(`tel:${data.business.phone}`)}>Call</PillButton>
-                  <PillButton onClick={() => window.open(`https://wa.me/${phoneDigits}`, '_blank')}>
-                    <WhatsAppIcon className="h-4 w-4" aria-hidden />
-                    WhatsApp
-                  </PillButton>
-                </div>
-              </Panel>
-            )}
           </div>
         )}
       </div>
+
+      {/* Need help bar: always on the page, below Packages and Payments */}
+      {data.business.phone && (
+        <div className="px-4 pt-4">
+          <Panel className="p-3.5">
+            <button
+              type="button"
+              onClick={() => setHelpOpen((v) => !v)}
+              aria-expanded={helpOpen}
+              className="flex w-full items-center gap-3 text-left"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white">
+                <MessageCircle className="h-5 w-5" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-semibold text-white">Need help?</span>
+                <span className="block text-[12px] text-white/75">
+                  Our support team at {data.business.name} is here for you.
+                </span>
+              </span>
+              <ChevronDown
+                className={cn('h-5 w-5 shrink-0 text-white/70 transition-transform', helpOpen && 'rotate-180')}
+                aria-hidden
+              />
+            </button>
+
+            {helpOpen && (
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                <PillButton onClick={() => window.location.assign(`tel:${data.business.phone}`)}>
+                  <Phone className="h-4 w-4" aria-hidden />
+                  Call us
+                </PillButton>
+                <PillButton onClick={() => window.open(`https://wa.me/${phoneDigits}`, '_blank')}>
+                  <WhatsAppIcon className="h-4 w-4" aria-hidden />
+                  WhatsApp
+                </PillButton>
+              </div>
+            )}
+          </Panel>
+        </div>
+      )}
 
 
 
