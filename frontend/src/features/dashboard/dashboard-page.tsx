@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect } from 'react';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -9,15 +8,12 @@ import { Alert } from '@/components/ui/alert';
 import { apiErrorMessage } from '@/api/client';
 import { DashboardHeader } from './components/dashboard-header';
 import { SummaryCards } from './components/summary-cards';
-import { SalesChart } from './components/sales-chart';
 import { QuickActions } from './components/quick-actions';
 import { Alerts } from './components/alerts';
 import { RecentTransactions } from './components/recent-transactions';
 import { IspOverview } from './components/isp-overview';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { DesktopDashboard } from './desktop-dashboard';
-import { ScanSaleDialog } from './components/scan-sale-dialog';
-import { DuoScan } from '@/components/brand/duo-icons';
 import { useRole } from '@/hooks/use-role';
 import { EmployeeDashboard } from './employee-dashboard';
 import { ClientDashboard } from '@/features/client/client-dashboard';
@@ -40,7 +36,6 @@ function AdminDashboard() {
     queryFn: dashboardApi.get,
   });
   const isDesktop = useIsDesktop();
-  const [scanOpen, setScanOpen] = useState(false);
 
   // Phone dashboard sits on pure white (light theme); other pages keep the soft grey
   useEffect(() => {
@@ -88,9 +83,6 @@ function AdminDashboard() {
       <motion.div {...rise(3)}>
         <Alerts data={data} />
       </motion.div>
-      <motion.div {...rise(4)}>
-        <SalesChart series={data.salesSeries} weekRevenue={data.weekRevenue} />
-      </motion.div>
       <motion.div {...rise(5)}>
         <RecentTransactions transactions={data.recentTransactions} />
       </motion.div>
@@ -99,27 +91,6 @@ function AdminDashboard() {
         <p className="text-[11px]">© {new Date().getFullYear()} Optimas Technologies Ltd.</p>
       </motion.div>
 
-      {/* Floating "Scan to sell" pill above the footer bar, like Safaricom's "Scan to pay":
-          scan an M-Pesa message or receipt to record the sale. On <body> so the
-          sliding page animation can't move it. */}
-      {createPortal(
-      <motion.button
-        type="button"
-        onClick={() => setScanOpen(true)}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        whileTap={{ scale: 0.96 }}
-        className="fixed right-4 z-30 flex h-14 items-center gap-3 rounded-2xl bg-[#2F2F33] pl-4 pr-5 text-white shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
-        style={{ bottom: 'calc(1.25rem + 64px + 14px + env(safe-area-inset-bottom))' }}
-        aria-label="Scan to record a sale"
-      >
-        <DuoScan className="h-7 w-7 text-brand-400" />
-        <span className="text-[17px] font-medium tracking-wide">Scan to sell</span>
-      </motion.button>,
-        document.body,
-      )}
-      <ScanSaleDialog open={scanOpen} onOpenChange={setScanOpen} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useActiveBusiness } from '@/stores/business';
+import { requestLogout } from './session-timeout';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { useRole } from '@/hooks/use-role';
 import { useTheme } from '@/lib/theme';
@@ -24,7 +25,6 @@ import { cn } from '@/lib/utils';
  */
 export function UserMenu() {
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
   const business = useActiveBusiness();
   const { role } = useRole();
   const { canInstall, install } = useInstallPrompt();
@@ -149,8 +149,7 @@ export function UserMenu() {
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                logout();
-                navigate('/login');
+                requestLogout();
               }}
               className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-danger hover:bg-danger-soft"
             >

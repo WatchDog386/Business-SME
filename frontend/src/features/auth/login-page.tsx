@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
-import { Lock, Mail, User } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
 import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
@@ -117,16 +117,17 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Welcome back"
-      desktopTitle="Welcome Back!"
-      desktopSubtitle=""
+      title="Welcome back!"
       mobileTitle="Welcome back!"
       hideLabelsOnMobile
       hideMobileFooter
+      hideFooterLinks
+      forceMobileLayout
+      centerTitle
       subtitle="Sign in with your Optimas staff account."
     >
       <form
-        className="flex flex-col gap-4 lg:gap-6"
+        className="flex flex-col gap-4"
         onSubmit={handleSubmit((values) => mutation.mutate(values))}
         noValidate
       >
@@ -145,8 +146,7 @@ export function LoginPage() {
               className="h-12 pl-12 pr-5 text-sm rounded-full"
               {...register('identifier')}
             />
-            <Mail className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 lg:hidden" aria-hidden />
-            <User className="pointer-events-none absolute left-5 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-neutral-600 lg:block" aria-hidden />
+            <Mail className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
           </div>
           {errors.identifier && (
             <p className="mt-1 text-xs font-medium text-danger">{errors.identifier.message}</p>
@@ -163,7 +163,7 @@ export function LoginPage() {
               className="h-12 pl-12 pr-12 text-sm rounded-full"
               {...register('password')}
             />
-            <Lock className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 lg:text-neutral-600" aria-hidden />
+            <Lock className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
           </div>
           {errors.password && (
             <p className="mt-1 text-xs font-medium text-danger">
@@ -171,7 +171,7 @@ export function LoginPage() {
             </p>
           )}
         </div>
-        <div className="flex justify-end lg:order-last lg:justify-center lg:pt-2">
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={() => navigate('/forgot-password')}
@@ -182,12 +182,11 @@ export function LoginPage() {
         </div>
         <Button
           type="submit"
-          className={`h-14 w-full rounded-2xl max-lg:fixed max-lg:inset-x-6 max-lg:bottom-[calc(4rem+env(safe-area-inset-bottom))] max-lg:z-10 max-lg:mx-auto max-lg:w-auto max-lg:max-w-sm text-[20px] font-medium text-white shadow-none transition-colors bg-[#3A8F91] hover:bg-[#2F7F81] active:bg-[#2F7F81] lg:h-12 lg:rounded-full lg:bg-[#4a4a4a] lg:text-base lg:font-bold lg:uppercase lg:tracking-wide lg:shadow-lg lg:shadow-neutral-900/20 lg:hover:bg-[#3a3a3a]`}
+          className="h-14 w-full rounded-2xl max-lg:fixed max-lg:inset-x-6 max-lg:bottom-[calc(4rem+env(safe-area-inset-bottom))] max-lg:z-10 max-lg:mx-auto max-lg:w-auto max-lg:max-w-sm text-[20px] font-medium text-white shadow-none transition-colors bg-[#3A8F91] hover:bg-[#2F7F81] active:bg-[#2F7F81]"
           size="lg"
           loading={mutation.isPending}
         >
-          <span className="lg:hidden">Sign in</span>
-          <span className="hidden lg:inline">Login</span>
+          Sign in
         </Button>
         {signingIn && <WorkspaceLoader />}
 

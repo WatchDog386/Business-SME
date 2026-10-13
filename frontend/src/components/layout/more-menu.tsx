@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { useActiveBusiness } from '@/stores/business';
+import { requestLogout } from './session-timeout';
 import { useAuthStore } from '@/stores/auth';
 import { useTheme } from '@/lib/theme';
 
@@ -52,7 +53,6 @@ export function MoreMenu({
   const active = useActiveBusiness();
   const user = useAuthStore((s) => s.user);
   const [theme, setTheme] = useTheme();
-  const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
 
   const go = (to: string) => {
@@ -136,8 +136,7 @@ export function MoreMenu({
           type="button"
           onClick={() => {
             onOpenChange(false);
-            logout();
-            navigate('/login');
+            requestLogout();
           }}
           className="flex w-full items-center gap-3 px-4 py-3.5 text-sm font-medium text-danger active:bg-danger-soft"
         >

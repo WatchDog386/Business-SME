@@ -41,7 +41,7 @@ export function SummaryCards({ data }: { data: DashboardData }) {
   const slides: Slide[] = [
     {
       key: 'sales',
-      label: "Today's sales",
+      label: "Today's revenue",
       amount: today.sales,
       count: today.salesCount,
       footerLeft: `${today.salesCount} sale${today.salesCount === 1 ? '' : 's'} today`,
@@ -137,27 +137,27 @@ export function SummaryCards({ data }: { data: DashboardData }) {
             aria-label={`${index + 1} of ${slides.length}`}
           >
             <FiberHeroCard
-              label={
-                <span className="flex items-center gap-1.5">
-                  {slide.label}
+              label={slide.label}
+              value={
+                <span className="flex items-center gap-2.5">
+                  {masked(
+                    slide.headline ?? (
+                      <span className={slide.key === 'sales' ? 'relative top-1 text-[26px] font-normal text-black' : 'text-[26px]'}>
+                        <span className={slide.key === 'sales' ? 'mr-1' : 'mr-1 text-[15px] font-medium opacity-70'}>{slide.key === 'sales' ? 'KES' : 'Ksh'}</span>
+                        {slide.key === 'sales' ? formatAmount(slide.amount, 2) : formatAmount(slide.amount)}
+                      </span>
+                    ),
+                  )}
                   <button
                     type="button"
                     onClick={toggleHide}
-                    className="-my-1 flex h-6 w-6 items-center justify-center rounded-full opacity-80 transition-colors hover:bg-white/10"
+                    className="relative top-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full opacity-80 transition-colors hover:bg-white/10"
                     aria-label={hidden ? 'Show amounts' : 'Hide amounts'}
                   >
-                    {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {hidden ? <EyeOff className="h-6 w-6" /> : <Eye className="h-6 w-6" />}
                   </button>
                 </span>
               }
-              value={masked(
-                slide.headline ?? (
-                  <span className="text-[26px]">
-                    <span className="mr-1 text-[15px] font-medium opacity-70">Ksh</span>
-                    {formatAmount(slide.amount)}
-                  </span>
-                ),
-              )}
               note={slide.note}
               maskedValue={slide.count}
               footerLeft={slide.footerLeft}
@@ -190,9 +190,10 @@ export function SummaryCards({ data }: { data: DashboardData }) {
   );
 }
 
-function formatAmount(amount: number): string {
+function formatAmount(amount: number, decimals = 0): string {
   const sign = amount < 0 ? '−' : '';
-  return `${sign}${Math.abs(amount).toLocaleString('en-KE')}`;
+  const digits = { minimumFractionDigits: decimals, maximumFractionDigits: decimals };
+  return `${sign}${Math.abs(amount).toLocaleString('en-KE', digits)}`;
 }
 
 function formatKsh(amount: number, short = false): string {

@@ -12,6 +12,14 @@ function pct(part: number, whole: number): number {
   return whole > 0 ? Math.round((part / whole) * 100) : 0;
 }
 
+function dayLabel(date: string): string {
+  return new Date(`${date.slice(0, 10)}T12:00:00+03:00`).toLocaleDateString('en-KE', {
+    timeZone: 'Africa/Nairobi',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 /** Desktop-only dashboard (lg and up), Command Center style. Phones use the stacked mobile dashboard. */
 export function DesktopDashboard({ data }: { data: DashboardData }) {
   const { canApprove } = useRole();
@@ -27,6 +35,9 @@ export function DesktopDashboard({ data }: { data: DashboardData }) {
   const { today } = data;
   const grossMargin = pct(today.grossProfit, today.sales);
   const debtors = data.recentCustomers.filter((c) => c.outstanding_balance > 0);
+  const subs = data.subscribers ?? { active: 0, expiringSoon: 0, expired: 0 };
+  const pkg = data.packagesToday ?? { count: 0, new: 0, renewals: 0, revenue: 0 };
+  const callsDue = data.callsDue ?? 0;
 
   return (
     <div className="space-y-5">
@@ -92,61 +103,55 @@ export function DesktopDashboard({ data }: { data: DashboardData }) {
         />
       </div>
 
-      <section className="-mx-6 border-y border-edge bg-surface">
-        <div className="px-6 py-5">
-          <h2 className="mb-4 text-[17px] font-normal text-foreground">Revenue breakdown</h2>
-          <RevenueBreakdown products={data.topProducts} />
-        </div>
-        <div className="grid grid-cols-3 divide-x divide-edge border-t border-edge">
-          <HealthCell title="Gross margin">
-            {today.sales > 0 ? (
-              <Donut value={grossMargin} color="#198754" caption="of sales today" />
-            ) : (
-              <MiniEmpty title="No sales" note="There are no sales yet today." />
-            )}
-          </HealthCell>
-          <HealthCell title="Budget used">
-            {budgetLimit > 0 ? (
-              <Donut
-                value={budgetUsed}
-                color={budgetUsed > 100 ? '#DC3545' : '#0D6EFD'}
-                caption={`${formatKES(budgetSpent)} of ${formatKES(budgetLimit)}`}
-              />
-            ) : (
-              <MiniEmpty title="No budgets" note={budgetsQuery.isLoading ? 'Loading…' : 'Set monthly limits on Budgets.'} />
-            )}
-          </HealthCell>
-          <HealthCell title="Customers owing">
-            {debtors.length > 0 ? (
-              <div className="flex flex-col items-center py-2 text-center">
-                <p className="text-[24px] font-semibold tabular-nums text-red-600 [.dark_&]:text-red-400">
-                  {formatKES(data.outstandingDebts)}
-                </p>
-                <p className="mt-1 text-[12px] text-foreground-4">
-                  {debtors.length} customer{debtors.length === 1 ? '' : 's'} with unpaid credit sales
-                </p>
-                <Link
-                  to="/customers"
-                  className="mt-3 inline-flex h-8 items-center rounded-md bg-accent px-4 text-[12.5px] font-medium text-white hover:bg-accent-strong"
-                >
-                  Collect payment
-                </Link>
-              </div>
-            ) : (
-              <MiniEmpty title="Nothing owed" note="No customers owe money right now." />
-            )}
-          </HealthCell>
-        </div>
-      </section>
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
+        <RevenueTrend series={data.salesSeries} month={data.monthRevenue} week={data.weekRevenue} />
+        <SubscriberPanel subs={subs} packages={pkg} callsDue={callsDue} />
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <TodayPanel today={today} />
+        <Panel title="Gross margin today">
+          {today.sales > 0 ? (
+            <Donut value={grossMargin} color="#198754" caption="of sales today" />
+          ) : (
+            <MiniEmpty title="No sales" note="There are no sales yet today." />
+          )}
+        </Panel>
+        <Panel title="Budget used this month">
+          {budgetLimit > 0 ? (
+            <Donut
+              value={budgetUsed}
+              color={budgetUsed > 100 ? '#DC3545' : '#0D6EFD'}
+              caption={`${formatKES(budgetSpent)} of ${formatKES(budgetLimit)}`}
+            />
+          ) : (
+            <MiniEmpty title="No budgets" note={budgetsQuery.isLoading ? 'Loading…' : 'Set monthly limits on Budgets.'} />
+          )}
+        </Panel>
+      </div>
 
       <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-4">
         <ActivityPanel data={data} />
+        <AlertsPanel data={data} debtorCount={debtors.length} callsDue={callsDue} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Panel
+          title="Revenue by product (30 days)"
+          action={
+            <Link to="/reports" className="hover:underline">
+              Reports
+            </Link>
+          }
+        >
+          <RevenueBreakdown products={data.topProducts} />
+        </Panel>
         <Panel
           title="Products & budgets"
           action={
             <div className="flex gap-4">
-              <Link to="/reports" className="hover:underline">
-                Reports
+              <Link to="/products" className="hover:underline">
+                Products
               </Link>
               <Link to="/budgets" className="hover:underline">
                 Budgets
@@ -173,6 +178,194 @@ export function DesktopDashboard({ data }: { data: DashboardData }) {
   );
 }
 
+/** Daily revenue line graph for the last 30 days, with week and month totals. */
+function RevenueTrend({ series, month, week }: { series: DashboardData['salesSeries']; month: number; week: number }) {
+  const points = series.map((p) => ({ date: p.date, total: Number(p.total) }));
+  const max = Math.max(...points.map((p) => p.total), 0);
+  // Line graph coordinates in a 600x200 box (10px top padding)
+  const step = points.length > 1 ? 600 / (points.length - 1) : 600;
+  const coords = points.map((p, i) => [i * step, 200 - (max > 0 ? (p.total / max) * 180 : 0) - 10] as const);
+  const line = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = `${line} L600,200 L0,200 Z`;
+  return (
+    <Panel
+      title="Revenue trend"
+      action={
+        <Link to="/reports" className="hover:underline">
+          Full report
+        </Link>
+      }
+    >
+      <div className="mb-5 flex items-end gap-10">
+        <div>
+          <p className="text-[12px] text-foreground-4">Last 30 days</p>
+          <p className="mt-0.5 text-[22px] font-semibold tabular-nums text-foreground">{formatKES(month)}</p>
+        </div>
+        <div>
+          <p className="text-[12px] text-foreground-4">This week</p>
+          <p className="mt-0.5 text-[22px] font-semibold tabular-nums text-foreground">{formatKES(week)}</p>
+        </div>
+      </div>
+      {points.length === 0 || max <= 0 ? (
+        <MiniEmpty title="No revenue yet" note="Daily revenue will chart here once sales are recorded." />
+      ) : (
+        <>
+          <svg viewBox="0 0 600 200" preserveAspectRatio="none" className="h-48 w-full overflow-visible" role="img" aria-label="Daily revenue, last 30 days">
+            <defs>
+              <linearGradient id="revenue-trend-fill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="#3A8F91" stopOpacity="0.28" />
+                <stop offset="100%" stopColor="#3A8F91" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {[0.25, 0.5, 0.75].map((f) => (
+              <line key={f} x1="0" x2="600" y1={200 * f} y2={200 * f} stroke="currentColor" strokeOpacity={0.08} vectorEffect="non-scaling-stroke" />
+            ))}
+            <path d={area} fill="url(#revenue-trend-fill)" />
+            <path d={line} fill="none" stroke="#3A8F91" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div className="mt-2 flex justify-between text-[11px] text-foreground-4">
+            <span>{dayLabel(points[0].date)}</span>
+            <span>{dayLabel(points[points.length - 1].date)}</span>
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+function SubscriberPanel({
+  subs,
+  packages,
+  callsDue,
+}: {
+  subs: NonNullable<DashboardData['subscribers']>;
+  packages: NonNullable<DashboardData['packagesToday']>;
+  callsDue: number;
+}) {
+  const tiles = [
+    { label: 'Active', value: subs.active, text: 'text-emerald-600 [.dark_&]:text-emerald-400' },
+    { label: 'Expiring', value: subs.expiringSoon, text: 'text-amber-600 [.dark_&]:text-amber-400' },
+    { label: 'Expired', value: subs.expired, text: 'text-red-600 [.dark_&]:text-red-400' },
+  ];
+  return (
+    <Panel
+      title="Subscribers"
+      action={
+        <Link to="/subscribers" className="hover:underline">
+          See all
+        </Link>
+      }
+    >
+      <div className="grid grid-cols-3 gap-2">
+        {tiles.map((t) => (
+          <div key={t.label} className="rounded-md bg-surface-2 px-2 py-3 text-center">
+            <p className={cn('text-[20px] font-semibold tabular-nums', t.text)}>{t.value}</p>
+            <p className="mt-0.5 text-[11.5px] text-foreground-4">{t.label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 space-y-1 text-[12.5px]">
+        <StatRow label="Packages sold today" value={String(packages.count)} />
+        <StatRow label="New / renewals today" value={`${packages.new} / ${packages.renewals}`} />
+        <StatRow label="Package revenue today" value={formatKES(packages.revenue)} />
+        <StatRow label="Calls due today" value={String(callsDue)} to="/calls" />
+      </div>
+    </Panel>
+  );
+}
+
+function StatRow({ label, value, to }: { label: string; value: string; to?: string }) {
+  const inner = (
+    <>
+      <span className="text-foreground-3">{label}</span>
+      <span className="font-medium tabular-nums text-foreground-2">{value}</span>
+    </>
+  );
+  if (to) {
+    return (
+      <Link to={to} className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-surface-2">
+        {inner}
+      </Link>
+    );
+  }
+  return <div className="flex items-center justify-between px-2 py-1.5">{inner}</div>;
+}
+
+/** Today's money: sales, gross profit, expenses and net, as comparable bars. */
+function TodayPanel({ today }: { today: DashboardData['today'] }) {
+  const rows = [
+    { label: 'Sales', value: today.sales, bar: 'bg-emerald-500', text: 'text-foreground' },
+    { label: 'Gross profit', value: today.grossProfit, bar: 'bg-accent', text: 'text-foreground' },
+    { label: 'Expenses', value: today.expenses, bar: 'bg-red-500', text: 'text-foreground' },
+    {
+      label: 'Net profit',
+      value: today.netProfit,
+      bar: today.netProfit < 0 ? 'bg-red-500' : 'bg-emerald-500',
+      text: today.netProfit < 0 ? 'text-red-600 [.dark_&]:text-red-400' : 'text-foreground',
+    },
+  ];
+  const max = Math.max(...rows.map((r) => Math.abs(r.value)), 0);
+  return (
+    <Panel title="Today's money">
+      <ul className="space-y-3.5">
+        {rows.map((r) => (
+          <li key={r.label}>
+            <div className="flex items-center justify-between text-[12.5px]">
+              <span className="text-foreground-3">{r.label}</span>
+              <span className={cn('font-medium tabular-nums', r.text)}>{formatKES(r.value)}</span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
+              <div className={cn('h-full rounded-full', r.bar)} style={{ width: `${max > 0 ? Math.round((Math.abs(r.value) / max) * 100) : 0}%` }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+/** Things that need a decision or a call, each linking to where it is handled. */
+function AlertsPanel({ data, debtorCount, callsDue }: { data: DashboardData; debtorCount: number; callsDue: number }) {
+  type Tone = 'red' | 'amber' | 'violet';
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const rows: Array<{ key: string; text: string; to: string; tone: Tone }> = [
+    ...data.budgetAlerts.slice(0, 3).map((b) => ({
+      key: `budget-${b.category_name}`,
+      text: `${b.category_name} budget at ${b.percent}%`,
+      to: '/budgets',
+      tone: 'red' as const,
+    })),
+    ...(data.pendingApprovals > 0
+      ? [{ key: 'approvals', text: `${plural(data.pendingApprovals, 'expense')} awaiting approval`, to: '/expenses?status=PENDING', tone: 'amber' as const }]
+      : []),
+    ...(debtorCount > 0
+      ? [{ key: 'debts', text: `${plural(debtorCount, 'customer')} owe ${formatKES(data.outstandingDebts)}`, to: '/customers', tone: 'red' as const }]
+      : []),
+    ...(data.lowStock > 0 ? [{ key: 'stock', text: `${plural(data.lowStock, 'product')} low on stock`, to: '/products', tone: 'amber' as const }] : []),
+    ...(callsDue > 0 ? [{ key: 'calls', text: `${plural(callsDue, 'call')} due today`, to: '/calls', tone: 'violet' as const }] : []),
+  ];
+  const dot: Record<Tone, string> = { red: 'bg-red-500', amber: 'bg-amber-500', violet: 'bg-violet-500' };
+
+  return (
+    <Panel title="Needs attention">
+      {rows.length === 0 ? (
+        <MiniEmpty title="All clear" note="Nothing needs your attention right now." />
+      ) : (
+        <ul className="space-y-1">
+          {rows.map((r) => (
+            <li key={r.key}>
+              <Link to={r.to} className="flex items-center gap-3 rounded-md px-2 py-2 text-[13px] text-foreground-2 transition-colors hover:bg-surface-2">
+                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot[r.tone])} aria-hidden />
+                <span className="truncate">{r.text}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 /** Horizontal bars of the top products' 30-day revenue (CSS bars, no chart library). */
 function RevenueBreakdown({ products }: { products: DashboardData['topProducts'] }) {
   const rows = products.slice(0, 6).map((p) => ({ name: p.name, revenue: Number(p.revenue) }));
@@ -194,15 +387,6 @@ function RevenueBreakdown({ products }: { products: DashboardData['topProducts']
         </div>
       ))}
     </div>
-  );
-}
-
-function HealthCell({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col px-5 py-5">
-      <h2 className="mb-3 text-[17px] font-normal text-foreground">{title}</h2>
-      <div className="flex flex-1 items-center justify-center">{children}</div>
-    </section>
   );
 }
 

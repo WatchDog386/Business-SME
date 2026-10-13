@@ -146,10 +146,10 @@ export function DuoSearch(props: IconProps) {
 }
 
 /** QR scan: red corner brackets around green code squares (like Safaricom's "Scan to pay"). */
-export function DuoScan(props: IconProps) {
+export function DuoScan({ mono, ...props }: IconProps & { mono?: boolean }) {
   return (
     <Duo {...props}>
-      <path d="M3 8V4.5A1.5 1.5 0 0 1 4.5 3H8M16 3h3.5A1.5 1.5 0 0 1 21 4.5V8M21 16v3.5a1.5 1.5 0 0 1-1.5 1.5H16M8 21H4.5A1.5 1.5 0 0 1 3 19.5V16" stroke={DUO_RED} />
+      <path d="M3 8V4.5A1.5 1.5 0 0 1 4.5 3H8M16 3h3.5A1.5 1.5 0 0 1 21 4.5V8M21 16v3.5a1.5 1.5 0 0 1-1.5 1.5H16M8 21H4.5A1.5 1.5 0 0 1 3 19.5V16" stroke={mono ? 'currentColor' : DUO_RED} />
       <rect x="7" y="7" width="4" height="4" rx="0.8" />
       <rect x="13" y="7" width="4" height="4" rx="0.8" />
       <rect x="7" y="13" width="4" height="4" rx="0.8" />

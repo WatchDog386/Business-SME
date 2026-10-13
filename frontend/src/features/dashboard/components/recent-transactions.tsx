@@ -36,28 +36,29 @@ export function RecentTransactions({
       title="Recent activity"
       action={
         hasMore && !expanded
-          ? { label: `See all (${matching.length})`, onClick: () => setExpanded(true) }
+          ? { label: `See all (${matching.length})`, onClick: () => setExpanded(true), pill: true }
           : expanded
-            ? { label: 'Show less', onClick: () => setExpanded(false) }
-            : { label: 'History', to: fullList }
+            ? { label: 'Show less', onClick: () => setExpanded(false), pill: true }
+            : { label: 'History', to: fullList, pill: true }
       }
     >
-      {/* Segmented control with a sliding green highlight */}
-      <div className="mb-3 grid grid-cols-3 rounded-full bg-surface-3 p-1">
+      {/* Filter bar in the loan strip's look: green panel with a slanted dark panel marking the active filter */}
+      <div className="mb-3 grid h-12 grid-cols-3 overflow-hidden rounded-2xl bg-[linear-gradient(90deg,#1D6B46_0%,#135A3A_55%,#0B4A31_100%)] text-white">
         {filters.map((f) => (
           <button
             key={f.key}
             type="button"
             onClick={() => setFilter(f.key)}
             className={cn(
-              'relative h-8 rounded-full text-[12px] font-semibold transition-colors',
-              filter === f.key ? 'text-white' : 'text-foreground-4',
+              'relative h-full text-[13px] font-medium transition-colors',
+              filter === f.key ? 'text-white' : 'text-white/70',
             )}
           >
             {filter === f.key && (
               <motion.span
                 layoutId="activity-filter"
-                className="absolute inset-0 rounded-full bg-brand-600 shadow-sm"
+                className="absolute inset-0 bg-[#063B26] shadow-[inset_14px_0_16px_-12px_rgba(0,0,0,0.7)]"
+                style={{ clipPath: 'polygon(14% 0, 100% 0, 86% 100%, 0 100%)' }}
                 transition={{ type: 'spring', stiffness: 500, damping: 38 }}
               />
             )}

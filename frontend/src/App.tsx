@@ -2,8 +2,6 @@ import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { applyTheme, getTheme, isLightOnlyRoute } from '@/lib/theme';
 import { AppShell } from '@/components/layout/app-shell';
-import { HomePage } from '@/features/home/home-page';
-import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useAuthStore } from '@/stores/auth';
 import { LoginPage } from '@/features/auth/login-page';
 import { ForgotPasswordPage } from '@/features/auth/forgot-password-page';
@@ -27,21 +25,18 @@ import { NotificationsPage } from '@/features/notifications/notifications-page';
 import { StaffPage } from '@/features/business/staff-page';
 import { SubscribersPage } from '@/features/isp/subscribers-page';
 import { CallsPage } from '@/features/isp/calls-page';
-import { WelcomePage, hasOnboarded } from '@/features/onboarding/welcome-page';
+import { WelcomePage } from '@/features/onboarding/welcome-page';
 import { NotFoundPage } from '@/features/misc/not-found-page';
 import { OfflineBanner } from '@/components/layout/offline-banner';
+import { SessionTimeout } from '@/components/layout/session-timeout';
 
 /**
- * Desktop visitors get the landing page. Phones go straight to work: the boot
- * splash in index.html covers the app while it loads, then first-timers see
- * the welcome screens before signing in.
+ * The root URL opens the login page. Signed-in users go straight to the dashboard.
  */
 function HomeRoute() {
-  const isDesktop = useIsDesktop();
   const token = useAuthStore((s) => s.token);
-  if (isDesktop) return <HomePage />;
   if (token) return <Navigate to="/dashboard" replace />;
-  return <Navigate to={hasOnboarded() ? '/login' : '/welcome'} replace />;
+  return <Navigate to="/login" replace />;
 }
 
 /** Re-applies the theme on every route change; home/auth/success stay light. */
@@ -64,6 +59,7 @@ export default function App() {
     <>
       <ThemeScope />
       <OfflineBanner />
+      <SessionTimeout />
       <Routes>
       <Route path="/splash" element={<Navigate to="/" replace />} />
       <Route path="/" element={<HomeRoute />} />

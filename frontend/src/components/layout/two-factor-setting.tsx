@@ -23,7 +23,7 @@ const TITLES: Record<Flow, { title: string; subtitle: string }> = {
  * page styled like the sign-in screen: set up the authenticator app (then
  * save recovery codes), or confirm the password to turn it off.
  */
-export function TwoFactorSetting() {
+export function TwoFactorSetting({ tile = false }: { tile?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const on = Boolean(user?.twoFactorEnabled);
@@ -61,25 +61,45 @@ export function TwoFactorSetting() {
         role="switch"
         aria-checked={on}
         onClick={() => setFlow(on ? 'disable' : 'enable')}
-        className="relative -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-3 rounded-xl px-1 py-2.5 text-left transition-[transform,background-color] active:scale-[0.99] active:bg-surface-3"
+        className={cn(
+          'relative text-left transition-[transform,background-color] active:scale-[0.98]',
+          tile
+            ? 'flex flex-col items-start gap-2.5 rounded-2xl bg-surface p-3.5 shadow-sm'
+            : '-mx-1 flex w-[calc(100%+0.5rem)] items-center gap-3 rounded-xl px-1 py-2.5 active:bg-surface-3',
+        )}
       >
-        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-emerald-600 text-white">
-          <ShieldCheck className="h-4 w-4" aria-hidden />
+        <span
+          className={cn(
+            'flex shrink-0 items-center justify-center bg-emerald-600 text-white',
+            tile ? 'h-10 w-10 rounded-xl' : 'h-[30px] w-[30px] rounded-[9px]',
+          )}
+        >
+          <ShieldCheck className={cn(tile ? 'h-5 w-5' : 'h-4 w-4')} aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] leading-snug text-foreground">Two-factor sign-in</span>
-          <span className="block truncate text-xs leading-snug text-foreground-3">
-            {on ? 'On: sign-in asks for a code from your phone' : 'Off: add a code from your phone at sign-in'}
+          <span className={cn('block leading-snug text-foreground', tile ? 'text-[14px] font-medium' : 'text-[15px]')}>
+            {tile ? 'Two-factor' : 'Two-factor sign-in'}
+          </span>
+          <span className={cn('block leading-snug text-foreground-3', tile ? 'mt-0.5 text-[11.5px]' : 'truncate text-xs')}>
+            {tile
+              ? on
+                ? 'On'
+                : 'Off'
+              : on
+                ? 'On: sign-in asks for a code from your phone'
+                : 'Off: add a code from your phone at sign-in'}
           </span>
         </span>
-        <span className={cn('relative h-7 w-[52px] shrink-0 rounded-full transition-colors duration-200', on ? 'bg-brand-600' : 'bg-edge-2')} aria-hidden>
-          <span
-            className={cn(
-              'absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200',
-              on ? 'translate-x-6' : 'translate-x-0',
-            )}
-          />
-        </span>
+        {!tile && (
+          <span className={cn('relative h-7 w-[52px] shrink-0 rounded-full transition-colors duration-200', on ? 'bg-brand-600' : 'bg-edge-2')} aria-hidden>
+            <span
+              className={cn(
+                'absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200',
+                on ? 'translate-x-6' : 'translate-x-0',
+              )}
+            />
+          </span>
+        )}
       </button>
 
       {flow &&

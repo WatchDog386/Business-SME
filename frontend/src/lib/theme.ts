@@ -6,9 +6,10 @@ const STORAGE_KEY = 'biashara_theme';
 
 const listeners = new Set<(theme: Theme) => void>();
 
+/** Dark is the default on first open; a saved choice in Settings overrides it. */
 export function getTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
-  return stored === 'dark' ? 'dark' : 'light';
+  return stored === 'light' ? 'light' : 'dark';
 }
 
 /** Routes that must always render in light mode, even when user prefers dark. */

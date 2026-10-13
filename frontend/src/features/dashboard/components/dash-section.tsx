@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils';
  */
 const actionClass =
   'flex shrink-0 items-center gap-0.5 text-[12px] font-semibold text-brand-600 active:opacity-70 [.dark_&]:text-brand-300';
+/** Outlined pill, same as the Quick Actions "Manage" button. */
+const pillClass =
+  'flex h-9 shrink-0 items-center rounded-full border-2 border-edge-2 px-5 text-[15px] font-semibold text-brand-600 transition-transform active:scale-95 active:opacity-70 [.dark_&]:text-brand-400';
 
 export function DashSection({
   title,
@@ -19,7 +22,7 @@ export function DashSection({
   title: string;
   subtitle?: string;
   /** A link, or a button when `onClick` is given (e.g. expanding a list in place). */
-  action?: { label: string; to?: string; onClick?: () => void };
+  action?: { label: string; to?: string; onClick?: () => void; pill?: boolean };
   card?: boolean;
   children: React.ReactNode;
   className?: string;
@@ -40,11 +43,11 @@ export function DashSection({
         </div>
         {action &&
           (action.onClick || !action.to ? (
-            <button type="button" onClick={action.onClick} className={actionClass}>
+            <button type="button" onClick={action.onClick} className={action.pill ? pillClass : actionClass}>
               {action.label}
             </button>
           ) : (
-            <Link to={action.to} className={actionClass}>
+            <Link to={action.to} className={action.pill ? pillClass : actionClass}>
               {action.label}
             </Link>
           ))}

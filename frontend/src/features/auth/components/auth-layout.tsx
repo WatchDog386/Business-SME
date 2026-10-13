@@ -12,6 +12,8 @@ export function AuthLayout({
   hideLabelsOnMobile,
   hideFooterLinks,
   hideMobileFooter,
+  forceMobileLayout,
+  centerTitle,
   children,
 }: {
   title?: string;
@@ -27,10 +29,14 @@ export function AuthLayout({
   hideFooterLinks?: boolean;
   /** Drop the small print under the form on phones. */
   hideMobileFooter?: boolean;
+  /** Use the phone layout on desktop as well. */
+  forceMobileLayout?: boolean;
+  /** Centre the heading and subtitle in the phone layout. */
+  centerTitle?: boolean;
   children: React.ReactNode;
 }) {
   const isDesktop = useIsDesktop();
-  if (isDesktop) {
+  if (isDesktop && !forceMobileLayout) {
     return (
       <DesktopAuthLayout title={desktopTitle ?? title} subtitle={desktopSubtitle ?? subtitle} hideFooterLinks={hideFooterLinks}>
         {children}
@@ -46,7 +52,7 @@ export function AuthLayout({
         </Link>
 
         {(title || mobileTitle || subtitle) && (
-          <div className="mt-14">
+          <div className={cn('mt-14', centerTitle && 'text-center')}>
             {(mobileTitle ?? title) && (
               <h1 className="text-3xl font-normal tracking-tight text-slate-800">{mobileTitle ?? title}</h1>
             )}

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
 import {
   DuoCalls,
   DuoCustomers,
@@ -44,10 +43,9 @@ export function QuickActions({ items = actions, viewAll = true }: { items?: Quic
         <button
           type="button"
           onClick={() => setAllOpen(true)}
-          className="flex items-center gap-1 text-[15px] font-medium text-brand-600 active:opacity-60 [.dark_&]:text-brand-400"
+          className="flex h-9 items-center rounded-full border-2 border-edge-2 px-5 text-[15px] font-semibold text-brand-600 transition-transform active:scale-95 active:opacity-70 [.dark_&]:text-brand-400"
         >
-          View all
-          <ChevronRight className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+          Manage
         </button>
         )}
       </div>

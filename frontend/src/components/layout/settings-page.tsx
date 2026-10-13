@@ -20,6 +20,7 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useActiveBusiness } from '@/stores/business';
+import { requestLogout } from './session-timeout';
 import { useAuthStore } from '@/stores/auth';
 import { useTheme } from '@/lib/theme';
 import { TwoFactorSetting } from './two-factor-setting';
@@ -66,7 +67,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Row({
+/** Grid tile for the Business list: icon, label and description stacked. */
+function BusinessTile({
   item,
   onClick,
 }: {
@@ -77,23 +79,19 @@ function Row({
   return (
     <button
       onClick={onClick}
-      className="relative -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-3 text-left rounded-xl px-1 py-2.5 transition-[transform,background-color] active:scale-[0.99] active:bg-surface-3"
+      className="flex flex-col items-start gap-2.5 rounded-2xl bg-surface p-3.5 text-left shadow-sm transition-transform active:scale-[0.98]"
     >
       <span
         className={cn(
-          'flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px]',
-          item.tint ? tints[item.tint] : 'bg-surface text-foreground-2',
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+          item.tint ? tints[item.tint] : 'bg-surface-2 text-foreground-2',
         )}
       >
-        <Icon className="h-4 w-4" aria-hidden />
+        <Icon className="h-5 w-5" aria-hidden />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] leading-snug text-foreground">{item.label}</span>
-        {item.description && (
-          <span className="block truncate text-xs leading-snug text-foreground-3">
-            {item.description}
-          </span>
-        )}
+      <span className="min-w-0">
+        <span className="block text-[14px] font-medium leading-snug text-foreground">{item.label}</span>
+        {item.description && <span className="mt-0.5 block text-[11.5px] leading-snug text-foreground-3">{item.description}</span>}
       </span>
     </button>
   );
@@ -108,7 +106,6 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
   const { canInstall, install } = useInstallPrompt();
   const active = useActiveBusiness();
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -170,9 +167,9 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
         {/* Business group — flat on background */}
         <section className="mt-6">
           <SectionLabel>Business</SectionLabel>
-          <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-3">
             {businessItems.map((item) => (
-              <Row key={item.label} item={item} onClick={() => go(item.to)} />
+              <BusinessTile key={item.label} item={item} onClick={() => go(item.to)} />
             ))}
           </div>
         </section>
@@ -180,11 +177,11 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
         {/* Account group — flat on background */}
         <section className="mt-6">
           <SectionLabel>Account</SectionLabel>
-          <div className="space-y-1">
+          <div className="grid grid-cols-3 gap-3">
             {accountItems.map((item) => (
-              <Row key={item.label} item={item} onClick={() => go(item.to)} />
+              <BusinessTile key={item.label} item={item} onClick={() => go(item.to)} />
             ))}
-            <TwoFactorSetting />
+            <TwoFactorSetting tile />
           </div>
         </section>
 
@@ -204,8 +201,7 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
             variant="destructive"
             onClick={() => {
               onOpenChange(false);
-              logout();
-              navigate('/login');
+              requestLogout();
             }}
           >
             Log out

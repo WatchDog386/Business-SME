@@ -17,7 +17,7 @@ export function RailLayout({
   return (
     <div className="-mx-6 -mb-10 -mt-6 flex min-h-[calc(100vh-3.5rem)]">
       <div className={cn('min-w-0 flex-1 px-6 pb-10 pt-6', mainClassName)}>{children}</div>
-      <aside className="w-72 shrink-0 border-l border-edge bg-surface-2 [.dark_&]:bg-surface">{rail}</aside>
+      <aside className="w-72 shrink-0 space-y-3 overflow-y-auto border-l border-edge bg-surface-2 p-3 [.dark_&]:bg-surface">{rail}</aside>
     </div>
   );
 }
@@ -25,7 +25,7 @@ export function RailLayout({
 /** Header band at the top of the rail ("KES"). */
 export function RailHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-14 items-center justify-center border-b border-edge text-[13.5px] text-foreground-2">
+    <div className="flex h-12 items-center justify-center rounded-2xl bg-surface text-[13.5px] font-medium text-foreground-2 shadow-sm">
       {children}
     </div>
   );
@@ -46,11 +46,11 @@ export function RailStat({
   tone?: 'red' | 'green';
 }) {
   return (
-    <section className="border-b border-edge px-5 py-7 text-center">
-      <p className="text-[13.5px] text-foreground-2">{label}</p>
+    <section className="rounded-2xl bg-surface px-5 py-6 text-center shadow-sm">
+      <p className="text-[13.5px] text-foreground-3">{label}</p>
       <p
         className={cn(
-          'mt-3 text-[19px] font-semibold tabular-nums text-foreground',
+          'mt-2 text-[22px] font-semibold tabular-nums text-foreground',
           tone === 'red' && 'text-red-600 [.dark_&]:text-red-400',
           tone === 'green' && 'text-emerald-600 [.dark_&]:text-emerald-400',
         )}
@@ -77,8 +77,8 @@ export function RailBars({
 }) {
   const max = Math.max(...rows.map((r) => r.value), 0);
   return (
-    <section className="border-b border-edge px-5 py-6">
-      <p className="mb-4 text-center text-[13.5px] text-foreground-2">{title}</p>
+    <section className="rounded-2xl bg-surface px-5 py-6 shadow-sm">
+      <p className="mb-4 text-center text-[13.5px] text-foreground-3">{title}</p>
       {rows.length === 0 || max === 0 ? (
         <p className="text-center text-[12.5px] text-foreground-4">{empty}</p>
       ) : (
@@ -107,7 +107,7 @@ export function RailButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>)
       type="button"
       {...props}
       className={cn(
-        'h-8 rounded-sm border border-edge bg-surface px-4 text-[12.5px] font-medium text-foreground-2 transition-colors hover:bg-surface-3',
+        'h-8 rounded-full bg-[#3A8F91] px-4 text-[12.5px] font-medium text-white transition-colors hover:bg-[#2F7F81] active:bg-[#2F7F81]',
         props.className,
       )}
     />

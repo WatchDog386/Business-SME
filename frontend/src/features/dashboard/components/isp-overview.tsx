@@ -17,7 +17,7 @@ export function IspOverview({ data }: { data: DashboardData }) {
   const callsDue = data.callsDue ?? 0;
 
   return (
-    <DashSection title="Subscribers" action={{ label: 'See all', to: '/subscribers' }}>
+    <DashSection title="Subscribers" action={{ label: 'See all', to: '/subscribers', pill: true }}>
       <div className="grid grid-cols-3 gap-2">
         {tiles.map((t, i) => (
           <motion.div key={t.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.05 }}>
