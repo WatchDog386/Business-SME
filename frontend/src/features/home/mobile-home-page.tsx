@@ -70,13 +70,23 @@ export function MobileHomePage() {
           <img src="/icon3.png" alt="" aria-hidden className="absolute right-4 top-1/2 h-28 w-28 -translate-y-1/2 object-contain" />
         </div>
 
-        {/* White feature cards with solid icon tiles */}
+        {/* White feature cards, each with a glossy green icon in the bottom-right corner */}
         <div className="mt-4 grid grid-cols-2 gap-3">
           {cards.map((card) => (
-            <div key={card.title} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <img src={card.img} alt="" aria-hidden className="h-12 w-12 object-contain" />
-              <h2 className="mt-3 text-sm font-semibold">{card.title}</h2>
-              <p className="mt-1 text-xs leading-snug text-slate-500">{card.text}</p>
+            <div key={card.title} className="relative flex min-h-[148px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-semibold">{card.title}</h2>
+              <p className="mt-1 max-w-[72%] text-xs leading-snug text-slate-500">{card.text}</p>
+              {/* The PNG is a black silhouette, so it is masked to take the glossy green fill */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute bottom-2 right-2 h-20 w-20 [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [filter:drop-shadow(0_4px_7px_rgba(15,23,42,0.4))]"
+                style={{
+                  background:
+                    'radial-gradient(circle at 32% 26%, #A9E06D 0%, #63AD18 40%, #3F7E08 72%, #295704 100%)',
+                  WebkitMaskImage: `url(${card.img})`,
+                  maskImage: `url(${card.img})`,
+                }}
+              />
             </div>
           ))}
         </div>
