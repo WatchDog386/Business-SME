@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import {
-  ArrowLeft,
   BarChart3,
+  ChevronLeft,
   Download,
   Wallet,
   Package,
@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { useActiveBusiness } from '@/stores/business';
 import { useAuthStore } from '@/stores/auth';
 import { TwoFactorSetting } from './two-factor-setting';
+import { AppBarButton } from './app-bar';
 import { BubbleTile, ProfileRing, profileCompletion } from './profile-visuals';
 
 interface Item {
@@ -80,18 +81,13 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
   const close = () => onOpenChange(false);
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] overflow-y-auto bg-white scrollbar-none animate-fade-in [.dark_&]:bg-black">
+    <div className="fixed inset-0 z-[70] overflow-y-auto bg-surface-2 scrollbar-none animate-fade-in">
       {/* Header: back on the left, title centred, close on the right (where the theme switch used to be) */}
-      <header className="sticky top-0 z-10 border-b border-edge bg-white pt-[env(safe-area-inset-top)] [.dark_&]:border-white/10 [.dark_&]:bg-black">
+      <header className="sticky top-0 z-10 bg-surface-2 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-md items-center px-2">
-          <button
-            type="button"
-            onClick={close}
-            className="flex h-11 w-11 items-center justify-center text-foreground transition-transform active:scale-90"
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-6 w-6" aria-hidden />
-          </button>
+          <AppBarButton onClick={close} aria-label="Back">
+            <ChevronLeft className="h-5 w-5" />
+          </AppBarButton>
           <h1 className="flex-1 text-center text-[17px] font-semibold tracking-tight text-foreground">Settings</h1>
           <button
             type="button"
@@ -123,9 +119,7 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
           )}
         </section>
 
-        <p className="mt-6 border-b border-edge pb-3 text-[15px] text-foreground [.dark_&]:border-white/25">
-          Manage your business and account
-        </p>
+        <p className="mt-6 text-[15px] text-foreground-3">Manage your business and account</p>
 
         {/* Business group */}
         <section className="mt-6">
@@ -140,9 +134,10 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
         {/* Account group */}
         <section className="mt-6">
           <SectionLabel>Account</SectionLabel>
-          <div className="grid grid-cols-2 gap-3">
+          {/* Three smaller tiles in one row */}
+          <div className="grid grid-cols-3 gap-2.5">
             {accountItems.map((item) => (
-              <BubbleTile key={item.label} icon={item.icon} title={item.label} description={item.description} onClick={() => go(item.to)} />
+              <BubbleTile key={item.label} icon={item.icon} title={item.label} description={item.description} onClick={() => go(item.to)} compact />
             ))}
             <TwoFactorSetting tile />
           </div>

@@ -34,7 +34,7 @@ export function PageHeader({
       <div className={cn('page-head grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-2 sm:flex sm:justify-between sm:gap-3', className)}>
         <div className="justify-self-start sm:hidden">
           <AppBarButton onClick={goBack} aria-label="Back">
-            <ChevronLeft className="h-6 w-6" strokeWidth={2} />
+            <ChevronLeft className="h-5 w-5" />
           </AppBarButton>
         </div>
         <div className="min-w-0 space-y-1 text-center sm:text-left">

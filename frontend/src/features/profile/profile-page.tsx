@@ -249,7 +249,7 @@ export function ProfilePage() {
           role="switch"
           aria-checked={isDark}
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
-          className="mt-3 flex w-full items-center gap-3 rounded-xl border border-edge-2 bg-surface px-4 py-3.5 text-left transition-transform active:scale-[0.99] [.dark_&]:border-white/25 [.dark_&]:bg-black"
+          className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3.5 text-left shadow-sm transition-transform active:scale-[0.99]"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-3 [.dark_&]:bg-[#1E1E1E]">
             {isDark ? (

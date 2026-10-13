@@ -61,7 +61,8 @@ export function TwoFactorSetting({ tile = false }: { tile?: boolean }) {
         <BubbleTile
           icon={ShieldCheck}
           title="Two-factor"
-          description={on ? 'On: code at sign-in' : 'Off: tap to turn on'}
+          description={on ? 'On' : 'Off'}
+          compact
           onClick={() => setFlow(on ? 'disable' : 'enable')}
         />
       ) : (

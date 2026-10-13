@@ -26,7 +26,7 @@ export function AppBar({
     <div className={cn('page-head grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-2', className)}>
       <div className="justify-self-start">
         <AppBarButton onClick={goBack} aria-label="Back">
-          <ChevronLeft className="h-6 w-6" strokeWidth={2} />
+          <ChevronLeft className="h-5 w-5" />
         </AppBarButton>
       </div>
       <h1 className="max-w-[52vw] truncate text-center text-[17px] font-medium tracking-tight text-foreground lg:max-w-none">
@@ -37,13 +37,13 @@ export function AppBar({
   );
 }
 
-/** Round grey button for the app bar (back, search, …). */
+/** Round black button for the app bar, the same as the Sales page back button. */
 export function AppBarButton({ className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
       className={cn(
-        'flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 text-foreground transition-transform active:scale-90',
+        'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black pl-2 text-white transition-transform active:scale-90 [.dark_&]:bg-white [.dark_&]:text-black',
         className,
       )}
       {...props}

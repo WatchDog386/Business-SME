@@ -138,7 +138,7 @@ function DailyReportPage() {
         <button
           type="button"
           onClick={() => navigate(isDesktop ? '/reports' : '/dashboard')}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black pl-2 text-white active:scale-90 [.dark_&]:bg-white [.dark_&]:text-black"
           aria-label="Back"
         >
           <ChevronLeft className="h-5 w-5" />

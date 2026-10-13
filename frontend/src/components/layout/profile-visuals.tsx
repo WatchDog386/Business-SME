@@ -133,18 +133,25 @@ export function BubbleTile({
   description,
   onClick,
   badge,
+  compact = false,
 }: {
   icon: LucideIcon;
   title: string;
   description?: string;
   onClick?: () => void;
   badge?: ReactNode;
+  /** Smaller tile, for three in a row. */
+  compact?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="relative flex min-h-[150px] flex-col items-center justify-center rounded-xl border border-edge-2 bg-surface px-3 py-5 text-center transition-transform active:scale-[0.98] [.dark_&]:border-white/25 [.dark_&]:bg-black"
+      className={cn(
+        // No border: the tile stands off the page by its own fill and a soft shadow
+        'relative flex flex-col items-center justify-center rounded-2xl bg-surface text-center shadow-sm transition-transform active:scale-[0.98]',
+        compact ? 'min-h-[118px] px-2 py-3.5' : 'min-h-[150px] px-3 py-5',
+      )}
     >
       {badge != null && (
         <span
@@ -154,9 +161,13 @@ export function BubbleTile({
           {badge}
         </span>
       )}
-      <BubbleIcon icon={icon} />
-      <span className="mt-3 block text-[14px] font-semibold leading-snug text-foreground">{title}</span>
-      {description && <span className="mt-1 line-clamp-1 block text-[11.5px] leading-snug text-foreground-3">{description}</span>}
+      <BubbleIcon icon={icon} className={compact ? 'h-10 w-10 [&>svg+svg]:mt-[9px] [&>svg+svg]:h-4 [&>svg+svg]:w-4' : undefined} />
+      <span className={cn('block font-semibold leading-snug text-foreground', compact ? 'mt-2 text-[12.5px]' : 'mt-3 text-[14px]')}>{title}</span>
+      {description && (
+        <span className={cn('mt-1 block leading-snug text-foreground-3', compact ? 'line-clamp-2 text-[10.5px]' : 'line-clamp-1 text-[11.5px]')}>
+          {description}
+        </span>
+      )}
     </button>
   );
 }
