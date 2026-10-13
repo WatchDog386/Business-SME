@@ -91,7 +91,20 @@ export const CARD_THEMES = {
 } satisfies Record<string, CardTheme>;
 
 /** Pattern layer, clipped to the card. Each one hints at what the card measures. */
-export function CardPatternLayer({ theme, w, h, uid }: { theme: CardTheme; w: number; h: number; uid: string }) {
+export function CardPatternLayer({
+  theme,
+  w,
+  h,
+  uid,
+  showChip = true,
+}: {
+  theme: CardTheme;
+  w: number;
+  h: number;
+  uid: string;
+  /** Draw the EMV chip and contactless mark (ribbon pattern only). */
+  showChip?: boolean;
+}) {
   const glow = theme.glow;
   const blur = `url(#${uid}-glow)`;
   switch (theme.pattern) {
@@ -163,6 +176,8 @@ export function CardPatternLayer({ theme, w, h, uid }: { theme: CardTheme; w: nu
             </>
           )}
           <rect x={0} y={0} width={w} height={h} fill={`url(#${uid}-sheen)`} opacity={theme.pattern === 'ribbon' ? 0.5 : 1} />
+          {showChip && (
+            <>
           {/* EMV chip */}
           <rect x={chipX} y={chipY} width={cw} height={ch} rx={6} fill={`url(#${uid}-gold)`} />
           <g stroke={theme.chip === 'silver' ? '#5B6370' : '#7A5716'} strokeOpacity={0.55} strokeWidth={1} fill="none">
@@ -176,6 +191,8 @@ export function CardPatternLayer({ theme, w, h, uid }: { theme: CardTheme; w: nu
               <path key={i} d={`M ${chipX + cw + 16 + i * 6} ${chipY + 6 - i * 2} q ${5 + i * 1.5} ${ch / 2 - 6 + i * 2} 0 ${ch - 12 + i * 4}`} />
             ))}
           </g>
+            </>
+          )}
         </>
       );
     }

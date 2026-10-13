@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Briefcase, LifeBuoy, MessageCircle, Receipt } from 'lucide-react';
+import { useId } from 'react';
+import { ArrowRight, MessageCircle } from 'lucide-react';
 import { Brand } from '@/components/layout/brand';
+import { CARD_THEMES, CardPatternLayer } from '@/components/brand/fiber-card';
 
 const cards = [
-  { icon: Receipt, title: 'Sales', text: 'Record sales and payments in seconds.', tile: 'bg-brand-600' },
-  { icon: LifeBuoy, title: 'Self service', text: 'Get help with your account any time.', tile: 'bg-brand-700' },
+  { img: '/icon1.png', title: 'Sales', text: 'Record sales and payments in seconds.' },
+  { img: '/icon2.png', title: 'Self service', text: 'Get help with your account any time.' },
 ];
 
-/** Solid green gradient used for the hero card and the Login buttons. */
-const greenGradient = 'bg-gradient-to-br from-[#5A9A1A] to-[#031E45]';
 
 /**
  * Mobile landing page for signed-out users, shown after logging out.
@@ -19,6 +19,7 @@ const greenGradient = 'bg-gradient-to-br from-[#5A9A1A] to-[#031E45]';
  * and holds the welcome text, a green hero card, feature cards and the Login button.
  */
 export function MobileHomePage() {
+  const uid = useId().replace(/:/g, '');
   return (
     <div className="relative flex min-h-[100dvh] flex-col bg-brand-900">
       {/* Photo behind the whole page, so the sheet can be see-through */}
@@ -41,23 +42,31 @@ export function MobileHomePage() {
         <h1 className="mt-5 text-center text-[22px] font-semibold tracking-tight">Welcome to Optimas</h1>
 
         {/* Solid green hero card */}
-        <div className={`relative mt-5 flex h-36 flex-col justify-center overflow-hidden rounded-3xl px-5 text-white ${greenGradient}`}>
-          <h2 className="text-lg font-semibold">Run your business</h2>
-          <p className="mt-1 max-w-[70%] text-sm leading-snug text-white/90">
+        <div className="relative mt-5 flex h-36 flex-col justify-center overflow-hidden rounded-3xl px-5 text-white">
+          {/* Same background as the Today's revenue card */}
+          <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 400 144" preserveAspectRatio="xMidYMid slice" aria-hidden>
+            <defs>
+              <linearGradient id={`${uid}-green`} x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={CARD_THEMES.sales.colors[0]} />
+                <stop offset="55%" stopColor={CARD_THEMES.sales.colors[1]} />
+                <stop offset="100%" stopColor={CARD_THEMES.sales.colors[2]} />
+              </linearGradient>
+            </defs>
+            <rect width="400" height="144" fill={`url(#${uid}-green)`} />
+            <CardPatternLayer theme={CARD_THEMES.sales} w={400} h={144} uid={uid} showChip={false} />
+          </svg>
+          <h2 className="relative text-lg font-semibold">Run your business</h2>
+          <p className="relative mt-1 max-w-[70%] text-sm leading-snug text-white/90">
             Sign in to record sales, track expenses and see your numbers in one place.
           </p>
-          <span className="absolute right-5 top-1/2 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-2xl bg-white/20">
-            <Briefcase className="h-6 w-6" aria-hidden />
-          </span>
+          <img src="/icon3.png" alt="" aria-hidden className="absolute right-4 top-1/2 h-28 w-28 -translate-y-1/2 object-contain" />
         </div>
 
         {/* White feature cards with solid icon tiles */}
         <div className="mt-4 grid grid-cols-2 gap-3">
           {cards.map((card) => (
             <div key={card.title} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-white ${card.tile}`}>
-                <card.icon className="h-5 w-5" aria-hidden />
-              </span>
+              <img src={card.img} alt="" aria-hidden className="h-12 w-12 object-contain" />
               <h2 className="mt-3 text-sm font-semibold">{card.title}</h2>
               <p className="mt-1 text-xs leading-snug text-slate-500">{card.text}</p>
             </div>
