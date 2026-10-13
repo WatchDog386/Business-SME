@@ -29,7 +29,7 @@ export function DashboardHeader() {
       <header className="page-head flex items-center gap-3 rounded-3xl bg-[#1F1F22] px-3 py-2.5 text-white shadow-[0_10px_24px_-10px_rgba(15,23,42,0.45)]">
         <button
           onClick={() => setMenuOpen(true)}
-          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-400 to-emerald-700 text-[17px] font-semibold text-white ring-2 ring-white/10 transition-transform active:scale-95"
+          className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/90 bg-[radial-gradient(circle_at_30%_25%,#9BE15D_0%,#4CAF2E_38%,#2E7D1A_70%,#174D0C_100%)] shadow-[0_4px_10px_rgba(0,0,0,0.45),inset_0_-3px_6px_rgba(0,0,0,0.35)] transition-transform active:scale-95"
           aria-label="Open menu"
         >
           {user?.avatarUrl ? (
@@ -37,7 +37,17 @@ export function DashboardHeader() {
           ) : active?.logo_url ? (
             <img src={active.logo_url} alt="Business logo" className="h-full w-full object-cover" />
           ) : (
-            (user?.fullName ?? active?.name ?? '?').charAt(0).toUpperCase()
+            <>
+              {/* Glossy shine across the top of the badge */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-1.5 top-0.5 h-1/2 rounded-full bg-gradient-to-b from-white/45 to-white/0"
+              />
+              {/* Heavy, slanted initial with a soft drop shadow */}
+              <span className="relative -skew-x-12 text-[26px] font-black leading-none text-white [text-shadow:0_2px_3px_rgba(0,0,0,0.45)]">
+                {(user?.fullName ?? active?.name ?? '?').charAt(0).toUpperCase()}
+              </span>
+            </>
           )}
         </button>
 
