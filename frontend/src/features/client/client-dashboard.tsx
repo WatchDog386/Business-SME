@@ -1,46 +1,130 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Download, Loader2, LogOut, Phone, Receipt, Smartphone, Wifi } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Copy,
+  Download,
+  EyeOff,
+  Home,
+  Loader2,
+  Package as PackageIcon,
+  Receipt,
+  RefreshCw,
+  Search,
+  Smartphone,
+  UserCog,
+  Wifi,
+} from 'lucide-react';
+import type { ComponentType } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { clientApi, type ClientHome, type StkPush } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Alert } from '@/components/ui/alert';
 import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
-import { CARD_THEMES, FiberHeroCard } from '@/components/brand/fiber-card';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
-import { planStyle } from '@/features/products/package-card';
 import { useAuthStore } from '@/stores/auth';
+import { notifySuccess } from '@/components/ui/popup-host';
 import { cn, formatDate, formatKES } from '@/lib/utils';
 
 type Pkg = ClientHome['packages'][number];
 
+/** Lime green from the reference design, already used by the app's own dialogs. */
+const GREEN = '#8BC53F';
+/** Dark green of the package card. */
+const CARD_FROM = '#12463A';
+const CARD_MID = '#0D5B3F';
+const CARD_TO = '#072A21';
+
 const STATUS = {
-  ACTIVE: { label: 'Connected', cls: 'bg-emerald-100 text-emerald-700 [.dark_&]:bg-emerald-500/15 [.dark_&]:text-emerald-300', bar: '#2DA043' },
-  EXPIRING: { label: 'Expiring soon', cls: 'bg-amber-100 text-amber-700 [.dark_&]:bg-amber-500/15 [.dark_&]:text-amber-300', bar: '#F08C21' },
-  EXPIRED: { label: 'Expired', cls: 'bg-red-100 text-red-700 [.dark_&]:bg-red-500/15 [.dark_&]:text-red-300', bar: '#E23B41' },
+  ACTIVE: { label: 'Connected', cls: 'bg-emerald-400/20 text-emerald-200', bar: '#8BC53F' },
+  EXPIRING: { label: 'Expiring soon', cls: 'bg-amber-400/20 text-amber-200', bar: '#F08C21' },
+  EXPIRED: { label: 'Expired', cls: 'bg-red-400/20 text-red-200', bar: '#E23B41' },
 } as const;
 
 function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || '?'
+  );
+}
+
+/** Glossy green ball with a shine across the top, like the reference's icons and avatar. */
+function GlossyBall({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'relative flex items-center justify-center overflow-hidden rounded-full border-2 border-white/85 bg-[radial-gradient(circle_at_30%_24%,#A9E06D_0%,#57A81E_38%,#2F7A0C_70%,#17540A_100%)] text-white shadow-[0_4px_10px_rgba(0,0,0,0.45),inset_0_-3px_6px_rgba(0,0,0,0.35)]',
+        className,
+      )}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-1.5 top-0.5 h-1/2 rounded-full bg-gradient-to-b from-white/45 to-white/0"
+      />
+      <span className="relative">{children}</span>
+    </span>
+  );
+}
+
+/** Dark translucent panel sitting over the photo. */
+function Panel({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <section
+      className={cn(
+        'rounded-[26px] border border-white/15 bg-black/55 shadow-[0_10px_24px_-10px_rgba(0,0,0,0.6)] backdrop-blur-md',
+        className,
+      )}
+    >
+      {children}
+    </section>
+  );
+}
+
+/** Outlined pill button used on the dark panels. */
+function PillButton({
+  className,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'flex h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-white/70 text-[13px] font-semibold text-white transition-transform active:scale-[0.97]',
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
 }
 
 /**
- * Client dashboard: a WiFi client's own app. Their package and days left,
- * pay or renew with an M-Pesa prompt, switch package, download receipts and
- * get help. They never see anything of the business beyond this.
+ * Client dashboard: a WiFi client's own app, laid out like the reference banking
+ * home screen — a photo behind the page, a dark top bar with the greeting, a green
+ * package card, a balance strip, quick actions and a floating bottom bar.
+ * They never see anything of the business beyond this.
  */
 export function ClientDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [payFor, setPayFor] = useState<Pkg | null>(null);
+  const [tab, setTab] = useState<'package' | 'payments'>('package');
+  const [showNumber, setShowNumber] = useState(false);
   const { data, isLoading, error } = useQuery({ queryKey: ['client-me'], queryFn: clientApi.me });
+  const topRef = useRef<HTMLDivElement>(null);
+  const cardsRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const paymentsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     document.body.classList.add('page-white', 'dash-glow-body');
@@ -65,161 +149,351 @@ export function ClientDashboard() {
   const current = data.packages.find((p) => p.id === sub?.productId) ?? null;
   const status = sub ? STATUS[sub.status] : null;
   const firstName = (data.customer.name || user?.fullName || '').split(' ')[0];
-  // Share of the 30-day period left, for the bar
   const period = current?.billingDays ?? 30;
   const left = sub ? Math.max(0, Math.min(1, sub.daysLeft / period)) : 0;
   const phoneDigits = (data.business.phone ?? '').replace(/\D/g, '').replace(/^0/, '254');
+  const accountNo = data.customer.phone ?? data.business.phone ?? '';
+
+  const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  /** Round glossy shortcut in the Quick Actions grid. */
+  const action = (Icon: ComponentType<{ className?: string }>, label: string, onClick: () => void) => (
+    <button type="button" onClick={onClick} className="flex flex-col items-center gap-2">
+      <GlossyBall className="h-14 w-14">
+        <Icon className="h-6 w-6" />
+      </GlossyBall>
+      <span className="line-clamp-2 text-center text-[12px] font-semibold leading-tight text-white">{label}</span>
+    </button>
+  );
 
   return (
-    <div className="relative isolate space-y-6 pb-10">
-      <div className="dash-glow pointer-events-none absolute -left-4 -right-4 top-0 -z-10 h-80" aria-hidden />
+    <div className="relative isolate -mx-4 -mt-2 min-h-[100dvh] pb-28">
+      {/* Photo behind the whole page, dark enough for white text to read */}
+      <img
+        src="/images/splash-savanna.jpg"
+        alt=""
+        aria-hidden
+        className="fixed inset-0 -z-20 h-full w-full object-cover"
+      />
+      <div
+        aria-hidden
+        className="fixed inset-0 -z-10 bg-gradient-to-b from-black/70 via-black/45 to-black/75"
+      />
 
-      <header className="page-head dash-glow-head flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#3A8F91] to-[#2F7F81] text-[14px] font-semibold text-white ring-2 ring-white">
-            {initials(data.customer.name)}
+      <div ref={topRef} />
+
+      {/* Top bar: avatar, centred greeting, then search and alerts */}
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 bg-black/55 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
+        <GlossyBall className="h-12 w-12 shrink-0">
+          <span className="-skew-x-12 text-[20px] font-black leading-none [text-shadow:0_2px_3px_rgba(0,0,0,0.45)]">
+            {initials(data.customer.name).slice(0, 1)}
           </span>
-          <span className="min-w-0">
-            <span className="block truncate text-[12px] text-foreground-4">{data.business.name}</span>
-            <span className="block truncate text-[18px] font-semibold text-foreground">Hello, {firstName} 👋</span>
-          </span>
+        </GlossyBall>
+        <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-white">
+          Hello {firstName} 👋
+        </h1>
+        <div className="flex shrink-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => jump(cardsRef)}
+            className="text-white transition-transform active:scale-90"
+            aria-label="Search packages"
+          >
+            <Search className="h-6 w-6" strokeWidth={1.9} aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={logout}
+            className="text-white transition-transform active:scale-90"
+            aria-label="Sign out"
+          >
+            <UserCog className="h-6 w-6" strokeWidth={1.9} aria-hidden />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={logout}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90"
-          aria-label="Sign out"
-        >
-          <LogOut className="h-5 w-5" />
-        </button>
       </header>
 
-      {/* My package: the bank card, with Pay / Renew in its corner */}
-      {sub && current ? (
-        <FiberHeroCard
-          theme={sub.status === 'EXPIRED' ? CARD_THEMES.expenses : CARD_THEMES.sales}
-          label="My WiFi package"
-          value={current.name.replace(/\s*\d+\s*mbps\s*$/i, '')}
-          note={current.speedMbps ? `${current.speedMbps} Mbps` : undefined}
-          maskedValue={sub.daysLeft > 0 ? sub.daysLeft : 0}
-          footerLeft={data.customer.name}
-          footerRight={`${sub.status === 'EXPIRED' ? 'Ended' : 'Until'} ${formatDate(sub.expiresAt)}`}
-          icon={Wifi}
-          action={{ label: sub.status === 'ACTIVE' ? 'Pay early' : 'Renew now', onClick: () => setPayFor(current) }}
-        />
-      ) : (
-        <div className="rounded-[28px] bg-[#DDEAF3] p-5 [.dark_&]:bg-[#1C2A33]">
-          <p className="text-[18px] font-semibold text-foreground">No WiFi package yet</p>
-          <p className="mt-1 text-[13px] text-foreground-3">Pick a package below and pay with M-Pesa to get connected.</p>
-        </div>
-      )}
-
-      {/* Days left */}
-      {sub && status && (
-        <section className="rounded-[28px] bg-[#E4E7F1] p-4 [.dark_&]:bg-[#23263A]">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-foreground-4">
-              Started {formatDate(sub.startedAt)} · {sub.renewals} renewal{sub.renewals === 1 ? '' : 's'}
-            </span>
-            <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', status.cls)}>{status.label}</span>
-          </div>
-          <div className="mb-3 mt-1 flex items-baseline justify-between gap-2">
-            <h2 className="text-[22px] font-semibold tracking-tight text-foreground">
-              {sub.daysLeft > 0 ? 'Days left' : sub.daysLeft === 0 ? 'Ends today' : 'Expired'}
-            </h2>
-            <span className="text-[28px] font-semibold tabular-nums text-foreground">
-              {Math.max(0, sub.daysLeft)}
-              <span className="ml-1 text-[12px] font-medium text-foreground-4">of {period}</span>
-            </span>
-          </div>
-          <div className="h-3 overflow-hidden rounded-full bg-white [.dark_&]:bg-black/30">
-            <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(3, left * 100)}%`, background: status.bar }} />
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
-            <Tile label="Monthly price" value={formatKES(current?.price ?? sub.price)} />
-            <Tile
-              label={data.customer.balance > 0 ? 'You owe' : 'Balance'}
-              value={data.customer.balance > 0 ? formatKES(data.customer.balance) : 'All paid'}
-              danger={data.customer.balance > 0}
-            />
-          </div>
-        </section>
-      )}
-
-      {/* Switch package */}
-      <section>
-        <div className="mb-3 flex items-center justify-between px-1">
-          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{sub ? 'Change package' : 'Choose a package'}</h2>
-          <span className="text-[12px] text-foreground-4">Pay with M-Pesa</span>
-        </div>
-        <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4">
-          {data.packages.map((p, i) => {
-            const style = planStyle(p.name.replace(/\s*\d+\s*mbps\s*$/i, ''), i);
-            const mine = p.id === current?.id;
-            return (
-              <div key={p.id} className="flex w-40 shrink-0 flex-col rounded-3xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
-                <span
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-[12px] font-bold text-white"
-                  style={{ background: `linear-gradient(135deg, ${style.from}, ${style.to})` }}
-                >
-                  {p.speedMbps ? `${p.speedMbps}M` : <Wifi className="h-5 w-5" />}
-                </span>
-                <p className="mt-3 text-[15px] font-medium text-foreground">{p.name.replace(/\s*\d+\s*mbps\s*$/i, '')}</p>
-                <p className="text-[12px] text-foreground-4">
-                  {p.speedMbps ? `${p.speedMbps} Mbps · ` : ''}
-                  {p.billingDays ?? 30} days
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setPayFor(p)}
-                  className="mt-3 h-10 rounded-xl border-[1.5px] text-[13px] font-medium tabular-nums"
-                  style={mine ? { background: style.from, borderColor: style.from, color: '#fff' } : { borderColor: style.from, color: style.from }}
-                >
-                  {mine ? 'My package · Pay' : `KSh ${p.price.toLocaleString('en-KE')}`}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Payments and receipts */}
-      <section>
-        <div className="mb-2 flex items-center justify-between px-1">
-          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">My payments</h2>
-          <span className="text-[12px] text-foreground-4">{data.payments.length}</span>
-        </div>
-        {data.payments.length === 0 ? (
-          <p className="px-1 text-[13px] text-foreground-4">No payments yet.</p>
-        ) : (
-          <ul className="space-y-1">
-            {data.payments.map((p) => (
-              <PaymentRow key={p.id} payment={p} />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* Help */}
-      {data.business.phone && (
-        <section className="rounded-[28px] bg-[#DDEBD9] p-4 [.dark_&]:bg-[#1D2B22]">
-          <p className="text-[15px] font-semibold text-foreground">Need help with your WiFi?</p>
-          <p className="mt-0.5 text-[12px] text-foreground-3">Call or message {data.business.name}.</p>
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
-            <a href={`tel:${data.business.phone}`} className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-white text-[13px] font-semibold text-foreground [.dark_&]:bg-black/30">
-              <Phone className="h-4 w-4" /> Call
-            </a>
-            <a
-              href={`https://wa.me/${phoneDigits}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#25D366] text-[13px] font-semibold text-white"
+      <div className="px-4 pt-4">
+        {/* Green pill tabs */}
+        <div className="flex items-center gap-6">
+          {(
+            [
+              { id: 'package', label: 'Package' },
+              { id: 'payments', label: 'Payments' },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              aria-pressed={tab === t.id}
+              className={cn(
+                'flex h-11 items-center rounded-full px-8 text-[15px] font-bold transition-transform active:scale-[0.98]',
+                tab === t.id ? 'text-white shadow-lg' : 'text-white/70',
+              )}
+              style={tab === t.id ? { background: GREEN, boxShadow: '0 8px 20px -8px rgba(139,197,63,0.9)' } : undefined}
             >
-              <WhatsAppIcon className="h-4 w-4" /> WhatsApp
-            </a>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'package' ? (
+          <>
+            {/* Section head */}
+            <div className="mt-5 flex items-center justify-between px-1">
+              <button
+                type="button"
+                onClick={() => jump(cardsRef)}
+                className="flex items-center gap-1.5 text-[13px] font-semibold underline underline-offset-4"
+                style={{ color: GREEN }}
+              >
+                <Wifi className="h-4 w-4" aria-hidden />
+                Change package
+              </button>
+              <button type="button" onClick={() => jump(cardsRef)} className="text-[13px] font-medium text-white">
+                View All
+              </button>
+            </div>
+
+            {/* Package cards, swiped sideways */}
+            <div
+              ref={cardsRef}
+              className="scrollbar-none -mx-4 mt-3 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4"
+            >
+              {data.packages.map((p) => {
+                const mine = p.id === current?.id;
+                const days = mine && sub ? sub.daysLeft : (p.billingDays ?? 30);
+                return (
+                  <article
+                    key={p.id}
+                    className="w-[82vw] max-w-[330px] shrink-0 snap-center rounded-[24px] border border-white/20 p-5 text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)]"
+                    style={{ background: `linear-gradient(135deg, ${CARD_FROM} 0%, ${CARD_MID} 55%, ${CARD_TO} 100%)` }}
+                  >
+                    <p className="text-[13px] text-white/80">{mine ? 'My WiFi package' : 'Available package'}</p>
+                    <p className="mt-1 text-[13px] font-semibold uppercase tracking-wide text-white/90">
+                      {data.customer.name}
+                    </p>
+
+                    <div className="mt-3 flex items-center gap-2">
+                      <p className="text-[17px] font-medium tabular-nums">
+                        {showNumber ? accountNo || '—' : accountNo ? '••••••••••' : '—'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (accountNo) {
+                            void navigator.clipboard?.writeText(accountNo);
+                            notifySuccess('Number copied', accountNo);
+                          }
+                        }}
+                        className="text-white/80 active:scale-90"
+                        aria-label="Copy number"
+                      >
+                        <Copy className="h-4 w-4" aria-hidden />
+                      </button>
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-2">
+                      <p className="h-6 w-28 rounded bg-white/15 blur-[3px]" aria-hidden />
+                      <button
+                        type="button"
+                        onClick={() => setShowNumber((v) => !v)}
+                        className="text-white/80 active:scale-90"
+                        aria-label={showNumber ? 'Hide balance' : 'Show balance'}
+                      >
+                        <EyeOff className="h-5 w-5" aria-hidden />
+                      </button>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <PillButton
+                        onClick={() => {
+                          setTab('payments');
+                          window.setTimeout(() => jump(paymentsRef), 60);
+                        }}
+                      >
+                        <Receipt className="h-4 w-4" aria-hidden />
+                        Statement
+                      </PillButton>
+                      <PillButton onClick={() => setPayFor(p)}>
+                        <RefreshCw className="h-4 w-4" aria-hidden />
+                        {mine && sub?.status !== 'ACTIVE' ? 'Renew' : 'Deposit'}
+                      </PillButton>
+                    </div>
+
+                    <p className="mt-3 text-[12px] text-white/70">
+                      {p.speedMbps ? `${p.speedMbps} Mbps · ` : ''}
+                      {days} days · {formatKES(p.price)}
+                      {mine && <span className="ml-1 font-semibold" style={{ color: GREEN }}>· My package</span>}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+
+            {/* Carousel dots */}
+            <div className="mt-4 flex items-center justify-center gap-1.5">
+              {data.packages.map((p) => (
+                <span
+                  key={p.id}
+                  className="h-1.5 rounded-full transition-all"
+                  style={{ width: p.id === current?.id ? 22 : 6, background: p.id === current?.id ? GREEN : 'rgba(255,255,255,0.55)' }}
+                  aria-hidden
+                />
+              ))}
+            </div>
+
+            {/* Days-left strip */}
+            <Panel className="mt-5 flex items-center gap-3 px-4 py-3.5">
+              <p className="text-[14px] font-medium text-white/90">
+                Days left:{' '}
+                <span className="font-bold text-white">{sub ? Math.max(0, sub.daysLeft) : '—'}</span>
+              </p>
+              <span className="h-3 w-20 rounded bg-white/25 blur-[2px]" aria-hidden />
+              <span className="flex-1" />
+              <button
+                type="button"
+                onClick={() => current && setPayFor(current)}
+                className="flex items-center gap-2 text-[13px] font-semibold text-white"
+              >
+                {sub?.status === 'EXPIRED' ? 'Renew now' : 'Pay early'}
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-full"
+                  style={{ border: `2px solid ${GREEN}` }}
+                >
+                  <ArrowRight className="h-4 w-4" style={{ color: GREEN }} aria-hidden />
+                </span>
+              </button>
+              {sub && (
+                <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/20">
+                  <div className="h-full rounded-full" style={{ width: `${Math.max(3, left * 100)}%`, background: status?.bar }} />
+                </div>
+              )}
+            </Panel>
+
+            {/* Quick actions */}
+            <div ref={actionsRef}>
+              <Panel className="mt-5 p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h2 className="text-[17px] font-bold text-white">Quick Actions</h2>
+                  <button
+                    type="button"
+                    onClick={() => jump(cardsRef)}
+                    className="h-9 rounded-full border-2 px-5 text-[13px] font-bold"
+                    style={{ borderColor: GREEN, color: GREEN }}
+                  >
+                    Manage
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 gap-y-4">
+                  {current && action(Smartphone, 'Pay with M-Pesa', () => setPayFor(current))}
+                  {action(PackageIcon, 'Packages', () => jump(cardsRef))}
+                  {action(Receipt, 'Receipts', () => {
+                    setTab('payments');
+                    window.setTimeout(() => jump(paymentsRef), 60);
+                  })}
+                  {data.business.phone &&
+                    action(UserCog, 'Call us', () => {
+                      window.location.href = `tel:${data.business.phone}`;
+                    })}
+                  {data.business.phone &&
+                    action(WhatsAppIcon, 'WhatsApp', () => {
+                      window.open(`https://wa.me/${phoneDigits}`, '_blank');
+                    })}
+                  {action(Home, 'My details', () => setShowNumber((v) => !v))}
+                </div>
+              </Panel>
+            </div>
+          </>
+        ) : (
+          /* Payments tab */
+          <div ref={paymentsRef} className="mt-5">
+            <Panel className="p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-[17px] font-bold text-white">My payments</h2>
+                <span className="text-[12px] text-white/70">{data.payments.length}</span>
+              </div>
+              {data.payments.length === 0 ? (
+                <p className="py-6 text-center text-[13px] text-white/70">No payments yet.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {data.payments.map((p) => (
+                    <PaymentRow key={p.id} payment={p} />
+                  ))}
+                </ul>
+              )}
+            </Panel>
+
+            {/* Help */}
+            {data.business.phone && (
+              <Panel className="mt-4 p-4">
+                <h2 className="text-[17px] font-bold text-white">Need help with your WiFi?</h2>
+                <p className="mt-0.5 text-[12px] text-white/75">Call or message {data.business.name}.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2.5">
+                  <PillButton onClick={() => window.location.assign(`tel:${data.business.phone}`)}>
+                    Call
+                  </PillButton>
+                  <PillButton onClick={() => window.open(`https://wa.me/${phoneDigits}`, '_blank')}>
+                    <WhatsAppIcon className="h-4 w-4" aria-hidden />
+                    WhatsApp
+                  </PillButton>
+                </div>
+              </Panel>
+            )}
           </div>
-        </section>
-      )}
+        )}
+      </div>
+
+      {/* Floating bottom bar */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/15 bg-black/70 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md">
+        <div className="mx-auto grid max-w-xl grid-cols-5 gap-1 px-2">
+          {(
+            [
+              { label: 'Home', icon: Home, active: true, onClick: () => jump(topRef) },
+              { label: 'Pay', icon: Smartphone, active: false, onClick: () => current && setPayFor(current) },
+              { label: 'Packages', icon: PackageIcon, active: false, onClick: () => jump(cardsRef) },
+              {
+                label: 'Payments',
+                icon: Receipt,
+                active: false,
+                onClick: () => {
+                  setTab('payments');
+                  window.setTimeout(() => jump(paymentsRef), 60);
+                },
+              },
+              {
+                label: 'Help',
+                icon: UserCog,
+                active: false,
+                onClick: () => {
+                  setTab('payments');
+                  window.setTimeout(() => jump(paymentsRef), 60);
+                },
+              },
+            ] as { label: string; icon: LucideIcon; active: boolean; onClick: () => void }[]
+          ).map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              onClick={t.onClick}
+              className="flex flex-col items-center gap-1 py-1 transition-transform active:scale-90"
+            >
+              <t.icon
+                className="h-6 w-6"
+                strokeWidth={1.9}
+                style={{ color: t.active ? GREEN : 'rgba(255,255,255,0.75)' }}
+                aria-hidden
+              />
+              <span
+                className={cn('text-[11px] font-semibold', t.active ? '' : 'text-white/75')}
+                style={t.active ? { color: GREEN } : undefined}
+              >
+                {t.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </nav>
 
       <Dialog
         open={Boolean(payFor)}
@@ -229,15 +503,6 @@ export function ClientDashboard() {
       >
         {payFor && <PaySheet pkg={payFor} defaultPhone={data.customer.phone ?? ''} onDone={() => setPayFor(null)} />}
       </Dialog>
-    </div>
-  );
-}
-
-function Tile({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return (
-    <div className="rounded-2xl bg-white p-3 [.dark_&]:bg-black/30">
-      <p className="text-[11px] text-foreground-4">{label}</p>
-      <p className={cn('mt-1 text-[17px] font-semibold tabular-nums', danger ? 'text-danger' : 'text-foreground')}>{value}</p>
     </div>
   );
 }
@@ -254,13 +519,13 @@ function PaymentRow({ payment }: { payment: ClientHome['payments'][number] }) {
     }
   };
   return (
-    <li className="flex items-center gap-3 px-1 py-2">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E8F3F3] text-[#2F7F81] [.dark_&]:bg-white/10 [.dark_&]:text-[#7CC3C4]">
+    <li className="flex items-center gap-3 py-2.5">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white">
         <Receipt className="h-5 w-5" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-semibold tabular-nums text-foreground">{formatKES(payment.total)}</span>
-        <span className="block truncate text-[12px] text-foreground-4">
+        <span className="block text-[14px] font-semibold tabular-nums text-white">{formatKES(payment.total)}</span>
+        <span className="block truncate text-[12px] text-white/70">
           {formatDate(payment.at)} · {payment.method === 'M-PESA' ? 'M-Pesa' : payment.method.toLowerCase()}
           {!paid ? ' · unpaid' : ''}
         </span>
@@ -269,7 +534,7 @@ function PaymentRow({ payment }: { payment: ClientHome['payments'][number] }) {
         type="button"
         onClick={() => get(paid ? 'receipt' : 'invoice')}
         disabled={busy !== null}
-        className="flex h-9 items-center gap-1.5 rounded-full bg-surface-3 px-3 text-[12px] font-semibold text-foreground active:scale-95 disabled:opacity-60"
+        className="flex h-9 items-center gap-1.5 rounded-full bg-white/15 px-3 text-[12px] font-semibold text-white active:scale-95 disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
         {paid ? 'Receipt' : 'Invoice'}
