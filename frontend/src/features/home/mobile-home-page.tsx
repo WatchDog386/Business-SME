@@ -32,7 +32,7 @@ export function MobileHomePage() {
     };
   }, []);
   return (
-    <div className="relative flex min-h-[100dvh] flex-col bg-brand-900">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-brand-900">
       {/* Photo behind the whole page, so the sheet can be see-through */}
       <img
         src="/images/splash-savanna.jpg"
