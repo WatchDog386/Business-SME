@@ -6,23 +6,19 @@ import {
   CheckCircle2,
   Copy,
   Download,
-  EyeOff,
-  Home,
   Loader2,
-  Package as PackageIcon,
   Receipt,
   RefreshCw,
-  Search,
   Smartphone,
   UserCog,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import {
   DuoCalls,
   DuoCustomers,
   DuoProducts,
   DuoReports,
   DuoSales,
+  DuoSearch,
 } from '@/components/brand/duo-icons';
 import { QuickActions, type QuickAction } from '@/features/dashboard/components/quick-actions';
 import { PackageCard, planStyle } from '@/features/products/package-card';
@@ -129,7 +125,7 @@ export function ClientDashboard() {
   const logout = useAuthStore((s) => s.logout);
   const [payFor, setPayFor] = useState<Pkg | null>(null);
   const [tab, setTab] = useState<'packages' | 'payments'>('packages');
-  const [showNumber, setShowNumber] = useState(false);
+  const [query, setQuery] = useState('');
   const { data, isLoading, error } = useQuery({ queryKey: ['client-me'], queryFn: clientApi.me });
   const topRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -162,6 +158,11 @@ export function ClientDashboard() {
   const left = sub ? Math.max(0, Math.min(1, sub.daysLeft / period)) : 0;
   const phoneDigits = (data.business.phone ?? '').replace(/\D/g, '').replace(/^0/, '254');
   const accountNo = data.customer.phone ?? data.business.phone ?? '';
+  const q = query.trim().toLowerCase();
+  /** Packages matching the search; kept in their original order so plan colours stay put. */
+  const visiblePackages = data.packages
+    .map((pkg, index) => ({ pkg, index }))
+    .filter(({ pkg }) => q === '' || pkg.name.toLowerCase().includes(q));
 
 const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -204,7 +205,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
   );
 
   return (
-    <div className="relative isolate -mx-4 -mt-2 min-h-[100dvh] pb-28">
+    <div className="relative isolate -mx-4 -mt-2 min-h-[100dvh] pb-8">
       {/* Photo behind the whole page, dark enough for white text to read */}
       <img
         src="/images/splash-savanna.jpg"
@@ -219,7 +220,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
 
       <div ref={topRef} />
 
-      {/* Top bar: avatar, centred greeting, then search and sign out */}
+      {/* Top bar: avatar, centred greeting, then the account button */}
       <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 bg-black/55 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
         <GlossyBall className="h-12 w-12 shrink-0">
           <span className="-skew-x-12 text-[20px] font-black leading-none [text-shadow:0_2px_3px_rgba(0,0,0,0.45)]">
@@ -229,125 +230,151 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
         <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-white">
           Hello {firstName} 👋
         </h1>
-        <div className="flex shrink-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={() => jump(cardsRef)}
-            className="text-white transition-transform active:scale-90"
-            aria-label="Browse packages"
-          >
-            <Search className="h-6 w-6" strokeWidth={1.9} aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/my-account')}
-            className="text-white transition-transform active:scale-90"
-            aria-label="My account"
-          >
-            <UserCog className="h-6 w-6" strokeWidth={1.9} aria-hidden />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/my-account')}
+          className="shrink-0 text-white transition-transform active:scale-90"
+          aria-label="My account"
+        >
+          <UserCog className="h-6 w-6" strokeWidth={1.9} aria-hidden />
+        </button>
       </header>
 
-      <div className="px-4 pt-4">
-        {/* Hero: a single card for the subscribed package */}
+      <div className="px-4 pt-3">
+        {/* Search, styled like the admin dashboard's search bar; filters the packages */}
+        <label className="flex w-full items-center gap-2.5 rounded-full border border-white/80 bg-white/85 px-4 py-3 text-left shadow-[0_6px_18px_-6px_rgba(37,99,235,0.28),0_1px_2px_rgba(15,23,42,0.06)] backdrop-blur">
+          <DuoSearch className="h-5 w-5 shrink-0 text-brand-600" aria-hidden />
+          <input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (e.target.value) setTab('packages');
+            }}
+            placeholder="Search packages…"
+            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:font-medium placeholder:text-foreground-4"
+            autoComplete="off"
+            aria-label="Search packages"
+          />
+        </label>
+        {/* Hero: a single card for the subscribed package, in the reference's card style */}
         {current ? (
           <article
-            className="rounded-[24px] border border-white/20 p-5 text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)]"
+            className="relative mt-4 overflow-hidden rounded-[22px] border border-white/15 p-5 text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)]"
             style={{ background: `linear-gradient(135deg, ${CARD_FROM} 0%, ${CARD_MID} 55%, ${CARD_TO} 100%)` }}
           >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-[13px] text-white/80">My WiFi package</p>
-                <p className="mt-1 text-[13px] font-semibold uppercase tracking-wide text-white/90">
-                  {data.customer.name}
-                </p>
-              </div>
-              {status && (
-                <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', status.cls)}>{status.label}</span>
-              )}
-            </div>
+            {/* Faint decorative arcs on the right, like the reference card */}
+            <svg
+              className="pointer-events-none absolute -right-10 top-0 h-full w-1/2 opacity-25"
+              viewBox="0 0 200 200"
+              preserveAspectRatio="xMidYMid slice"
+              aria-hidden
+            >
+              <g fill="none" stroke="white" strokeWidth="0.7">
+                {[26, 44, 62, 80, 98].map((r) => (
+                  <circle key={r} cx="200" cy="70" r={r} />
+                ))}
+              </g>
+            </svg>
 
-            <p className="mt-3 text-[20px] font-bold">
-              {current.name.replace(/\s*\d+\s*mbps\s*$/i, '')}
-              {current.speedMbps && <span className="ml-1.5 text-[14px] font-medium text-white/80">{current.speedMbps} Mbps</span>}
-            </p>
-
-            <div className="mt-3 flex items-center gap-2">
-              <p className="text-[17px] font-medium tabular-nums">
-                {showNumber ? accountNo || '—' : accountNo ? '••••••••••' : '—'}
+            <div className="relative">
+              <p className="text-[13px] text-white/80">My WiFi package</p>
+              <p className="mt-1 text-[13px] font-semibold uppercase tracking-wide text-white/90">
+                {data.customer.name}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  if (accountNo) {
-                    void navigator.clipboard?.writeText(accountNo);
-                    notifySuccess('Number copied', accountNo);
-                  }
-                }}
-                className="text-white/80 active:scale-90"
-                aria-label="Copy number"
-              >
-                <Copy className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
 
-            <div className="mt-2 flex items-center gap-2">
-              <p className="h-6 w-28 rounded bg-white/15 blur-[3px]" aria-hidden />
-              <button
-                type="button"
-                onClick={() => setShowNumber((v) => !v)}
-                className="text-white/80 active:scale-90"
-                aria-label={showNumber ? 'Hide my number' : 'Show my number'}
-              >
-                <EyeOff className="h-5 w-5" aria-hidden />
-              </button>
-            </div>
+              <div className="mt-3 flex items-center gap-2">
+                <p className="text-[18px] font-medium tabular-nums">{accountNo || '—'}</p>
+                {accountNo && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(accountNo);
+                      notifySuccess('Number copied', accountNo);
+                    }}
+                    className="text-white/80 active:scale-90"
+                    aria-label="Copy my number"
+                  >
+                    <Copy className="h-4 w-4" aria-hidden />
+                  </button>
+                )}
+              </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <PillButton
-                onClick={() => {
-                  setTab('payments');
-                  window.setTimeout(() => jump(paymentsRef), 60);
-                }}
-              >
-                <Receipt className="h-4 w-4" aria-hidden />
-                Statement
-              </PillButton>
-              <PillButton onClick={() => setPayFor(current)}>
-                <RefreshCw className="h-4 w-4" aria-hidden />
-                {sub?.status === 'EXPIRED' ? 'Renew' : 'Pay'}
-              </PillButton>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <PillButton
+                  onClick={() => {
+                    setTab('payments');
+                    window.setTimeout(() => jump(paymentsRef), 60);
+                  }}
+                >
+                  <Receipt className="h-4 w-4" aria-hidden />
+                  Statement
+                </PillButton>
+                <PillButton onClick={() => setPayFor(current)}>
+                  <RefreshCw className="h-4 w-4" aria-hidden />
+                  {sub?.status === 'EXPIRED' ? 'Renew' : 'Deposit'}
+                </PillButton>
+              </div>
+
+              <p className="mt-3 text-[12px] text-white/70">
+                {current.speedMbps ? `${current.speedMbps} Mbps · ` : ''}
+                {Math.max(0, sub?.daysLeft ?? 0)} days left · {formatKES(current.price)}
+                {status && (
+                  <span className={cn('ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold', status.cls)}>
+                    {status.label}
+                  </span>
+                )}
+              </p>
             </div>
           </article>
         ) : (
-          <Panel className="p-5">
+          <Panel className="mt-4 p-5">
             <p className="text-[18px] font-semibold text-white">No WiFi package yet</p>
             <p className="mt-1 text-[13px] text-white/75">Pick a package below and pay with M-Pesa to get connected.</p>
           </Panel>
         )}
 
-        {/* Days-left strip */}
+        {/* Days-left bar, in the reference's loan balance style */}
         {sub && (
-          <Panel className="mt-4 flex items-center gap-3 px-4 py-3.5">
-            <p className="text-[14px] font-medium text-white/90">
-              Days left: <span className="font-bold text-white">{Math.max(0, sub.daysLeft)}</span>
-            </p>
-            <span className="flex-1" />
+          <div className="relative mt-4 flex items-stretch overflow-hidden rounded-[20px] border border-white/15 shadow-[0_14px_34px_-18px_rgba(0,0,0,0.85)]">
+            <div
+              className="flex min-w-0 flex-1 items-center gap-2 px-4 py-3.5 text-white"
+              style={{ background: `linear-gradient(120deg, ${CARD_FROM} 0%, ${CARD_MID} 100%)` }}
+            >
+              <p className="min-w-0 truncate text-[13px] text-white/90">
+                Days left: <span className="font-semibold text-white">{Math.max(0, sub.daysLeft)}</span>
+              </p>
+              <div className="h-1.5 min-w-[40px] flex-1 overflow-hidden rounded-full bg-white/20">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${Math.max(3, left * 100)}%`, background: status?.bar }}
+                />
+              </div>
+            </div>
+
+            {/* Diagonal notch between the two halves, like the reference */}
+            <span
+              aria-hidden
+              className="w-5 shrink-0 bg-white/10"
+              style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }}
+            />
+
             <button
               type="button"
               onClick={() => current && setPayFor(current)}
-              className="flex items-center gap-2 text-[13px] font-semibold text-white"
+              className="flex shrink-0 items-center gap-2 px-4 py-3.5 text-white"
+              style={{ background: `linear-gradient(120deg, ${CARD_MID} 0%, ${CARD_TO} 100%)` }}
             >
-              {sub.status === 'EXPIRED' ? 'Renew now' : 'Pay early'}
-              <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ border: `2px solid ${GREEN}` }}>
+              <span className="whitespace-nowrap text-[13px] font-medium">
+                {sub.status === 'EXPIRED' ? 'Renew now' : 'Pay now'}
+              </span>
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                style={{ border: `2px solid ${GREEN}` }}
+              >
                 <ArrowRight className="h-4 w-4" style={{ color: GREEN }} aria-hidden />
               </span>
             </button>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-white/20">
-              <div className="h-full rounded-full" style={{ width: `${Math.max(3, left * 100)}%`, background: status?.bar }} />
-            </div>
-          </Panel>
+          </div>
         )}
 
         {/* Quick actions: the admin dashboard's own grid, on the dark panel */}
@@ -368,7 +395,8 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
         </div>
 
         {tab === 'packages' ? (
-          /* Packages, using the same PackageCard the admin dashboard and staff pages use */
+          /* Packages, using the same PackageCard the admin dashboard and staff pages use.
+             Two show at a time; the rest scroll in from the side. */
           <section className="mt-3">
             <div className="mb-3 flex items-center justify-between px-1">
               <h2 className="text-[15px] font-semibold tracking-tight text-white">
@@ -376,35 +404,42 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
               </h2>
               <span className="text-[12px] text-white/70">Pay with M-Pesa</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {data.packages.map((p, i) => {
-                const name = p.name.replace(/\s*\d+\s*mbps\s*$/i, '') || p.name;
-                const style = planStyle(name, i);
-                const mine = p.id === current?.id;
-                return (
-                  <PackageCard
-                    key={p.id}
-                    product={toProduct(p)}
-                    index={i}
-                    onAdd={() => setPayFor(p)}
-                    footer={
-                      <button
-                        type="button"
-                        onClick={() => setPayFor(p)}
-                        className="inline-flex h-10 items-center rounded-xl border-[1.5px] px-3.5 text-[13px] font-medium tabular-nums transition-colors active:opacity-70"
-                        style={
-                          mine
-                            ? { background: style.from, borderColor: style.from, color: '#FFFFFF' }
-                            : { borderColor: style.from, color: style.from }
+            {visiblePackages.length === 0 ? (
+              <p className="rounded-2xl bg-black/55 px-4 py-6 text-center text-[13px] text-white/75">
+                No package matches “{query.trim()}”.
+              </p>
+            ) : (
+              <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4">
+                {visiblePackages.map(({ pkg: p, index: i }) => {
+                  const name = p.name.replace(/\s*\d+\s*mbps\s*$/i, '') || p.name;
+                  const style = planStyle(name, i);
+                  const mine = p.id === current?.id;
+                  return (
+                    <div key={p.id} className="w-[calc(50%-0.375rem)] shrink-0 snap-start">
+                      <PackageCard
+                        product={toProduct(p)}
+                        index={i}
+                        onAdd={() => setPayFor(p)}
+                        footer={
+                          <button
+                            type="button"
+                            onClick={() => setPayFor(p)}
+                            className="inline-flex h-10 items-center rounded-xl border-[1.5px] px-3.5 text-[13px] font-medium tabular-nums transition-colors active:opacity-70"
+                            style={
+                              mine
+                                ? { background: style.from, borderColor: style.from, color: '#FFFFFF' }
+                                : { borderColor: style.from, color: style.from }
+                            }
+                          >
+                            {mine ? 'My package · Pay' : `Pay · KSh ${p.price.toLocaleString('en-KE')}`}
+                          </button>
                         }
-                      >
-                        {mine ? 'My package · Pay' : `Pay · KSh ${p.price.toLocaleString('en-KE')}`}
-                      </button>
-                    }
-                  />
-                );
-              })}
-            </div>
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         ) : (
           /* Payments */
@@ -443,64 +478,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
         )}
       </div>
 
-      {/* Floating bottom bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/15 bg-black/70 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md">
-        <div className="mx-auto grid max-w-xl grid-cols-5 gap-1 px-2">
-          {(
-            [
-              { label: 'Home', icon: Home, active: true, onClick: () => jump(topRef) },
-              { label: 'Pay', icon: Smartphone, active: false, onClick: () => current && setPayFor(current) },
-              {
-                label: 'Packages',
-                icon: PackageIcon,
-                active: false,
-                onClick: () => {
-                  setTab('packages');
-                  window.setTimeout(() => jump(cardsRef), 60);
-                },
-              },
-              {
-                label: 'Payments',
-                icon: Receipt,
-                active: false,
-                onClick: () => {
-                  setTab('payments');
-                  window.setTimeout(() => jump(paymentsRef), 60);
-                },
-              },
-              {
-                label: 'Help',
-                icon: UserCog,
-                active: false,
-                onClick: () => {
-                  setTab('payments');
-                  window.setTimeout(() => jump(paymentsRef), 60);
-                },
-              },
-            ] as { label: string; icon: LucideIcon; active: boolean; onClick: () => void }[]
-          ).map((t) => (
-            <button
-              key={t.label}
-              type="button"
-              onClick={t.onClick}
-              className="flex flex-col items-center gap-1 py-1 transition-transform active:scale-90"
-            >
-              <t.icon
-                className="h-6 w-6"
-                strokeWidth={1.9}
-                style={{ color: t.active ? GREEN : 'rgba(255,255,255,0.75)' }}
-                aria-hidden
-              />
-              <span
-                className={cn('text-[11px] font-semibold', t.active ? '' : 'text-white/75')}
-                style={t.active ? { color: GREEN } : undefined}
-              >
-                {t.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </nav>
+
 
       <Dialog
         open={Boolean(payFor)}
