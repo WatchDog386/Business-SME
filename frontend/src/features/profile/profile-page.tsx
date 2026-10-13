@@ -4,13 +4,17 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
-  Camera,
+  LogOut,
   Mail,
+  Moon,
   Phone,
   Save,
+  Sun,
   Trash2,
-  User as UserIcon,
 } from 'lucide-react';
+import { useTheme } from '@/lib/theme';
+import { requestLogout } from '@/components/layout/session-timeout';
+import { PROFILE_GREEN, ProfileRing, profileCompletion } from '@/components/layout/profile-visuals';
 import { authApi } from '@/api/endpoints';
 import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
@@ -40,6 +44,10 @@ export function ProfilePage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [theme, setTheme] = useTheme();
+  const isDark = theme === 'dark';
+  // Ring shows the photo being edited, before it's saved
+  const completion = profileCompletion(user ? { ...user, avatarUrl } : user);
 
   const {
     register,
@@ -101,25 +109,17 @@ export function ProfilePage() {
         </Alert>
       )}
 
-      <section className="flex flex-col items-center p-1 text-center">
+      <section className="flex flex-col items-center p-1 pt-4 text-center">
+        {/* Centred ring avatar: green arc shows how complete the profile is, pencil changes the photo */}
         <div className="relative">
-          <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-edge bg-accent-soft text-3xl font-medium text-accent shadow-sm">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-            ) : user?.fullName ? (
-              user.fullName.charAt(0).toUpperCase()
-            ) : (
-              <UserIcon className="h-10 w-10" />
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-md ring-2 ring-white transition-transform hover:scale-105 active:scale-95"
-            aria-label="Upload photo"
-          >
-            <Camera className="h-3.5 w-3.5" />
-          </button>
+          <ProfileRing
+            percent={completion}
+            label={`${completion}%`}
+            avatarUrl={avatarUrl}
+            initial={user?.fullName?.charAt(0).toUpperCase()}
+            onEdit={() => fileInputRef.current?.click()}
+            editLabel="Upload photo"
+          />
           <input
             ref={fileInputRef}
             type="file"
@@ -129,7 +129,7 @@ export function ProfilePage() {
           />
         </div>
 
-        <div className="mt-4 flex items-center gap-1.5">
+        <div className="mt-7 flex items-center gap-1.5">
           <h2 className="text-base font-medium tracking-tight text-foreground">
             {user?.fullName ?? 'Your name'}
           </h2>
@@ -239,6 +239,52 @@ export function ProfilePage() {
             )}
           </button>
         </form>
+      </section>
+
+      {/* Appearance: light / dark theme (moved here from Settings) */}
+      <section className="px-1">
+        <SectionLabel>Appearance</SectionLabel>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isDark}
+          onClick={() => setTheme(isDark ? 'light' : 'dark')}
+          className="mt-3 flex w-full items-center gap-3 rounded-xl border border-edge-2 bg-surface px-4 py-3.5 text-left transition-transform active:scale-[0.99] [.dark_&]:border-white/25 [.dark_&]:bg-black"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-3 [.dark_&]:bg-[#1E1E1E]">
+            {isDark ? (
+              <Moon className="h-[18px] w-[18px]" style={{ color: PROFILE_GREEN }} aria-hidden />
+            ) : (
+              <Sun className="h-[18px] w-[18px] text-amber-500" aria-hidden />
+            )}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-foreground">Dark mode</span>
+            <span className="block text-xs text-foreground-3">{isDark ? 'On' : 'Off'}</span>
+          </span>
+          <span
+            className="relative h-7 w-[52px] shrink-0 rounded-full transition-colors duration-200"
+            style={{ backgroundColor: isDark ? PROFILE_GREEN : undefined }}
+            aria-hidden
+          >
+            {!isDark && <span className="absolute inset-0 rounded-full bg-edge-2" />}
+            <span
+              className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${isDark ? 'translate-x-6' : 'translate-x-0'}`}
+            />
+          </span>
+        </button>
+      </section>
+
+      {/* Log out (moved here from Settings) */}
+      <section className="px-1 pb-8">
+        <button
+          type="button"
+          onClick={() => requestLogout()}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-danger text-sm font-medium text-white shadow-sm transition-transform active:scale-[0.99]"
+        >
+          <LogOut className="h-4 w-4" aria-hidden />
+          Log out
+        </button>
       </section>
     </div>
   );

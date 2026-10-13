@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { PasswordInput } from '@/features/auth/components/password-input';
 import { RecoveryCodes, TwoFactorSetupStep } from '@/features/auth/components/two-factor';
+import { BubbleTile } from './profile-visuals';
 
 type Flow = 'enable' | 'codes' | 'disable';
 
@@ -56,6 +57,14 @@ export function TwoFactorSetting({ tile = false }: { tile?: boolean }) {
 
   return (
     <>
+      {tile ? (
+        <BubbleTile
+          icon={ShieldCheck}
+          title="Two-factor"
+          description={on ? 'On: code at sign-in' : 'Off: tap to turn on'}
+          onClick={() => setFlow(on ? 'disable' : 'enable')}
+        />
+      ) : (
       <button
         type="button"
         role="switch"
@@ -101,6 +110,7 @@ export function TwoFactorSetting({ tile = false }: { tile?: boolean }) {
           </span>
         )}
       </button>
+      )}
 
       {flow &&
         createPortal(
