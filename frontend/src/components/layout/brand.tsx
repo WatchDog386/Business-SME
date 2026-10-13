@@ -2,6 +2,14 @@ import { cn } from '@/lib/utils';
 import logo from '@/assets/optima-logo.png';
 import logoLight from '@/assets/optima-logo-light.png';
 
+/** Image width and the wordmark's font sizes for each size. */
+const sizes = {
+  sm: { img: 'w-24', name: 'text-[13px]', sub: 'text-[10px]' },
+  md: { img: 'w-28', name: 'text-sm', sub: 'text-[10px]' },
+  lg: { img: 'w-40', name: 'text-base', sub: 'text-[11px]' },
+  xl: { img: 'w-56', name: 'text-xl', sub: 'text-[13px]' },
+} as const;
+
 export function Brand({
   className,
   compact = false,
@@ -11,12 +19,11 @@ export function Brand({
   className?: string;
   compact?: boolean;
   onDark?: boolean;
-  size?: 'sm' | 'md' | 'lg';
+  size?: keyof typeof sizes;
 }) {
   // The wordmark is ~4.17:1, so it is sized by width with height derived
   // from the intrinsic aspect ratio (never a fixed square).
-  const imgSize =
-    size === 'lg' ? 'w-40' : size === 'sm' ? 'w-24' : 'w-28';
+  const scale = sizes[size];
   return (
     <div className={cn('flex items-center gap-2.5', className)}>
       <img
@@ -24,13 +31,14 @@ export function Brand({
         alt="Optima logo"
         width={1200}
         height={288}
-        className={cn('shrink-0 object-contain', imgSize)}
+        className={cn('shrink-0 object-contain', scale.img)}
       />
       {!compact && (
         <div className="leading-tight">
           <p
             className={cn(
-              'font-display text-sm font-medium tracking-tight',
+              'font-display font-medium tracking-tight',
+              scale.name,
               onDark ? 'text-white' : 'text-foreground',
             )}
           >
@@ -38,7 +46,8 @@ export function Brand({
           </p>
           <p
             className={cn(
-              'text-[10px] font-medium',
+              'font-medium',
+              scale.sub,
               onDark ? 'text-white/70' : 'text-foreground-5',
             )}
           >

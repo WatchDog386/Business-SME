@@ -34,9 +34,10 @@ export function MobileHomePage() {
         className="absolute inset-0 h-full w-full object-cover"
       />
 
-      {/* Logo on the photo. The photo's top is a deep blue dusk sky, so the light wordmark reads */}
-      <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pt-[env(safe-area-inset-top)]">
-        <Brand onDark size="lg" />
+      {/* Logo in its original navy and green, nudged up off the centre line. The soft drop shadow
+          keeps the navy wordmark off the dusk sky behind it. */}
+      <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pb-10 pt-[env(safe-area-inset-top)] [&_img]:drop-shadow-[0_2px_6px_rgba(255,255,255,0.35)]">
+        <Brand size="xl" />
       </div>
 
       {/* Whitish frosted sheet: the photo shows faintly through; sized so Login is always fully visible */}
