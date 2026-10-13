@@ -37,6 +37,7 @@ export function QuickActions({
   items = actions,
   viewAll = true,
   onSelect,
+  onManage,
   labelClassName,
   titleClassName,
   className,
@@ -44,6 +45,8 @@ export function QuickActions({
   items?: QuickAction[];
   viewAll?: boolean;
   onSelect?: (to: string) => void;
+  /** Where the "Manage" button goes. Without it the button opens the staff section menu. */
+  onManage?: () => void;
   /** Label colour, so the same tiles can sit on the subscriber's dark panel. */
   labelClassName?: string;
   titleClassName?: string;
@@ -58,7 +61,7 @@ export function QuickActions({
         {viewAll && (
         <button
           type="button"
-          onClick={() => setAllOpen(true)}
+          onClick={onManage ?? (() => setAllOpen(true))}
           className="flex h-9 items-center rounded-full border-2 border-edge-2 px-5 text-[15px] font-semibold text-brand-600 transition-transform active:scale-95 active:opacity-70 [.dark_&]:text-brand-400"
         >
           Manage
@@ -88,7 +91,7 @@ export function QuickActions({
         ))}
       </div>
 
-      {viewAll && <MoreMenu open={allOpen} onOpenChange={setAllOpen} />}
+      {viewAll && !onManage && <MoreMenu open={allOpen} onOpenChange={setAllOpen} />}
     </section>
   );
 }

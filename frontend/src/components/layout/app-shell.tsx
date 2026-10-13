@@ -16,7 +16,14 @@ import { useTheme } from '@/lib/theme';
 import { useRole } from '@/hooks/use-role';
 
 /** The only pages a subscriber (CLIENT role) may open. */
-const CLIENT_PATHS = ['/dashboard', '/my-account'];
+const CLIENT_PATHS = [
+  '/dashboard',
+  '/my-account',
+  '/my-packages',
+  '/my-pay',
+  '/my-payments',
+  '/my-contact',
+];
 
 export function AppShell() {
   const { token, loading } = useBootstrap();
