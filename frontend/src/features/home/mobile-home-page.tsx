@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { useId } from 'react';
+import { useEffect, useId } from 'react';
+import { overrideStatusBarColor } from '@/lib/theme';
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import { Brand } from '@/components/layout/brand';
 import { CARD_THEMES, CardPatternLayer } from '@/components/brand/fiber-card';
@@ -20,6 +21,9 @@ const cards = [
  */
 export function MobileHomePage() {
   const uid = useId().replace(/:/g, '');
+
+  // Status bar takes this colour (matches the top of the photo) instead of the default white
+  useEffect(() => overrideStatusBarColor('#E8953D'), []);
   return (
     <div className="relative flex min-h-[100dvh] flex-col bg-brand-900">
       {/* Photo behind the whole page, so the sheet can be see-through */}
@@ -27,11 +31,11 @@ export function MobileHomePage() {
         src="/images/splash-savanna.jpg"
         alt=""
         aria-hidden
-        className="absolute inset-x-0 top-0 h-[50dvh] w-full object-cover"
+        className="absolute inset-x-0 top-0 h-[44dvh] w-full object-cover"
       />
 
       {/* Logo sits on the photo, top quarter of the screen */}
-      <div className="relative flex h-[50dvh] min-h-[260px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
+      <div className="relative flex h-[44dvh] min-h-[240px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
         <Brand onDark size="lg" />
       </div>
 
