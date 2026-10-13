@@ -7,6 +7,7 @@ import {
   Phone,
   Receipt,
   RefreshCw,
+  Search,
   UserCog,
 } from 'lucide-react';
 import {
@@ -17,9 +18,7 @@ import {
   DuoSales,
 } from '@/components/brand/duo-icons';
 import { QuickActions, type QuickAction } from '@/features/dashboard/components/quick-actions';
-import { PackageCard, planStyle } from '@/features/products/package-card';
 import { PaySheet, PaymentRow } from './client-shared';
-import type { Product } from '@/api/types';
 import { clientApi, type ClientHome } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Alert } from '@/components/ui/alert';
@@ -122,7 +121,6 @@ export function ClientDashboard() {
   const [query, setQuery] = useState('');
   const { data, isLoading, error } = useQuery({ queryKey: ['client-me'], queryFn: clientApi.me });
   const topRef = useRef<HTMLDivElement>(null);
-  const cardsRef = useRef<HTMLDivElement>(null);
   const paymentsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -151,11 +149,6 @@ export function ClientDashboard() {
   const period = current?.billingDays ?? 30;
   const left = sub ? Math.max(0, Math.min(1, sub.daysLeft / period)) : 0;
   const phoneDigits = (data.business.phone ?? '').replace(/\D/g, '').replace(/^0/, '254');
-  const q = query.trim().toLowerCase();
-  /** Packages matching the search; kept in their original order so plan colours stay put. */
-  const visiblePackages = data.packages
-    .map((pkg, index) => ({ pkg, index }))
-    .filter(({ pkg }) => q === '' || pkg.name.toLowerCase().includes(q));
 
 const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -222,18 +215,31 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
       </header>
 
       <div className="px-4 pt-3">
-        {/* Search, filtered against the packages below */}
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search packages…"
-          className="w-full rounded-full border border-white/15 bg-black/40 px-4 py-3 text-sm font-medium text-white outline-none placeholder:font-medium placeholder:text-white/60"
-          autoComplete="off"
-          aria-label="Search packages"
-        />
+        {/* Search takes you to the packages page with the term */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            navigate(`/my-packages?q=${encodeURIComponent(query.trim())}`);
+          }}
+        >
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60"
+              aria-hidden
+            />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search packages…"
+              className="w-full rounded-full border border-white/15 bg-black/40 py-3 pl-11 pr-4 text-sm font-medium text-white outline-none placeholder:font-medium placeholder:text-white/60"
+              autoComplete="off"
+              aria-label="Search packages"
+            />
+          </div>
+        </form>
 
         {/* Hero: a single card for the subscribed package, in the reference's card style */}
-        {current ? (
+{current ? (
           <article
             className="relative mt-4 overflow-hidden rounded-lg border border-white/15 p-5 text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)]"
             style={{ background: `linear-gradient(135deg, ${CARD_FROM} 0%, ${CARD_MID} 55%, ${CARD_TO} 100%)` }}
@@ -291,7 +297,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
         ) : (
           <Panel className="mt-4 p-5">
             <p className="text-[18px] font-semibold text-white">No WiFi package yet</p>
-            <p className="mt-1 text-[13px] text-white/75">Pick a package below and pay with M-Pesa to get connected.</p>
+            <p className="mt-1 text-[13px] text-white/75">Open the Packages page below to choose one and pay with M-Pesa.</p>
           </Panel>
         )}
 
@@ -351,53 +357,6 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
           />
         </Panel>
 
-        {/* Packages, using the same PackageCard the admin dashboard and staff pages use.
-            Two show at a time; the rest scroll in from the side. */}
-        <section ref={cardsRef} className="mt-4">
-          <div className="mb-3 flex items-center justify-between px-1">
-            <h2 className="text-[15px] font-semibold tracking-tight text-white">
-              {current ? 'Change package' : 'Choose a package'}
-            </h2>
-            <span className="text-[12px] text-white/70">Pay with M-Pesa</span>
-          </div>
-          {visiblePackages.length === 0 ? (
-            <Panel className="px-4 py-6 text-center text-[13px] text-white/75">
-              No package matches “{query.trim()}”.
-            </Panel>
-          ) : (
-            <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4">
-              {visiblePackages.map(({ pkg: p, index: i }) => {
-                const name = p.name.replace(/\s*\d+\s*mbps\s*$/i, '') || p.name;
-                const style = planStyle(name, i);
-                const mine = p.id === current?.id;
-                return (
-                  <div key={p.id} className="w-[calc(50%-0.375rem)] shrink-0 snap-start">
-                    <PackageCard
-                      product={toProduct(p)}
-                      index={i}
-                      onAdd={() => setPayFor(p)}
-                      footer={
-                        <button
-                          type="button"
-                          onClick={() => setPayFor(p)}
-                          className="inline-flex h-10 items-center rounded-xl border-[1.5px] px-3.5 text-[13px] font-medium tabular-nums transition-colors active:opacity-70"
-                          style={
-                            mine
-                              ? { background: style.from, borderColor: style.from, color: '#FFFFFF' }
-                              : { borderColor: style.from, color: style.from }
-                          }
-                        >
-                          {mine ? 'My package · Pay' : `Pay · KSh ${p.price.toLocaleString('en-KE')}`}
-                        </button>
-                      }
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
         {/* My payments */}
         <div ref={paymentsRef} className="mt-4">
           <Panel className="p-4">
@@ -454,24 +413,3 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
   );
 }
 
-/** Client packages are the lean shape; PackageCard expects the staff Product shape. */
-function toProduct(p: ClientHome['packages'][number]): Product {
-  return {
-    id: p.id,
-    businessId: '',
-    name: p.name,
-    sku: null,
-    categoryId: null,
-    cost_price: 0,
-    selling_price: p.price,
-    stock_quantity: 0,
-    low_stock_threshold: 0,
-    track_inventory: false,
-    active: true,
-    created_at: '',
-    updated_at: '',
-    billing_days: p.billingDays,
-    speed_mbps: p.speedMbps,
-    description: p.description,
-  };
-}
