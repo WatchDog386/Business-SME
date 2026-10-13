@@ -104,7 +104,8 @@ export function Topbar() {
         </div>
         <button
           onClick={() => navigate('/profile')}
-          className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border-2 border-brand-600 bg-brand-50 text-xs font-semibold text-brand-700 lg:hidden"
+          className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-white/85 text-lg font-black italic text-white shadow-[0_2px_6px_rgba(0,0,0,0.5)] lg:hidden"
+          style={{ background: 'radial-gradient(circle at 50% 30%, #2F4A36 0%, #111C15 65%, #050A07 100%)', textShadow: '0 0 1px #000, 0 1px 2px #000, 0 2px 3px rgba(0,0,0,0.8)' }}
           aria-label="My profile"
         >
           {user?.avatarUrl ? (

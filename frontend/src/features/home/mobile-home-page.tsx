@@ -27,7 +27,7 @@ export function MobileHomePage() {
         src="/images/splash-savanna.jpg"
         alt=""
         aria-hidden
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-x-0 top-0 h-[50dvh] w-full object-cover"
       />
 
       {/* Logo sits on the photo, top quarter of the screen */}
