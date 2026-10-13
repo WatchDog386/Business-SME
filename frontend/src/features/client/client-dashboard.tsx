@@ -16,8 +16,16 @@ import {
   UserCog,
   Wifi,
 } from 'lucide-react';
-import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import {
+  DuoCalls,
+  DuoCustomers,
+  DuoProducts,
+  DuoReports,
+  DuoSales,
+} from '@/components/brand/duo-icons';
+import { QuickActions, type QuickAction } from '@/features/dashboard/components/quick-actions';
+import { planStyle } from '@/features/products/package-card';
 import { clientApi, type ClientHome, type StkPush } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Alert } from '@/components/ui/alert';
@@ -118,12 +126,11 @@ export function ClientDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [payFor, setPayFor] = useState<Pkg | null>(null);
-  const [tab, setTab] = useState<'package' | 'payments'>('package');
+  const [tab, setTab] = useState<'packages' | 'payments'>('packages');
   const [showNumber, setShowNumber] = useState(false);
   const { data, isLoading, error } = useQuery({ queryKey: ['client-me'], queryFn: clientApi.me });
   const topRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
-  const actionsRef = useRef<HTMLDivElement>(null);
   const paymentsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -154,15 +161,43 @@ export function ClientDashboard() {
   const phoneDigits = (data.business.phone ?? '').replace(/\D/g, '').replace(/^0/, '254');
   const accountNo = data.customer.phone ?? data.business.phone ?? '';
 
-  const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  /** Round glossy shortcut in the Quick Actions grid. */
-  const action = (Icon: ComponentType<{ className?: string }>, label: string, onClick: () => void) => (
-    <button type="button" onClick={onClick} className="flex flex-col items-center gap-2">
-      <GlossyBall className="h-14 w-14">
-        <Icon className="h-6 w-6" />
-      </GlossyBall>
-      <span className="line-clamp-2 text-center text-[12px] font-semibold leading-tight text-white">{label}</span>
+  /** Quick actions reuse the admin dashboard's own grid, so the tiles always match. */
+  const quickActions: QuickAction[] = [
+    { to: 'pay', label: 'Pay with M-Pesa', icon: DuoSales },
+    { to: 'packages', label: 'Packages', icon: DuoProducts },
+    { to: 'receipts', label: 'Receipts', icon: DuoReports },
+    { to: 'call', label: 'Call us', icon: DuoCalls },
+    { to: 'whatsapp', label: 'WhatsApp', icon: WhatsAppIcon },
+    { to: 'details', label: 'My details', icon: DuoCustomers },
+  ].filter((a) => a.to !== 'call' || Boolean(data.business.phone)) as QuickAction[];
+
+  const onQuickAction = (to: string) => {
+    if (to === 'pay') return current && setPayFor(current);
+    if (to === 'packages') return jump(cardsRef);
+    if (to === 'receipts') {
+      setTab('payments');
+      return window.setTimeout(() => jump(paymentsRef), 60);
+    }
+    if (to === 'call') return window.location.assign(`tel:${data.business.phone}`);
+    if (to === 'whatsapp') return window.open(`https://wa.me/${phoneDigits}`, '_blank');
+    if (to === 'details') return setShowNumber((v) => !v);
+  };
+
+  /** Green tab pill; shared by the section bar and the bottom nav. */
+  const pill = (label: string, onClick: () => void, active: boolean) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'flex h-11 items-center rounded-full px-8 text-[15px] font-bold transition-transform active:scale-[0.98]',
+        active ? 'text-white shadow-lg' : 'text-white/70',
+      )}
+      style={active ? { background: GREEN, boxShadow: '0 8px 20px -8px rgba(139,197,63,0.9)' } : undefined}
+    >
+      {label}
     </button>
   );
 
@@ -182,7 +217,7 @@ export function ClientDashboard() {
 
       <div ref={topRef} />
 
-      {/* Top bar: avatar, centred greeting, then search and alerts */}
+      {/* Top bar: avatar, centred greeting, then search and sign out */}
       <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 bg-black/55 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
         <GlossyBall className="h-12 w-12 shrink-0">
           <span className="-skew-x-12 text-[20px] font-black leading-none [text-shadow:0_2px_3px_rgba(0,0,0,0.45)]">
@@ -197,7 +232,7 @@ export function ClientDashboard() {
             type="button"
             onClick={() => jump(cardsRef)}
             className="text-white transition-transform active:scale-90"
-            aria-label="Search packages"
+            aria-label="Browse packages"
           >
             <Search className="h-6 w-6" strokeWidth={1.9} aria-hidden />
           </button>
@@ -213,204 +248,168 @@ export function ClientDashboard() {
       </header>
 
       <div className="px-4 pt-4">
-        {/* Green pill tabs */}
-        <div className="flex items-center gap-6">
-          {(
-            [
-              { id: 'package', label: 'Package' },
-              { id: 'payments', label: 'Payments' },
-            ] as const
-          ).map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              aria-pressed={tab === t.id}
-              className={cn(
-                'flex h-11 items-center rounded-full px-8 text-[15px] font-bold transition-transform active:scale-[0.98]',
-                tab === t.id ? 'text-white shadow-lg' : 'text-white/70',
+        {/* Hero: a single card for the subscribed package */}
+        {current ? (
+          <article
+            className="rounded-[24px] border border-white/20 p-5 text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)]"
+            style={{ background: `linear-gradient(135deg, ${CARD_FROM} 0%, ${CARD_MID} 55%, ${CARD_TO} 100%)` }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[13px] text-white/80">My WiFi package</p>
+                <p className="mt-1 text-[13px] font-semibold uppercase tracking-wide text-white/90">
+                  {data.customer.name}
+                </p>
+              </div>
+              {status && (
+                <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', status.cls)}>{status.label}</span>
               )}
-              style={tab === t.id ? { background: GREEN, boxShadow: '0 8px 20px -8px rgba(139,197,63,0.9)' } : undefined}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+            </div>
 
-        {tab === 'package' ? (
-          <>
-            {/* Section head */}
-            <div className="mt-5 flex items-center justify-between px-1">
+            <p className="mt-3 text-[20px] font-bold">
+              {current.name.replace(/\s*\d+\s*mbps\s*$/i, '')}
+              {current.speedMbps && <span className="ml-1.5 text-[14px] font-medium text-white/80">{current.speedMbps} Mbps</span>}
+            </p>
+
+            <div className="mt-3 flex items-center gap-2">
+              <p className="text-[17px] font-medium tabular-nums">
+                {showNumber ? accountNo || '—' : accountNo ? '••••••••••' : '—'}
+              </p>
               <button
                 type="button"
-                onClick={() => jump(cardsRef)}
-                className="flex items-center gap-1.5 text-[13px] font-semibold underline underline-offset-4"
-                style={{ color: GREEN }}
+                onClick={() => {
+                  if (accountNo) {
+                    void navigator.clipboard?.writeText(accountNo);
+                    notifySuccess('Number copied', accountNo);
+                  }
+                }}
+                className="text-white/80 active:scale-90"
+                aria-label="Copy number"
               >
-                <Wifi className="h-4 w-4" aria-hidden />
-                Change package
-              </button>
-              <button type="button" onClick={() => jump(cardsRef)} className="text-[13px] font-medium text-white">
-                View All
+                <Copy className="h-4 w-4" aria-hidden />
               </button>
             </div>
 
-            {/* Package cards, swiped sideways */}
-            <div
-              ref={cardsRef}
-              className="scrollbar-none -mx-4 mt-3 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4"
+            <div className="mt-2 flex items-center gap-2">
+              <p className="h-6 w-28 rounded bg-white/15 blur-[3px]" aria-hidden />
+              <button
+                type="button"
+                onClick={() => setShowNumber((v) => !v)}
+                className="text-white/80 active:scale-90"
+                aria-label={showNumber ? 'Hide my number' : 'Show my number'}
+              >
+                <EyeOff className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <PillButton
+                onClick={() => {
+                  setTab('payments');
+                  window.setTimeout(() => jump(paymentsRef), 60);
+                }}
+              >
+                <Receipt className="h-4 w-4" aria-hidden />
+                Statement
+              </PillButton>
+              <PillButton onClick={() => setPayFor(current)}>
+                <RefreshCw className="h-4 w-4" aria-hidden />
+                {sub?.status === 'EXPIRED' ? 'Renew' : 'Pay'}
+              </PillButton>
+            </div>
+          </article>
+        ) : (
+          <Panel className="p-5">
+            <p className="text-[18px] font-semibold text-white">No WiFi package yet</p>
+            <p className="mt-1 text-[13px] text-white/75">Pick a package below and pay with M-Pesa to get connected.</p>
+          </Panel>
+        )}
+
+        {/* Days-left strip */}
+        {sub && (
+          <Panel className="mt-4 flex items-center gap-3 px-4 py-3.5">
+            <p className="text-[14px] font-medium text-white/90">
+              Days left: <span className="font-bold text-white">{Math.max(0, sub.daysLeft)}</span>
+            </p>
+            <span className="flex-1" />
+            <button
+              type="button"
+              onClick={() => current && setPayFor(current)}
+              className="flex items-center gap-2 text-[13px] font-semibold text-white"
             >
-              {data.packages.map((p) => {
+              {sub.status === 'EXPIRED' ? 'Renew now' : 'Pay early'}
+              <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ border: `2px solid ${GREEN}` }}>
+                <ArrowRight className="h-4 w-4" style={{ color: GREEN }} aria-hidden />
+              </span>
+            </button>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/20">
+              <div className="h-full rounded-full" style={{ width: `${Math.max(3, left * 100)}%`, background: status?.bar }} />
+            </div>
+          </Panel>
+        )}
+
+        {/* Quick actions: the admin dashboard's own grid, on the dark panel */}
+        <Panel className="mt-4 p-4">
+          <QuickActions
+            items={quickActions}
+            viewAll={false}
+            onSelect={onQuickAction}
+            titleClassName="!text-white"
+            labelClassName="!text-white"
+          />
+        </Panel>
+
+        {/* Section bar: Packages or Payments */}
+        <div ref={cardsRef} className="mt-5 flex items-center gap-4">
+          {pill('Packages', () => setTab('packages'), tab === 'packages')}
+          {pill('Payments', () => setTab('payments'), tab === 'payments')}
+        </div>
+
+        {tab === 'packages' ? (
+          /* Packages, exactly as they were designed before */
+          <section className="mt-3">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="text-[15px] font-semibold tracking-tight text-white">
+                {current ? 'Change package' : 'Choose a package'}
+              </h2>
+              <span className="text-[12px] text-white/70">Pay with M-Pesa</span>
+            </div>
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4">
+              {data.packages.map((p, i) => {
+                const style = planStyle(p.name.replace(/\s*\d+\s*mbps\s*$/i, ''), i);
                 const mine = p.id === current?.id;
-                const days = mine && sub ? sub.daysLeft : (p.billingDays ?? 30);
                 return (
-                  <article
-                    key={p.id}
-                    className="w-[82vw] max-w-[330px] shrink-0 snap-center rounded-[24px] border border-white/20 p-5 text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)]"
-                    style={{ background: `linear-gradient(135deg, ${CARD_FROM} 0%, ${CARD_MID} 55%, ${CARD_TO} 100%)` }}
-                  >
-                    <p className="text-[13px] text-white/80">{mine ? 'My WiFi package' : 'Available package'}</p>
-                    <p className="mt-1 text-[13px] font-semibold uppercase tracking-wide text-white/90">
-                      {data.customer.name}
-                    </p>
-
-                    <div className="mt-3 flex items-center gap-2">
-                      <p className="text-[17px] font-medium tabular-nums">
-                        {showNumber ? accountNo || '—' : accountNo ? '••••••••••' : '—'}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (accountNo) {
-                            void navigator.clipboard?.writeText(accountNo);
-                            notifySuccess('Number copied', accountNo);
-                          }
-                        }}
-                        className="text-white/80 active:scale-90"
-                        aria-label="Copy number"
-                      >
-                        <Copy className="h-4 w-4" aria-hidden />
-                      </button>
-                    </div>
-
-                    <div className="mt-2 flex items-center gap-2">
-                      <p className="h-6 w-28 rounded bg-white/15 blur-[3px]" aria-hidden />
-                      <button
-                        type="button"
-                        onClick={() => setShowNumber((v) => !v)}
-                        className="text-white/80 active:scale-90"
-                        aria-label={showNumber ? 'Hide balance' : 'Show balance'}
-                      >
-                        <EyeOff className="h-5 w-5" aria-hidden />
-                      </button>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <PillButton
-                        onClick={() => {
-                          setTab('payments');
-                          window.setTimeout(() => jump(paymentsRef), 60);
-                        }}
-                      >
-                        <Receipt className="h-4 w-4" aria-hidden />
-                        Statement
-                      </PillButton>
-                      <PillButton onClick={() => setPayFor(p)}>
-                        <RefreshCw className="h-4 w-4" aria-hidden />
-                        {mine && sub?.status !== 'ACTIVE' ? 'Renew' : 'Deposit'}
-                      </PillButton>
-                    </div>
-
-                    <p className="mt-3 text-[12px] text-white/70">
+                  <div key={p.id} className="flex w-40 shrink-0 flex-col rounded-3xl bg-[#F2F2F4] p-4">
+                    <span
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-[12px] font-bold text-white"
+                      style={{ background: `linear-gradient(135deg, ${style.from}, ${style.to})` }}
+                    >
+                      {p.speedMbps ? `${p.speedMbps}M` : <Wifi className="h-5 w-5" />}
+                    </span>
+                    <p className="mt-3 text-[15px] font-medium text-foreground">{p.name.replace(/\s*\d+\s*mbps\s*$/i, '')}</p>
+                    <p className="text-[12px] text-foreground-4">
                       {p.speedMbps ? `${p.speedMbps} Mbps · ` : ''}
-                      {days} days · {formatKES(p.price)}
-                      {mine && <span className="ml-1 font-semibold" style={{ color: GREEN }}>· My package</span>}
+                      {p.billingDays ?? 30} days
                     </p>
-                  </article>
+                    <button
+                      type="button"
+                      onClick={() => setPayFor(p)}
+                      className="mt-3 h-10 rounded-xl border-[1.5px] text-[13px] font-medium tabular-nums"
+                      style={mine ? { background: style.from, borderColor: style.from, color: '#fff' } : { borderColor: style.from, color: style.from }}
+                    >
+                      {mine ? 'My package · Pay' : `KSh ${p.price.toLocaleString('en-KE')}`}
+                    </button>
+                  </div>
                 );
               })}
             </div>
-
-            {/* Carousel dots */}
-            <div className="mt-4 flex items-center justify-center gap-1.5">
-              {data.packages.map((p) => (
-                <span
-                  key={p.id}
-                  className="h-1.5 rounded-full transition-all"
-                  style={{ width: p.id === current?.id ? 22 : 6, background: p.id === current?.id ? GREEN : 'rgba(255,255,255,0.55)' }}
-                  aria-hidden
-                />
-              ))}
-            </div>
-
-            {/* Days-left strip */}
-            <Panel className="mt-5 flex items-center gap-3 px-4 py-3.5">
-              <p className="text-[14px] font-medium text-white/90">
-                Days left:{' '}
-                <span className="font-bold text-white">{sub ? Math.max(0, sub.daysLeft) : '—'}</span>
-              </p>
-              <span className="h-3 w-20 rounded bg-white/25 blur-[2px]" aria-hidden />
-              <span className="flex-1" />
-              <button
-                type="button"
-                onClick={() => current && setPayFor(current)}
-                className="flex items-center gap-2 text-[13px] font-semibold text-white"
-              >
-                {sub?.status === 'EXPIRED' ? 'Renew now' : 'Pay early'}
-                <span
-                  className="flex h-9 w-9 items-center justify-center rounded-full"
-                  style={{ border: `2px solid ${GREEN}` }}
-                >
-                  <ArrowRight className="h-4 w-4" style={{ color: GREEN }} aria-hidden />
-                </span>
-              </button>
-              {sub && (
-                <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/20">
-                  <div className="h-full rounded-full" style={{ width: `${Math.max(3, left * 100)}%`, background: status?.bar }} />
-                </div>
-              )}
-            </Panel>
-
-            {/* Quick actions */}
-            <div ref={actionsRef}>
-              <Panel className="mt-5 p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h2 className="text-[17px] font-bold text-white">Quick Actions</h2>
-                  <button
-                    type="button"
-                    onClick={() => jump(cardsRef)}
-                    className="h-9 rounded-full border-2 px-5 text-[13px] font-bold"
-                    style={{ borderColor: GREEN, color: GREEN }}
-                  >
-                    Manage
-                  </button>
-                </div>
-                <div className="grid grid-cols-4 gap-y-4">
-                  {current && action(Smartphone, 'Pay with M-Pesa', () => setPayFor(current))}
-                  {action(PackageIcon, 'Packages', () => jump(cardsRef))}
-                  {action(Receipt, 'Receipts', () => {
-                    setTab('payments');
-                    window.setTimeout(() => jump(paymentsRef), 60);
-                  })}
-                  {data.business.phone &&
-                    action(UserCog, 'Call us', () => {
-                      window.location.href = `tel:${data.business.phone}`;
-                    })}
-                  {data.business.phone &&
-                    action(WhatsAppIcon, 'WhatsApp', () => {
-                      window.open(`https://wa.me/${phoneDigits}`, '_blank');
-                    })}
-                  {action(Home, 'My details', () => setShowNumber((v) => !v))}
-                </div>
-              </Panel>
-            </div>
-          </>
+          </section>
         ) : (
-          /* Payments tab */
-          <div ref={paymentsRef} className="mt-5">
+          /* Payments */
+          <div ref={paymentsRef} className="mt-3">
             <Panel className="p-4">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-[17px] font-bold text-white">My payments</h2>
+                <h2 className="text-[15px] font-semibold text-white">My payments</h2>
                 <span className="text-[12px] text-white/70">{data.payments.length}</span>
               </div>
               {data.payments.length === 0 ? (
@@ -427,12 +426,10 @@ export function ClientDashboard() {
             {/* Help */}
             {data.business.phone && (
               <Panel className="mt-4 p-4">
-                <h2 className="text-[17px] font-bold text-white">Need help with your WiFi?</h2>
+                <p className="text-[15px] font-semibold text-white">Need help with your WiFi?</p>
                 <p className="mt-0.5 text-[12px] text-white/75">Call or message {data.business.name}.</p>
                 <div className="mt-3 grid grid-cols-2 gap-2.5">
-                  <PillButton onClick={() => window.location.assign(`tel:${data.business.phone}`)}>
-                    Call
-                  </PillButton>
+                  <PillButton onClick={() => window.location.assign(`tel:${data.business.phone}`)}>Call</PillButton>
                   <PillButton onClick={() => window.open(`https://wa.me/${phoneDigits}`, '_blank')}>
                     <WhatsAppIcon className="h-4 w-4" aria-hidden />
                     WhatsApp
@@ -451,7 +448,15 @@ export function ClientDashboard() {
             [
               { label: 'Home', icon: Home, active: true, onClick: () => jump(topRef) },
               { label: 'Pay', icon: Smartphone, active: false, onClick: () => current && setPayFor(current) },
-              { label: 'Packages', icon: PackageIcon, active: false, onClick: () => jump(cardsRef) },
+              {
+                label: 'Packages',
+                icon: PackageIcon,
+                active: false,
+                onClick: () => {
+                  setTab('packages');
+                  window.setTimeout(() => jump(cardsRef), 60);
+                },
+              },
               {
                 label: 'Payments',
                 icon: Receipt,

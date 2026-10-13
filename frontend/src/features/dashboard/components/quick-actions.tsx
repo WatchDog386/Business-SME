@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 import {
   DuoCalls,
   DuoCustomers,
@@ -26,19 +26,35 @@ const actions: QuickAction[] = [
   { to: '/calls', label: 'Calls', icon: DuoCalls },
 ];
 
-const MotionLink = motion(Link);
-
 /**
  * Safaricom-app "Quick Actions", straight on the page background: title with a green
  * "View all" (opens every section), round grey tiles with green-and-red icons.
+ *
+ * `onSelect` turns the tiles into plain buttons (for the subscriber app, which has
+ * one page and no routes to link to); the tile and icon design stays identical.
  */
-export function QuickActions({ items = actions, viewAll = true }: { items?: QuickAction[]; viewAll?: boolean } = {}) {
+export function QuickActions({
+  items = actions,
+  viewAll = true,
+  onSelect,
+  labelClassName,
+  titleClassName,
+  className,
+}: {
+  items?: QuickAction[];
+  viewAll?: boolean;
+  onSelect?: (to: string) => void;
+  /** Label colour, so the same tiles can sit on the subscriber's dark panel. */
+  labelClassName?: string;
+  titleClassName?: string;
+  className?: string;
+} = {}) {
   const [allOpen, setAllOpen] = useState(false);
 
   return (
-    <section className="px-0.5">
+    <section className={cn('px-0.5', className)}>
       <div className="mb-4 flex items-center justify-between gap-3 px-1">
-        <h2 className="text-[17px] font-semibold tracking-tight text-foreground">Quick Actions</h2>
+        <h2 className={cn('text-[17px] font-semibold tracking-tight text-foreground', titleClassName)}>Quick Actions</h2>
         {viewAll && (
         <button
           type="button"
@@ -52,9 +68,10 @@ export function QuickActions({ items = actions, viewAll = true }: { items?: Quic
 
       <div className="grid grid-cols-4 gap-x-1 gap-y-4">
         {items.map((action, i) => (
-          <MotionLink
+          <motion.button
             key={action.to}
-            to={action.to}
+            type="button"
+            onClick={onSelect ? () => onSelect(action.to) : undefined}
             className="flex flex-col items-center gap-2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -64,12 +81,14 @@ export function QuickActions({ items = actions, viewAll = true }: { items?: Quic
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-3 text-brand-600 [.dark_&]:bg-[#333333] [.dark_&]:text-brand-400">
               <action.icon className="h-7 w-7" />
             </span>
-            <span className="line-clamp-2 text-center text-[13px] leading-snug text-foreground">{action.label}</span>
-          </MotionLink>
+            <span className={cn('line-clamp-2 text-center text-[13px] leading-snug text-foreground', labelClassName)}>
+              {action.label}
+            </span>
+          </motion.button>
         ))}
       </div>
 
-      <MoreMenu open={allOpen} onOpenChange={setAllOpen} />
+      {viewAll && <MoreMenu open={allOpen} onOpenChange={setAllOpen} />}
     </section>
   );
 }
