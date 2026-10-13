@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useId } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { StatusBar } from '@capacitor/status-bar';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import { Brand } from '@/components/layout/brand';
 import { CARD_THEMES, CardPatternLayer } from '@/components/brand/fiber-card';
+import { overrideStatusBarColor } from '@/lib/theme';
 
 const cards = [
   { img: '/icon1.png', title: 'Sales', text: 'Record sales and payments in seconds.' },
@@ -23,37 +24,52 @@ const cards = [
 export function MobileHomePage() {
   const uid = useId().replace(/:/g, '');
 
-  // In the Android app the status bar turns transparent so the photo runs behind it
+  // The photo runs behind the status bar: transparent bar with light icons in the app,
+  // and a sky-coloured theme-color in the browser (where the page can't draw under it)
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    void StatusBar.setOverlaysWebView({ overlay: true });
+    const restoreThemeColor = overrideStatusBarColor('#E8913A');
+    if (!Capacitor.isNativePlatform()) return restoreThemeColor;
+    void (async () => {
+      try {
+        await StatusBar.setOverlaysWebView({ overlay: true });
+        await StatusBar.setBackgroundColor({ color: '#00000000' });
+        await StatusBar.setStyle({ style: Style.Dark });
+      } catch {
+        /* status bar plugin unavailable */
+      }
+    })();
     return () => {
-      void StatusBar.setOverlaysWebView({ overlay: false });
+      restoreThemeColor();
+      void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+      void StatusBar.setStyle({ style: Style.Light }).catch(() => {});
     };
   }, []);
   return (
-    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-brand-900">
-      {/* Photo behind the whole page, so the sheet can be see-through */}
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-white">
+      {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
       <img
         src="/images/splash-savanna.jpg"
         alt=""
         aria-hidden
-        className="absolute inset-x-0 top-0 h-[50dvh] w-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover"
       />
 
-      {/* Logo sits on the photo, top quarter of the screen */}
-      <div className="relative flex h-[50dvh] min-h-[260px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
+      {/* Logo on the photo, in the space above the sheet */}
+      <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pt-[env(safe-area-inset-top)]">
         <Brand onDark size="lg" />
       </div>
 
-      {/* Translucent sheet: the photo shows through */}
-      <main className="relative flex flex-1 flex-col rounded-t-2xl bg-white/60 px-5 backdrop-blur-[2px] pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)]">
-        <div className="mx-auto h-1 w-12 rounded-full bg-slate-300" aria-hidden />
+      {/* Whitish frosted sheet: the photo shows faintly through; sized so Login is always fully visible */}
+      <main className="relative flex max-h-[calc(100%-170px)] shrink-0 flex-col rounded-t-3xl bg-white/80 px-5 backdrop-blur-md pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)]">
+        <div className="mx-auto h-1 w-12 shrink-0 rounded-full bg-slate-300" aria-hidden />
 
-        <h1 className="mt-5 text-center text-[22px] font-semibold tracking-tight">Welcome to Optimas</h1>
+        {/* Middle content scrolls only on very short screens; Login stays pinned below */}
+        <div className="-mx-5 min-h-0 flex-1 overflow-y-auto px-5">
+
+        <h1 className="mt-4 text-center text-[22px] font-semibold tracking-tight">Welcome to Optimas</h1>
 
         {/* Solid green hero card */}
-        <div className="relative mt-5 flex h-36 flex-col justify-center overflow-hidden rounded-3xl px-5 text-white">
+        <div className="relative mt-4 flex h-32 flex-col justify-center overflow-hidden rounded-3xl px-5 text-white">
           {/* Same background as the Today's revenue card */}
           <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 400 144" preserveAspectRatio="xMidYMid slice" aria-hidden>
             <defs>
@@ -95,9 +111,10 @@ export function MobileHomePage() {
           </div>
           <ArrowRight className="h-4 w-4 text-slate-400" aria-hidden />
         </div>
+        </div>
 
-        {/* Solid green Login and fingerprint buttons */}
-        <div className="mt-6 pb-4">
+        {/* Login button, always in full view at the bottom of the sheet */}
+        <div className="shrink-0 pt-4">
           <Link
             to="/login"
             className="flex h-14 w-full items-center justify-center rounded-2xl bg-[#3A8F91] text-[20px] font-medium text-white shadow-none transition-colors hover:bg-[#2F7F81] active:bg-[#2F7F81]"
