@@ -72,9 +72,7 @@
             if (splash) splash.classList.add('hidden');
             // The app paints its own backgrounds; drop the blue page fill.
             document.documentElement.classList.remove('booting');
-            // Welcome, sign-in and two-step pages are pure white up to the status bar
-            var meta = document.querySelector('meta[name="theme-color"]');
-            if (meta) meta.content = '#FFFFFF';
+            // The status-bar colour is set by the app per page (see lib/theme.ts)
           }, wait);
         }
         document.addEventListener('DOMContentLoaded', function () {

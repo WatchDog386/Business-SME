@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { applyTheme, getTheme, isLightOnlyRoute } from '@/lib/theme';
+import { applyTheme, getTheme } from '@/lib/theme';
 import { AppShell } from '@/components/layout/app-shell';
 import { useAuthStore } from '@/stores/auth';
 import { LoginPage } from '@/features/auth/login-page';
@@ -44,11 +44,8 @@ function ThemeScope() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    if (isLightOnlyRoute(pathname)) {
-      document.documentElement.classList.remove('dark');
-    } else {
-      applyTheme(getTheme());
-    }
+    // applyTheme handles the light-only routes too (dark off, white status bar)
+    applyTheme(getTheme());
   }, [pathname]);
 
   return null;

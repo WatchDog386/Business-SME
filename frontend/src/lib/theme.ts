@@ -26,13 +26,25 @@ export function isLightOnlyRoute(pathname: string): boolean {
   return (LIGHT_ONLY_ROUTES as readonly string[]).includes(pathname);
 }
 
+/** Colours the phone status bar (theme-color) to match the page at the top edge. */
+function setStatusBarColor(color: string): void {
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (meta) meta.content = color;
+}
+
 export function applyTheme(theme: Theme): void {
+  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   // Force light on home / auth / success pages — dark mode never applies there.
-  if (typeof window !== 'undefined' && isLightOnlyRoute(window.location.pathname)) {
+  if (isLightOnlyRoute(path)) {
     document.documentElement.classList.remove('dark');
+    setStatusBarColor('#FFFFFF');
     return;
   }
-  document.documentElement.classList.toggle('dark', theme === 'dark');
+  const dark = theme === 'dark';
+  document.documentElement.classList.toggle('dark', dark);
+  // Dashboard top is the sky glow (light) or the dark glow (dark); other pages use the plain page colour
+  if (dark) setStatusBarColor(path === '/dashboard' ? '#16202F' : '#121212');
+  else setStatusBarColor(path === '/dashboard' ? '#D7E7FF' : '#F8FAFC');
 }
 
 export function setTheme(theme: Theme): void {
