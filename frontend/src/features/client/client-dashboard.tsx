@@ -4,11 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   CheckCircle2,
-  ChevronDown,
-  Copy,
   Download,
   Loader2,
-  MessageCircle,
   Phone,
   Receipt,
   RefreshCw,
@@ -34,7 +31,6 @@ import { Input } from '@/components/ui/input';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
 import { useAuthStore } from '@/stores/auth';
-import { notifySuccess } from '@/components/ui/popup-host';
 import { cn, formatDate, formatKES } from '@/lib/utils';
 
 type Pkg = ClientHome['packages'][number];
@@ -82,12 +78,12 @@ function GlossyBall({ children, className }: { children: React.ReactNode; classN
   );
 }
 
-/** Dark translucent panel sitting over the photo. */
+/** Translucent panel sitting over the photo, so the photo reads through it. */
 function Panel({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
     <section
       className={cn(
-        'rounded-[26px] border border-white/15 bg-black/55 shadow-[0_10px_24px_-10px_rgba(0,0,0,0.6)] backdrop-blur-md',
+        'rounded-[26px] border border-white/15 bg-black/30 shadow-[0_10px_24px_-10px_rgba(0,0,0,0.6)] backdrop-blur-[2px]',
         className,
       )}
     >
@@ -127,9 +123,7 @@ export function ClientDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [payFor, setPayFor] = useState<Pkg | null>(null);
-  const [tab, setTab] = useState<'packages' | 'payments'>('packages');
   const [query, setQuery] = useState('');
-  const [helpOpen, setHelpOpen] = useState(false);
   const { data, isLoading, error } = useQuery({ queryKey: ['client-me'], queryFn: clientApi.me });
   const topRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -161,7 +155,6 @@ export function ClientDashboard() {
   const period = current?.billingDays ?? 30;
   const left = sub ? Math.max(0, Math.min(1, sub.daysLeft / period)) : 0;
   const phoneDigits = (data.business.phone ?? '').replace(/\D/g, '').replace(/^0/, '254');
-  const accountNo = data.customer.phone ?? data.business.phone ?? '';
   const q = query.trim().toLowerCase();
   /** Packages matching the search; kept in their original order so plan colours stay put. */
   const visiblePackages = data.packages
@@ -183,30 +176,11 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
   const onQuickAction = (to: string) => {
     if (to === 'pay') return current && setPayFor(current);
     if (to === 'packages') return jump(cardsRef);
-    if (to === 'receipts') {
-      setTab('payments');
-      return window.setTimeout(() => jump(paymentsRef), 60);
-    }
+    if (to === 'receipts') return jump(paymentsRef);
     if (to === 'call') return window.location.assign(`tel:${data.business.phone}`);
     if (to === 'whatsapp') return window.open(`https://wa.me/${phoneDigits}`, '_blank');
     if (to === 'details') return navigate('/my-account');
   };
-
-  /** Green tab pill; shared by the section bar and the bottom nav. */
-  const pill = (label: string, onClick: () => void, active: boolean) => (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'flex h-11 items-center rounded-full px-8 text-[15px] font-bold transition-transform active:scale-[0.98]',
-        active ? 'text-white shadow-lg' : 'text-white/70',
-      )}
-      style={active ? { background: GREEN, boxShadow: '0 8px 20px -8px rgba(139,197,63,0.9)' } : undefined}
-    >
-      {label}
-    </button>
-  );
 
   return (
     <div className="relative isolate -mx-4 -mt-2 min-h-[100dvh] pb-8">
@@ -225,7 +199,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
       <div ref={topRef} />
 
       {/* Top bar: avatar, centred greeting, then the account button */}
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 bg-black/55 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 bg-black/45 px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
         <GlossyBall className="h-12 w-12 shrink-0">
           <span className="-skew-x-12 text-[20px] font-black leading-none [text-shadow:0_2px_3px_rgba(0,0,0,0.45)]">
             {initials(data.customer.name).slice(0, 1)}
@@ -246,24 +220,22 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
 
       <div className="px-4 pt-3">
         {/* Search, styled like the admin dashboard's search bar; filters the packages */}
-        <label className="flex w-full items-center gap-2.5 rounded-full border border-white/80 bg-white/85 px-4 py-3 text-left shadow-[0_6px_18px_-6px_rgba(37,99,235,0.28),0_1px_2px_rgba(15,23,42,0.06)] backdrop-blur">
+        <label className="flex w-full items-center gap-2.5 rounded-full border border-transparent bg-white/90 px-4 py-3 shadow-[0_6px_18px_-6px_rgba(15,23,42,0.35)]">
           <DuoSearch className="h-5 w-5 shrink-0 text-brand-600" aria-hidden />
           <input
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              if (e.target.value) setTab('packages');
-            }}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search packages…"
-            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:font-medium placeholder:text-foreground-4"
+            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:font-medium placeholder:text-slate-500"
             autoComplete="off"
             aria-label="Search packages"
           />
         </label>
+
         {/* Hero: a single card for the subscribed package, in the reference's card style */}
         {current ? (
           <article
-            className="relative mt-4 overflow-hidden rounded-[22px] border border-white/15 p-5 text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)]"
+            className="relative mt-4 overflow-hidden rounded-lg border border-white/15 p-5 text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)]"
             style={{ background: `linear-gradient(135deg, ${CARD_FROM} 0%, ${CARD_MID} 55%, ${CARD_TO} 100%)` }}
           >
             {/* Faint decorative arcs on the right, like the reference card */}
@@ -286,30 +258,15 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
                 {data.customer.name}
               </p>
 
-              <div className="mt-3 flex items-center gap-2">
-                <p className="text-[18px] font-medium tabular-nums">{accountNo || '—'}</p>
-                {accountNo && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void navigator.clipboard?.writeText(accountNo);
-                      notifySuccess('Number copied', accountNo);
-                    }}
-                    className="text-white/80 active:scale-90"
-                    aria-label="Copy my number"
-                  >
-                    <Copy className="h-4 w-4" aria-hidden />
-                  </button>
-                )}
-              </div>
+              <p className="mt-3 text-[22px] font-semibold leading-tight">
+                {current.name.replace(/\s*\d+\s*mbps\s*$/i, '')}
+              </p>
+              <p className="text-[15px] font-medium text-white/85">
+                {current.speedMbps ? `${current.speedMbps} Mbps` : 'Unlimited internet'}
+              </p>
 
               <div className="mt-3 grid grid-cols-2 gap-3">
-                <PillButton
-                  onClick={() => {
-                    setTab('payments');
-                    window.setTimeout(() => jump(paymentsRef), 60);
-                  }}
-                >
+                <PillButton onClick={() => jump(paymentsRef)}>
                   <Receipt className="h-4 w-4" aria-hidden />
                   Statement
                 </PillButton>
@@ -320,7 +277,6 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
               </div>
 
               <p className="mt-3 text-[12px] text-white/70">
-                {current.speedMbps ? `${current.speedMbps} Mbps · ` : ''}
                 {Math.max(0, sub?.daysLeft ?? 0)} days left · {formatKES(current.price)}
                 {status && (
                   <span className={cn('ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold', status.cls)}>
@@ -392,107 +348,80 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
           />
         </Panel>
 
-        {/* Section bar: Packages or Payments */}
-        <div ref={cardsRef} className="mt-5 flex items-center gap-4">
-          {pill('Packages', () => setTab('packages'), tab === 'packages')}
-          {pill('Payments', () => setTab('payments'), tab === 'payments')}
+        {/* Packages, using the same PackageCard the admin dashboard and staff pages use.
+            Two show at a time; the rest scroll in from the side. */}
+        <section ref={cardsRef} className="mt-4">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <h2 className="text-[15px] font-semibold tracking-tight text-white">
+              {current ? 'Change package' : 'Choose a package'}
+            </h2>
+            <span className="text-[12px] text-white/70">Pay with M-Pesa</span>
+          </div>
+          {visiblePackages.length === 0 ? (
+            <Panel className="px-4 py-6 text-center text-[13px] text-white/75">
+              No package matches “{query.trim()}”.
+            </Panel>
+          ) : (
+            <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4">
+              {visiblePackages.map(({ pkg: p, index: i }) => {
+                const name = p.name.replace(/\s*\d+\s*mbps\s*$/i, '') || p.name;
+                const style = planStyle(name, i);
+                const mine = p.id === current?.id;
+                return (
+                  <div key={p.id} className="w-[calc(50%-0.375rem)] shrink-0 snap-start">
+                    <PackageCard
+                      product={toProduct(p)}
+                      index={i}
+                      onAdd={() => setPayFor(p)}
+                      footer={
+                        <button
+                          type="button"
+                          onClick={() => setPayFor(p)}
+                          className="inline-flex h-10 items-center rounded-xl border-[1.5px] px-3.5 text-[13px] font-medium tabular-nums transition-colors active:opacity-70"
+                          style={
+                            mine
+                              ? { background: style.from, borderColor: style.from, color: '#FFFFFF' }
+                              : { borderColor: style.from, color: style.from }
+                          }
+                        >
+                          {mine ? 'My package · Pay' : `Pay · KSh ${p.price.toLocaleString('en-KE')}`}
+                        </button>
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* My payments */}
+        <div ref={paymentsRef} className="mt-4">
+          <Panel className="p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[15px] font-semibold text-white">My payments</h2>
+              <span className="text-[12px] text-white/70">{data.payments.length}</span>
+            </div>
+            {data.payments.length === 0 ? (
+              <p className="py-6 text-center text-[13px] text-white/70">No payments yet.</p>
+            ) : (
+              <ul className="space-y-1">
+                {data.payments.map((p) => (
+                  <PaymentRow key={p.id} payment={p} />
+                ))}
+              </ul>
+            )}
+          </Panel>
         </div>
 
-        {tab === 'packages' ? (
-          /* Packages, using the same PackageCard the admin dashboard and staff pages use.
-             Two show at a time; the rest scroll in from the side. */
-          <section className="mt-3">
-            <div className="mb-3 flex items-center justify-between px-1">
-              <h2 className="text-[15px] font-semibold tracking-tight text-white">
-                {current ? 'Change package' : 'Choose a package'}
-              </h2>
-              <span className="text-[12px] text-white/70">Pay with M-Pesa</span>
-            </div>
-            {visiblePackages.length === 0 ? (
-              <p className="rounded-2xl bg-black/55 px-4 py-6 text-center text-[13px] text-white/75">
-                No package matches “{query.trim()}”.
-              </p>
-            ) : (
-              <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4">
-                {visiblePackages.map(({ pkg: p, index: i }) => {
-                  const name = p.name.replace(/\s*\d+\s*mbps\s*$/i, '') || p.name;
-                  const style = planStyle(name, i);
-                  const mine = p.id === current?.id;
-                  return (
-                    <div key={p.id} className="w-[calc(50%-0.375rem)] shrink-0 snap-start">
-                      <PackageCard
-                        product={toProduct(p)}
-                        index={i}
-                        onAdd={() => setPayFor(p)}
-                        footer={
-                          <button
-                            type="button"
-                            onClick={() => setPayFor(p)}
-                            className="inline-flex h-10 items-center rounded-xl border-[1.5px] px-3.5 text-[13px] font-medium tabular-nums transition-colors active:opacity-70"
-                            style={
-                              mine
-                                ? { background: style.from, borderColor: style.from, color: '#FFFFFF' }
-                                : { borderColor: style.from, color: style.from }
-                            }
-                          >
-                            {mine ? 'My package · Pay' : `Pay · KSh ${p.price.toLocaleString('en-KE')}`}
-                          </button>
-                        }
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        ) : (
-          /* Payments */
-          <div ref={paymentsRef} className="mt-3">
+        {/* Need help */}
+        {data.business.phone && (
+          <div className="pt-4">
             <Panel className="p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-[15px] font-semibold text-white">My payments</h2>
-                <span className="text-[12px] text-white/70">{data.payments.length}</span>
-              </div>
-              {data.payments.length === 0 ? (
-                <p className="py-6 text-center text-[13px] text-white/70">No payments yet.</p>
-              ) : (
-                <ul className="space-y-1">
-                  {data.payments.map((p) => (
-                    <PaymentRow key={p.id} payment={p} />
-                  ))}
-                </ul>
-              )}
-            </Panel>
-          </div>
-        )}
-      </div>
-
-      {/* Need help bar: always on the page, below Packages and Payments */}
-      {data.business.phone && (
-        <div className="px-4 pt-4">
-          <Panel className="p-3.5">
-            <button
-              type="button"
-              onClick={() => setHelpOpen((v) => !v)}
-              aria-expanded={helpOpen}
-              className="flex w-full items-center gap-3 text-left"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white">
-                <MessageCircle className="h-5 w-5" aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-semibold text-white">Need help?</span>
-                <span className="block text-[12px] text-white/75">
-                  Our support team at {data.business.name} is here for you.
-                </span>
-              </span>
-              <ChevronDown
-                className={cn('h-5 w-5 shrink-0 text-white/70 transition-transform', helpOpen && 'rotate-180')}
-                aria-hidden
-              />
-            </button>
-
-            {helpOpen && (
+              <p className="text-[15px] font-semibold text-white">Need help with your WiFi?</p>
+              <p className="mt-0.5 text-[12px] text-white/75">
+                Our support team at {data.business.name} is here for you.
+              </p>
               <div className="mt-3 grid grid-cols-2 gap-2.5">
                 <PillButton onClick={() => window.location.assign(`tel:${data.business.phone}`)}>
                   <Phone className="h-4 w-4" aria-hidden />
@@ -503,10 +432,10 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
                   WhatsApp
                 </PillButton>
               </div>
-            )}
-          </Panel>
-        </div>
-      )}
+            </Panel>
+          </div>
+        )}
+      </div>
 
 
 
