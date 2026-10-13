@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useId } from 'react';
-import { overrideStatusBarColor } from '@/lib/theme';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar } from '@capacitor/status-bar';
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import { Brand } from '@/components/layout/brand';
 import { CARD_THEMES, CardPatternLayer } from '@/components/brand/fiber-card';
@@ -22,8 +23,14 @@ const cards = [
 export function MobileHomePage() {
   const uid = useId().replace(/:/g, '');
 
-  // Status bar takes this colour (matches the top of the photo) instead of the default white
-  useEffect(() => overrideStatusBarColor('#E8953D'), []);
+  // In the Android app the status bar turns transparent so the photo runs behind it
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    void StatusBar.setOverlaysWebView({ overlay: true });
+    return () => {
+      void StatusBar.setOverlaysWebView({ overlay: false });
+    };
+  }, []);
   return (
     <div className="relative flex min-h-[100dvh] flex-col bg-brand-900">
       {/* Photo behind the whole page, so the sheet can be see-through */}
@@ -31,11 +38,11 @@ export function MobileHomePage() {
         src="/images/splash-savanna.jpg"
         alt=""
         aria-hidden
-        className="absolute inset-x-0 top-0 h-[44dvh] w-full object-cover"
+        className="absolute inset-x-0 top-0 h-[50dvh] w-full object-cover"
       />
 
       {/* Logo sits on the photo, top quarter of the screen */}
-      <div className="relative flex h-[44dvh] min-h-[240px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
+      <div className="relative flex h-[50dvh] min-h-[260px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
         <Brand onDark size="lg" />
       </div>
 
