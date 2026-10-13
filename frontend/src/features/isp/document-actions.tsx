@@ -6,6 +6,7 @@ import { documentsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import type { DocKind, SaleDetail } from '@/api/types';
 import { Alert } from '@/components/ui/alert';
+import { notifySuccess } from '@/components/ui/popup-host';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -23,7 +24,6 @@ export function DocumentActions({ sale }: { sale: SaleDetail }) {
   const [kind, setKind] = useState<DocKind>(hasPayment ? 'receipt' : 'invoice');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState(sale.customer?.email ?? '');
   // Generated documents open in a preview first; saving is a separate tap
@@ -39,7 +39,6 @@ export function DocumentActions({ sale }: { sale: SaleDetail }) {
   const run = async (key: string, fn: () => Promise<unknown>) => {
     setBusy(key);
     setError(null);
-    setNotice(null);
     try {
       await fn();
     } catch (err) {
@@ -62,7 +61,7 @@ export function DocumentActions({ sale }: { sale: SaleDetail }) {
     mutationFn: () => documentsApi.email(sale.id, kind, emailTo.trim()),
     onSuccess: (res) => {
       setEmailOpen(false);
-      setNotice(`Sent to ${res.to}`);
+      notifySuccess('Document sent', `Sent to ${res.to}`);
     },
   });
 
@@ -70,7 +69,7 @@ export function DocumentActions({ sale }: { sale: SaleDetail }) {
     { key: 'pdf', label: 'View PDF', icon: FileText, tone: 'bg-brand-600 text-white', onClick: () => openPreview('a4') },
     { key: 'thermal', label: '80mm receipt', icon: Printer, tone: 'bg-slate-800 text-white', onClick: () => openPreview('thermal') },
     { key: 'whatsapp', label: 'WhatsApp', icon: WhatsAppIcon, tone: 'bg-[#25D366] text-white', onClick: shareWhatsApp },
-    { key: 'email', label: 'Email', icon: Mail, tone: 'bg-sky-600 text-white', onClick: () => { setError(null); setNotice(null); email.reset(); setEmailOpen(true); } },
+    { key: 'email', label: 'Email', icon: Mail, tone: 'bg-sky-600 text-white', onClick: () => { setError(null); email.reset(); setEmailOpen(true); } },
   ];
 
   return (
@@ -122,7 +121,6 @@ export function DocumentActions({ sale }: { sale: SaleDetail }) {
 
       {!hasPayment && <p className="px-1 text-[12px] text-foreground-4">A receipt is available once a payment is recorded.</p>}
       {error && <Alert variant="error">{error}</Alert>}
-      {notice && <Alert variant="success">{notice}</Alert>}
 
       <PdfPreview
         file={preview}

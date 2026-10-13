@@ -31,6 +31,7 @@ import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { NotFoundPage } from '@/features/misc/not-found-page';
 import { OfflineBanner } from '@/components/layout/offline-banner';
 import { SessionTimeout } from '@/components/layout/session-timeout';
+import { PopupHost } from '@/components/ui/popup-host';
 
 /**
  * Signed-in users go straight to the dashboard. Signed-out phones see the mobile
@@ -62,6 +63,7 @@ export default function App() {
       <ThemeScope />
       <OfflineBanner />
       <SessionTimeout />
+      <PopupHost />
       <Routes>
       <Route path="/splash" element={<Navigate to="/" replace />} />
       <Route path="/" element={<HomeRoute />} />

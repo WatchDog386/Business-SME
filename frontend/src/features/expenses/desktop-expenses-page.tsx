@@ -14,6 +14,7 @@ import { businessesApi, categoriesApi, expensesApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import type { Expense, ExpenseStatus } from '@/api/types';
 import { Alert } from '@/components/ui/alert';
+import { notifySuccess } from '@/components/ui/popup-host';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -184,18 +185,11 @@ export function DesktopExpensesPage() {
   const [confirmDelete, setConfirmDelete] = useState<Expense | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [overviewDays, setOverviewDays] = useState<OverviewDays>('30');
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setFormOpen(true);
   }, [searchParams]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
 
   // Debounce typing, then return to the first page of results.
   useEffect(() => {
@@ -277,7 +271,7 @@ export function DesktopExpensesPage() {
     mutationFn: (id: string) => expensesApi.approve(id),
     onSuccess: async (expense) => {
       setReviewError(null);
-      setNotice(`Approved "${expense.description}".`);
+      notifySuccess('Expense approved', `"${expense.description}" was approved.`);
       await refreshAll();
     },
     onError: (err) => setReviewError(apiErrorMessage(err)),
@@ -290,7 +284,7 @@ export function DesktopExpensesPage() {
       setRejectExpense(null);
       setRejectReason('');
       setReviewError(null);
-      setNotice(`Rejected "${expense.description}".`);
+      notifySuccess('Expense rejected', `"${expense.description}" was rejected.`);
       await refreshAll();
     },
     onError: (err) => setReviewError(apiErrorMessage(err)),
@@ -484,7 +478,6 @@ export function DesktopExpensesPage() {
         </ToolbarButton>
       </div>
 
-      {notice && <Alert variant="success">{notice}</Alert>}
       {reviewError && !rejectExpense && (
         <Alert variant="error" title="Could not update the expense">
           {reviewError}
@@ -586,11 +579,9 @@ export function DesktopExpensesPage() {
           onClose={() => setFormOpen(false)}
           submitLabel={canApprove ? 'Add expense' : 'Submit for approval'}
           onSaved={(expense) =>
-            setNotice(
-              expense.status === 'PENDING'
-                ? `"${expense.description}" was submitted and is awaiting approval.`
-                : `"${expense.description}" was recorded.`,
-            )
+            expense.status === 'PENDING'
+              ? notifySuccess('Submitted for approval', `"${expense.description}" is awaiting approval.`)
+              : notifySuccess('Expense recorded', `"${expense.description}" was recorded.`)
           }
         />
       </Dialog>

@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
+import { notifySuccess } from '@/components/ui/popup-host';
 import { Badge, statusLabel, statusVariant } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { CARD_THEMES, FiberHeroCard, ProfileHeader, RoundFilters } from '@/components/brand/fiber-card';
@@ -73,17 +74,11 @@ function ExpensesMobilePage() {
     searchParams.get('status') === 'PENDING' ? 'PENDING' : '',
   );
   const [formOpen, setFormOpen] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setFormOpen(true);
   }, [searchParams]);
 
-  useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
   const [editExpense, setEditExpense] = useState<Expense | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Expense | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -138,7 +133,7 @@ function ExpensesMobilePage() {
     mutationFn: (id: string) => expensesApi.approve(id),
     onSuccess: async (expense) => {
       setReviewError(null);
-      setNotice(`Approved "${expense.description}".`);
+      notifySuccess('Expense approved', `"${expense.description}" was approved.`);
       await refreshAll();
     },
     onError: (err) => setReviewError(apiErrorMessage(err)),
@@ -151,7 +146,7 @@ function ExpensesMobilePage() {
       setRejectExpense(null);
       setRejectReason('');
       setReviewError(null);
-      setNotice(`Rejected "${expense.description}".`);
+      notifySuccess('Expense rejected', `"${expense.description}" was rejected.`);
       await refreshAll();
     },
     onError: (err) => setReviewError(apiErrorMessage(err)),
@@ -238,11 +233,6 @@ function ExpensesMobilePage() {
         </section>
       )}
 
-      {notice && (
-        <Alert variant="success">
-          {notice}
-        </Alert>
-      )}
       {reviewError && !rejectExpense && (
         <Alert variant="error" title="Could not update the expense">
           {reviewError}
@@ -454,11 +444,9 @@ function ExpensesMobilePage() {
           onClose={() => setFormOpen(false)}
           submitLabel={canApprove ? 'Add expense' : 'Submit for approval'}
           onSaved={(expense) =>
-            setNotice(
-              expense.status === 'PENDING'
-                ? `"${expense.description}" was submitted and is awaiting approval.`
-                : `"${expense.description}" was recorded.`,
-            )
+            expense.status === 'PENDING'
+              ? notifySuccess('Submitted for approval', `"${expense.description}" is awaiting approval.`)
+              : notifySuccess('Expense recorded', `"${expense.description}" was recorded.`)
           }
         />
       </Dialog>

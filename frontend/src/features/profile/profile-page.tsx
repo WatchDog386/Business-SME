@@ -13,6 +13,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
+import { notifySuccess } from '@/components/ui/popup-host';
 import { requestLogout } from '@/components/layout/session-timeout';
 import { PROFILE_GREEN, ProfileRing, profileCompletion } from '@/components/layout/profile-visuals';
 import { authApi } from '@/api/endpoints';
@@ -41,7 +42,6 @@ export function ProfilePage() {
   const setUser = useAuthStore((s) => s.setUser);
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
-  const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [theme, setTheme] = useTheme();
@@ -69,13 +69,11 @@ export function ProfilePage() {
       }),
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
-      setSuccess(true);
+      notifySuccess('Profile updated', 'Your changes have been saved.');
       setError(null);
-      setTimeout(() => setSuccess(false), 3000);
     },
     onError: (err) => {
       setError(apiErrorMessage(err));
-      setSuccess(false);
     },
   });
 
@@ -96,12 +94,6 @@ export function ProfilePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <AppBar title="My Profile" onBack={() => navigate('/dashboard')} />
-
-      {success && (
-        <Alert variant="success" title="Profile updated successfully">
-          Your changes have been saved.
-        </Alert>
-      )}
 
       {error && (
         <Alert variant="error" title="Could not update profile">
