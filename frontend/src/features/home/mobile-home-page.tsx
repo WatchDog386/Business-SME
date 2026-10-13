@@ -31,12 +31,12 @@ export function MobileHomePage() {
       />
 
       {/* Logo sits on the photo, top quarter of the screen */}
-      <div className="relative flex h-[36dvh] min-h-[230px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
+      <div className="relative flex h-[50dvh] min-h-[260px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
         <Brand onDark size="lg" />
       </div>
 
       {/* Translucent sheet: the photo shows through */}
-      <main className="relative -mt-8 flex flex-1 flex-col rounded-t-2xl bg-white/60 px-5 backdrop-blur-[2px] pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)]">
+      <main className="relative flex flex-1 flex-col rounded-t-2xl bg-white/60 px-5 backdrop-blur-[2px] pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)]">
         <div className="mx-auto h-1 w-12 rounded-full bg-slate-300" aria-hidden />
 
         <h1 className="mt-5 text-center text-[22px] font-semibold tracking-tight">Welcome to Optimas</h1>

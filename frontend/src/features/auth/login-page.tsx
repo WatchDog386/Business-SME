@@ -194,7 +194,7 @@ export function LoginPage() {
         <div className="relative flex h-[50dvh] min-h-[260px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
           <Brand onDark size="lg" />
         </div>
-        <main className="relative -mt-8 flex min-h-[50dvh] flex-1 flex-col rounded-t-2xl bg-white/60 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-[2px]">
+        <main className="relative flex min-h-[50dvh] flex-1 flex-col rounded-t-2xl bg-white/60 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-[2px]">
           <div className="mx-auto h-1 w-12 rounded-full bg-slate-400" aria-hidden />
           <h1 className="mt-5 text-center text-[22px] font-semibold tracking-tight">Welcome back!</h1>
           <p className="mb-6 mt-1 text-center text-sm text-slate-700">Sign in with your Optimas staff account.</p>
