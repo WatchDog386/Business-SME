@@ -13,6 +13,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
+import { ChangePasswordForm } from '@/features/auth/components/change-password-form';
 import { notifySuccess } from '@/components/ui/popup-host';
 import { requestLogout } from '@/components/layout/session-timeout';
 import { PROFILE_GREEN, ProfileRing, profileCompletion } from '@/components/layout/profile-visuals';
@@ -231,6 +232,14 @@ export function ProfilePage() {
             )}
           </button>
         </form>
+      </section>
+
+      {/* Change password */}
+      <section className="px-1">
+        <SectionLabel>Password</SectionLabel>
+        <div className="mt-4">
+          <ChangePasswordForm />
+        </div>
       </section>
 
       {/* Appearance: light / dark theme (moved here from Settings) */}

@@ -27,6 +27,7 @@ import { SubscribersPage } from '@/features/isp/subscribers-page';
 import { CallsPage } from '@/features/isp/calls-page';
 import { WelcomePage } from '@/features/onboarding/welcome-page';
 import { MobileHomePage } from '@/features/home/mobile-home-page';
+import { ClientProfilePage } from '@/features/client/client-profile-page';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { NotFoundPage } from '@/features/misc/not-found-page';
 import { OfflineBanner } from '@/components/layout/offline-banner';
@@ -77,6 +78,8 @@ export default function App() {
 
       <Route element={<AppShell />}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        {/* Subscriber's own account page (password, theme, sign out) */}
+        <Route path="/my-account" element={<ClientProfilePage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/customers" element={<CustomersPage />} />

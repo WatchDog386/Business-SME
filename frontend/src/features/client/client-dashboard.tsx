@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   CheckCircle2,
@@ -14,7 +15,6 @@ import {
   Search,
   Smartphone,
   UserCog,
-  Wifi,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -25,7 +25,8 @@ import {
   DuoSales,
 } from '@/components/brand/duo-icons';
 import { QuickActions, type QuickAction } from '@/features/dashboard/components/quick-actions';
-import { planStyle } from '@/features/products/package-card';
+import { PackageCard, planStyle } from '@/features/products/package-card';
+import type { Product } from '@/api/types';
 import { clientApi, type ClientHome, type StkPush } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Alert } from '@/components/ui/alert';
@@ -123,6 +124,7 @@ function PillButton({
  * They never see anything of the business beyond this.
  */
 export function ClientDashboard() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [payFor, setPayFor] = useState<Pkg | null>(null);
@@ -170,7 +172,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
     { to: 'receipts', label: 'Receipts', icon: DuoReports },
     { to: 'call', label: 'Call us', icon: DuoCalls },
     { to: 'whatsapp', label: 'WhatsApp', icon: WhatsAppIcon },
-    { to: 'details', label: 'My details', icon: DuoCustomers },
+    { to: 'details', label: 'My account', icon: DuoCustomers },
   ].filter((a) => a.to !== 'call' || Boolean(data.business.phone)) as QuickAction[];
 
   const onQuickAction = (to: string) => {
@@ -182,7 +184,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
     }
     if (to === 'call') return window.location.assign(`tel:${data.business.phone}`);
     if (to === 'whatsapp') return window.open(`https://wa.me/${phoneDigits}`, '_blank');
-    if (to === 'details') return setShowNumber((v) => !v);
+    if (to === 'details') return navigate('/my-account');
   };
 
   /** Green tab pill; shared by the section bar and the bottom nav. */
@@ -238,9 +240,9 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
           </button>
           <button
             type="button"
-            onClick={logout}
+            onClick={() => navigate('/my-account')}
             className="text-white transition-transform active:scale-90"
-            aria-label="Sign out"
+            aria-label="My account"
           >
             <UserCog className="h-6 w-6" strokeWidth={1.9} aria-hidden />
           </button>
@@ -366,7 +368,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
         </div>
 
         {tab === 'packages' ? (
-          /* Packages, exactly as they were designed before */
+          /* Packages, using the same PackageCard the admin dashboard and staff pages use */
           <section className="mt-3">
             <div className="mb-3 flex items-center justify-between px-1">
               <h2 className="text-[15px] font-semibold tracking-tight text-white">
@@ -374,32 +376,32 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
               </h2>
               <span className="text-[12px] text-white/70">Pay with M-Pesa</span>
             </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4">
+            <div className="grid grid-cols-2 gap-3">
               {data.packages.map((p, i) => {
-                const style = planStyle(p.name.replace(/\s*\d+\s*mbps\s*$/i, ''), i);
+                const name = p.name.replace(/\s*\d+\s*mbps\s*$/i, '') || p.name;
+                const style = planStyle(name, i);
                 const mine = p.id === current?.id;
                 return (
-                  <div key={p.id} className="flex w-40 shrink-0 flex-col rounded-3xl bg-[#F2F2F4] p-4">
-                    <span
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-[12px] font-bold text-white"
-                      style={{ background: `linear-gradient(135deg, ${style.from}, ${style.to})` }}
-                    >
-                      {p.speedMbps ? `${p.speedMbps}M` : <Wifi className="h-5 w-5" />}
-                    </span>
-                    <p className="mt-3 text-[15px] font-medium text-foreground">{p.name.replace(/\s*\d+\s*mbps\s*$/i, '')}</p>
-                    <p className="text-[12px] text-foreground-4">
-                      {p.speedMbps ? `${p.speedMbps} Mbps · ` : ''}
-                      {p.billingDays ?? 30} days
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setPayFor(p)}
-                      className="mt-3 h-10 rounded-xl border-[1.5px] text-[13px] font-medium tabular-nums"
-                      style={mine ? { background: style.from, borderColor: style.from, color: '#fff' } : { borderColor: style.from, color: style.from }}
-                    >
-                      {mine ? 'My package · Pay' : `KSh ${p.price.toLocaleString('en-KE')}`}
-                    </button>
-                  </div>
+                  <PackageCard
+                    key={p.id}
+                    product={toProduct(p)}
+                    index={i}
+                    onAdd={() => setPayFor(p)}
+                    footer={
+                      <button
+                        type="button"
+                        onClick={() => setPayFor(p)}
+                        className="inline-flex h-10 items-center rounded-xl border-[1.5px] px-3.5 text-[13px] font-medium tabular-nums transition-colors active:opacity-70"
+                        style={
+                          mine
+                            ? { background: style.from, borderColor: style.from, color: '#FFFFFF' }
+                            : { borderColor: style.from, color: style.from }
+                        }
+                      >
+                        {mine ? 'My package · Pay' : `Pay · KSh ${p.price.toLocaleString('en-KE')}`}
+                      </button>
+                    }
+                  />
                 );
               })}
             </div>
@@ -510,6 +512,28 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
       </Dialog>
     </div>
   );
+}
+
+/** Client packages are the lean shape; PackageCard expects the staff Product shape. */
+function toProduct(p: ClientHome['packages'][number]): Product {
+  return {
+    id: p.id,
+    businessId: '',
+    name: p.name,
+    sku: null,
+    categoryId: null,
+    cost_price: 0,
+    selling_price: p.price,
+    stock_quantity: 0,
+    low_stock_threshold: 0,
+    track_inventory: false,
+    active: true,
+    created_at: '',
+    updated_at: '',
+    billing_days: p.billingDays,
+    speed_mbps: p.speedMbps,
+    description: p.description,
+  };
 }
 
 function PaymentRow({ payment }: { payment: ClientHome['payments'][number] }) {

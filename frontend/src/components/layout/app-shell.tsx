@@ -15,6 +15,9 @@ import { hasOnboarded } from '@/features/onboarding/welcome-page';
 import { useTheme } from '@/lib/theme';
 import { useRole } from '@/hooks/use-role';
 
+/** The only pages a subscriber (CLIENT role) may open. */
+const CLIENT_PATHS = ['/dashboard', '/my-account'];
+
 export function AppShell() {
   const { token, loading } = useBootstrap();
   const businesses = useBusinessStore((s) => s.businesses);
@@ -71,9 +74,12 @@ export function AppShell() {
     return <NoAccess name={user?.fullName} onSignOut={logout} />;
   }
 
-  // Clients only have their own dashboard: no staff menu, footer bar or other pages
+  // Clients only have their own dashboard and account page: no staff menu, footer bar
+  // or any other page. CLIENT_PATHS lists what they are allowed to open.
   if (isClient) {
-    if (!isDashboard) return <Navigate to="/dashboard" replace />;
+    if (!CLIENT_PATHS.some((p) => location.pathname === p)) {
+      return <Navigate to="/dashboard" replace />;
+    }
     return (
       <main className="mx-auto w-full max-w-xl px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-2 lg:pt-8">
         <AnimatedOutlet />
