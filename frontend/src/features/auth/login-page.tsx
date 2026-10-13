@@ -17,6 +17,8 @@ import { Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
 import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
+import { Brand } from '@/components/layout/brand';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import type { AuthResult, MfaChallenge } from '@/api/types';
 
 const schema = z.object({
@@ -39,6 +41,7 @@ export function LoginPage() {
   const [signingIn, setSigningIn] = useState(false);
   // From "Verify and continue" until the dashboard opens, one loader covers everything
   const [verifying, setVerifying] = useState(false);
+  const isDesktop = useIsDesktop();
 
   const {
     register,
@@ -115,17 +118,7 @@ export function LoginPage() {
     );
   }
 
-  return (
-    <AuthLayout
-      title="Welcome back!"
-      mobileTitle="Welcome back!"
-      hideLabelsOnMobile
-      hideMobileFooter
-      hideFooterLinks
-      forceMobileLayout
-      centerTitle
-      subtitle="Sign in with your Optimas staff account."
-    >
+  const form = (
       <form
         className="flex flex-col gap-4"
         onSubmit={handleSubmit((values) => mutation.mutate(values))}
@@ -182,7 +175,7 @@ export function LoginPage() {
         </div>
         <Button
           type="submit"
-          className="h-14 w-full rounded-2xl max-lg:fixed max-lg:inset-x-6 max-lg:bottom-[calc(4rem+env(safe-area-inset-bottom))] max-lg:z-10 max-lg:mx-auto max-lg:w-auto max-lg:max-w-sm text-[20px] font-medium text-white shadow-none transition-colors bg-[#3A8F91] hover:bg-[#2F7F81] active:bg-[#2F7F81]"
+          className="h-14 w-full rounded-2xl text-[20px] font-medium text-white shadow-none transition-colors bg-[#3A8F91] hover:bg-[#2F7F81] active:bg-[#2F7F81]"
           size="lg"
           loading={mutation.isPending}
         >
@@ -191,6 +184,41 @@ export function LoginPage() {
         {signingIn && <WorkspaceLoader />}
 
       </form>
+  );
+
+  // Phones: photo header with the logo, and a translucent sheet holding the form (matches the home page)
+  if (!isDesktop) {
+    return (
+      <div className="relative flex min-h-[100dvh] flex-col bg-brand-900">
+        <img src="/images/splash-savanna.jpg" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+        <div className="relative flex h-[50dvh] min-h-[260px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
+          <Brand onDark size="lg" />
+        </div>
+        <main className="relative -mt-8 flex min-h-[50dvh] flex-1 flex-col rounded-t-2xl bg-white/60 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-[2px]">
+          <div className="mx-auto h-1 w-12 rounded-full bg-slate-400" aria-hidden />
+          <h1 className="mt-5 text-center text-[22px] font-semibold tracking-tight">Welcome back!</h1>
+          <p className="mb-6 mt-1 text-center text-sm text-slate-700">Sign in with your Optimas staff account.</p>
+          {/* Same muted, borderless fields as the original sign-in page */}
+          <div className="mt-6 [&_input]:!rounded-lg [&_input]:!border-transparent [&_input]:!bg-slate-100 [&_input]:!text-slate-600 [&_input]:!shadow-none [&_input]:placeholder:text-slate-400 [&_label]:sr-only">
+            {form}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <AuthLayout
+      title="Welcome back!"
+      mobileTitle="Welcome back!"
+      hideLabelsOnMobile
+      hideMobileFooter
+      hideFooterLinks
+      forceMobileLayout
+      centerTitle
+      subtitle="Sign in with your Optimas staff account."
+    >
+      {form}
     </AuthLayout>
   );
 }

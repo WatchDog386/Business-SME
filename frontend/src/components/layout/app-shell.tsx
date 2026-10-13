@@ -54,7 +54,9 @@ export function AppShell() {
   }, [theme, isDesktop]);
 
   if (!token) {
-    return <Navigate to={isDesktop || hasOnboarded() ? '/login' : '/welcome'} replace />;
+    // Desktop: sign-in. Phones: first-time users see the welcome page, everyone else the home page
+    if (isDesktop) return <Navigate to="/login" replace />;
+    return <Navigate to={hasOnboarded() ? '/' : '/welcome'} replace />;
   }
 
   if (loading) {

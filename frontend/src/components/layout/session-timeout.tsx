@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Hourglass } from 'lucide-react';
+import { Hourglass, LogIn } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 
 /** Idle time before the prompt appears, and the countdown shown on it. */
@@ -34,7 +34,8 @@ export function SessionTimeout() {
     deadline.current = 0;
     setPrompt(null);
     logout();
-    navigate('/login', { replace: true });
+    // Phones land on the mobile home page; desktop's "/" redirects to sign-in
+    navigate('/', { replace: true });
   };
 
   useEffect(() => {
@@ -83,6 +84,42 @@ export function SessionTimeout() {
     lastActive.current = Date.now();
     setPrompt(null);
   };
+
+  // Log Out button: light confirmation card
+  if (confirming) {
+    return (
+      <div
+        className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-5 animate-fade-in"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="logout-confirm-title"
+      >
+        <div className="w-full max-w-[340px] rounded-2xl bg-white px-6 pb-6 pt-6 text-center text-slate-900 shadow-2xl">
+          <h2 id="logout-confirm-title" className="text-lg font-semibold">
+            Log Out ?
+          </h2>
+          <LogIn className="mx-auto mt-6 h-20 w-20 text-[#7CB82F]" strokeWidth={1.6} aria-hidden />
+          <p className="mt-6 text-[15px] text-slate-700">Are you sure you want to log out?</p>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={stay}
+              className="h-12 rounded-xl border-2 border-[#7CB82F] bg-white text-[15px] font-medium text-slate-600 transition-transform active:scale-[0.98]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={signOut}
+              className="h-12 rounded-xl bg-[#7CB82F] text-[15px] font-medium text-white transition-transform active:scale-[0.98]"
+            >
+              Exit
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

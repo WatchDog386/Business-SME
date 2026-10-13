@@ -26,16 +26,21 @@ import { StaffPage } from '@/features/business/staff-page';
 import { SubscribersPage } from '@/features/isp/subscribers-page';
 import { CallsPage } from '@/features/isp/calls-page';
 import { WelcomePage } from '@/features/onboarding/welcome-page';
+import { MobileHomePage } from '@/features/home/mobile-home-page';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { NotFoundPage } from '@/features/misc/not-found-page';
 import { OfflineBanner } from '@/components/layout/offline-banner';
 import { SessionTimeout } from '@/components/layout/session-timeout';
 
 /**
- * The root URL opens the login page. Signed-in users go straight to the dashboard.
+ * Signed-in users go straight to the dashboard. Signed-out phones see the mobile
+ * home page (also where logout lands); desktop opens the login page.
  */
 function HomeRoute() {
   const token = useAuthStore((s) => s.token);
+  const isDesktop = useIsDesktop();
   if (token) return <Navigate to="/dashboard" replace />;
+  if (!isDesktop) return <MobileHomePage />;
   return <Navigate to="/login" replace />;
 }
 
