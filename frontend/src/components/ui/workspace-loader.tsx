@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { overrideStatusBarColor } from '@/lib/theme';
 
 /** Status lines shown in turn while signing in and loading the dashboard. */
 const STEPS = [
@@ -76,6 +77,9 @@ export function WorkspaceLoader() {
       hiddenAt = Date.now();
     };
   }, []);
+
+  // The status bar is white all the way up while this loader is on screen
+  useEffect(() => overrideStatusBarColor('#FFFFFF'), []);
 
   const step = Math.min(STEPS.length - 1, Math.floor(now / STEP_MS));
 

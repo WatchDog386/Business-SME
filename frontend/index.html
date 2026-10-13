@@ -70,6 +70,7 @@
           setTimeout(function () {
             var splash = document.getElementById('splash-screen');
             if (splash) splash.classList.add('hidden');
+            window.dispatchEvent(new Event('splash-hidden'));
             // The app paints its own backgrounds; drop the blue page fill.
             document.documentElement.classList.remove('booting');
             // The status-bar colour is set by the app per page (see lib/theme.ts)
