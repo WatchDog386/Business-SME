@@ -19,6 +19,7 @@ import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
 import { Brand } from '@/components/layout/brand';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { usePhotoStatusBar } from '@/hooks/use-photo-status-bar';
 import type { AuthResult, MfaChallenge } from '@/api/types';
 
 const schema = z.object({
@@ -89,6 +90,9 @@ export function LoginPage() {
     },
     onError: (err) => setError(apiErrorMessage(err)),
   });
+
+  // Phone sign-in shows the photo right up behind the status bar (same as the home page)
+  usePhotoStatusBar(!isDesktop && !challenge);
 
   // Strict flow: login -> loading/success -> dashboard. Don't jump to dashboard
   // ahead of success page — only redirect if already authenticated before this visit.
@@ -189,12 +193,14 @@ export function LoginPage() {
   // Phones: photo header with the logo, and a translucent sheet holding the form (matches the home page)
   if (!isDesktop) {
     return (
-      <div className="relative flex min-h-[100dvh] flex-col bg-brand-900">
-        <img src="/images/splash-savanna.jpg" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
-        <div className="relative flex h-[50dvh] min-h-[260px] w-full shrink-0 items-center justify-center pt-[env(safe-area-inset-top)]">
+      <div className="relative flex min-h-[100dvh] flex-col bg-white">
+        {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
+        <img src="/images/splash-savanna.jpg" alt="" aria-hidden className="fixed inset-0 h-full w-full object-cover" />
+        <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pt-[env(safe-area-inset-top)]">
           <Brand onDark size="lg" />
         </div>
-        <main className="relative flex min-h-[50dvh] flex-1 flex-col rounded-t-2xl bg-white/60 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-[2px]">
+        {/* Whitish frosted sheet, same as the home page */}
+        <main className="relative flex shrink-0 flex-col rounded-t-3xl bg-white/80 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-md">
           <div className="mx-auto h-1 w-12 rounded-full bg-slate-400" aria-hidden />
           <h1 className="mt-5 text-center text-[22px] font-semibold tracking-tight">Welcome back!</h1>
           <p className="mb-6 mt-1 text-center text-sm text-slate-700">Sign in with your Optimas staff account.</p>

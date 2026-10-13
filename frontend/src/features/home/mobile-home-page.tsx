@@ -1,11 +1,9 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useId } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { StatusBar, Style } from '@capacitor/status-bar';
+import { useId } from 'react';
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import { Brand } from '@/components/layout/brand';
 import { CARD_THEMES, CardPatternLayer } from '@/components/brand/fiber-card';
-import { overrideStatusBarColor } from '@/lib/theme';
+import { usePhotoStatusBar } from '@/hooks/use-photo-status-bar';
 
 const cards = [
   { img: '/icon1.png', title: 'Sales', text: 'Record sales and payments in seconds.' },
@@ -24,26 +22,8 @@ const cards = [
 export function MobileHomePage() {
   const uid = useId().replace(/:/g, '');
 
-  // The photo runs behind the status bar: transparent bar with light icons in the app,
-  // and a sky-coloured theme-color in the browser (where the page can't draw under it)
-  useEffect(() => {
-    const restoreThemeColor = overrideStatusBarColor('#E8913A');
-    if (!Capacitor.isNativePlatform()) return restoreThemeColor;
-    void (async () => {
-      try {
-        await StatusBar.setOverlaysWebView({ overlay: true });
-        await StatusBar.setBackgroundColor({ color: '#00000000' });
-        await StatusBar.setStyle({ style: Style.Dark });
-      } catch {
-        /* status bar plugin unavailable */
-      }
-    })();
-    return () => {
-      restoreThemeColor();
-      void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
-      void StatusBar.setStyle({ style: Style.Light }).catch(() => {});
-    };
-  }, []);
+  usePhotoStatusBar();
+
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-white">
       {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
