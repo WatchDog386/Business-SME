@@ -4,7 +4,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { overrideStatusBarColor } from '@/lib/theme';
 
 /** Colour of the top edge of /images/splash-savanna.jpg, so the browser status bar blends into the photo. */
-const PHOTO_TOP = '#FDFDFD';
+const PHOTO_TOP = '#6583C2';
 
 /**
  * Lets the full-screen photo on the home and login pages run up behind the status bar.

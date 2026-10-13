@@ -197,7 +197,7 @@ export function LoginPage() {
         {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
         <img src="/images/splash-savanna.jpg" alt="" aria-hidden className="fixed inset-0 h-full w-full object-cover" />
         <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pt-[env(safe-area-inset-top)]">
-          <Brand size="lg" />
+          <Brand onDark size="lg" />
         </div>
         {/* Whitish frosted sheet, same as the home page */}
         <main className="relative flex shrink-0 flex-col rounded-t-3xl bg-white/80 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-md">

@@ -34,9 +34,9 @@ export function MobileHomePage() {
         className="absolute inset-0 h-full w-full object-cover"
       />
 
-      {/* Logo on the photo. The photo's top is bright sky, so the dark wordmark reads; the light one would vanish */}
+      {/* Logo on the photo. The photo's top is a deep blue dusk sky, so the light wordmark reads */}
       <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pt-[env(safe-area-inset-top)]">
-        <Brand size="lg" />
+        <Brand onDark size="lg" />
       </div>
 
       {/* Whitish frosted sheet: the photo shows faintly through; sized so Login is always fully visible */}
