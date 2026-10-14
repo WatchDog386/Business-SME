@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Loader2, Smartphone } from 'lucide-react';
 import { clientApi, type ClientHome, type StkPush } from '@/api/endpoints';
-import { apiErrorMessage } from '@/api/client';
-import { Alert } from '@/components/ui/alert';
+import { ApiErrorShape, apiErrorMessage } from '@/api/client';
 import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { notifyError, notifySuccess } from '@/components/ui/popup-host';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { formatDate, formatKES } from '@/lib/utils';
 import { ClientShell, useClientHome } from './client-pages';
@@ -19,6 +19,25 @@ const PIN_SECONDS = 60;
 /** What the client is being charged per day on this package. */
 function dayRate(pkg: Pkg): number {
   return pkg.price / (pkg.billingDays ?? 30);
+}
+
+/** The server's error code decides the popup's title. */
+function popupTitle(error: unknown): string {
+  if (error instanceof ApiErrorShape) {
+    if (error.code === 'MPESA_NOT_CONFIGURED') return 'M-Pesa is not set up yet';
+    if (error.code === 'INVALID_PHONE') return 'Check the phone number';
+    if (error.code === 'STK_PUSH_FAILED') return 'M-Pesa declined the payment';
+    if (error.code === 'CHOOSE_PACKAGE' || error.code === 'NOT_A_PACKAGE') return 'Choose a package';
+  }
+  return 'Payment could not be sent';
+}
+
+/** ...and its wording: the setup notice is for the client, not for the office. */
+function popupMessage(error: unknown, business: string): string {
+  if (error instanceof ApiErrorShape && error.code === 'MPESA_NOT_CONFIGURED') {
+    return `${business} has not finished setting up M-Pesa payments yet. Ask them to switch it on, then try again.`;
+  }
+  return apiErrorMessage(error);
 }
 
 /** The M-Pesa wordmark, on a white tile like the reference's method logo. */
@@ -223,8 +242,8 @@ export function ClientMethodPage() {
   const [push, setPush] = useState<(StkPush & { saleId?: string | null }) | null>(null);
   const [sentOpen, setSentOpen] = useState(false);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [left, setLeft] = useState(PIN_SECONDS);
+  const told = useRef(false);
 
   // Prefill the M-Pesa number once the account arrives
   useEffect(() => {
@@ -259,18 +278,33 @@ export function ClientMethodPage() {
     return () => window.clearInterval(timer);
   }, [push, queryClient]);
 
+  // How it ended, said once as a popup on screen
+  useEffect(() => {
+    if (!push || push.state === 'pending' || told.current) return;
+    told.current = true;
+    const name = pkg?.name.replace(/\s*\d+\s*mbps\s*$/i, '') || 'your package';
+    if (push.state === 'paid') {
+      notifySuccess(
+        'Payment received',
+        `${formatKES(amount)} paid for ${name}${push.receipt ? `. M-Pesa ${push.receipt}` : ''}.`,
+      );
+    } else {
+      notifyError('Payment not completed', push.message || 'The M-Pesa prompt was not completed.');
+    }
+  }, [push, amount, pkg]);
+
   if (isLoading || !home) return <WorkspaceLoader />;
 
   const send = async () => {
     setSending(true);
-    setError(null);
     try {
       const next = await clientApi.pay({ productId: pkg?.id, phone, amount });
+      told.current = false;
       setPush(next);
       setLeft(PIN_SECONDS);
       setSentOpen(true);
     } catch (err) {
-      setError(apiErrorMessage(err));
+      notifyError(popupTitle(err), popupMessage(err, home.business.name));
     } finally {
       setSending(false);
     }
@@ -355,14 +389,6 @@ export function ClientMethodPage() {
               <p className="mt-1 px-1 text-[11px] text-white/55">The prompt goes to this number.</p>
             </section>
 
-            {error && (
-              <div className="mt-4">
-                <Alert variant="error" inline>
-                  {error}
-                </Alert>
-              </div>
-            )}
-
             <div className="mt-auto space-y-3 bg-gradient-to-t from-black/85 to-transparent px-1 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6">
               <button
                 type="button"
@@ -389,8 +415,8 @@ export function ClientMethodPage() {
               <button
                 type="button"
                 onClick={() => {
+                  told.current = false;
                   setPush(null);
-                  setError(null);
                 }}
                 className="w-full py-2 text-[12px] text-white/70 active:opacity-70"
               >

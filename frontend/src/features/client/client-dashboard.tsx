@@ -173,8 +173,9 @@ export function ClientDashboard() {
 
       <div ref={topRef} />
 
-      {/* Top bar: avatar, centred greeting, then notifications and the account button */}
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-4 px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      {/* Top bar: avatar, centred greeting, then notifications and the account button.
+          Translucent so the photo reads through it. */}
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-4 bg-black/45 px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
         <ProfileAvatar name={data.customer.name} src={user?.avatarUrl} />
         <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-white">
           Hello {firstName} 👋
