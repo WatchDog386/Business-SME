@@ -105,8 +105,8 @@
   }
 
   /*
-   * Phones: each page's header (tagged `page-head`) stays pinned at the top
-   * while the content scrolls underneath, like the bottom navigation bar.
+   * Phone page headers stay pinned while content scrolls underneath. The
+   * dashboard uses its own fixed, full-width bar below.
    */
   @media (max-width: 1023px) {
     .page-head {
@@ -118,18 +118,43 @@
       margin-left: -1rem;
       margin-right: -1rem;
       padding: calc(env(safe-area-inset-top) + 0.5rem) 1rem 0.5rem !important;
-      /* Transparent at rest so the page colour runs all the way up to the top edge, like the login page */
-      background: transparent;
-      transition: box-shadow 0.2s ease, background-color 0.2s ease;
+      background: #1F1F22;
+      transition: box-shadow 0.2s ease;
     }
     html.page-scrolled .page-head {
       box-shadow: 0 8px 16px -14px rgba(15, 23, 42, 0.35);
-      background: rgba(255, 255, 255, 0.92);
+      background: #1F1F22;
       -webkit-backdrop-filter: blur(12px);
       backdrop-filter: blur(12px);
     }
-    html.dark.page-scrolled .page-head {
-      background: rgba(18, 18, 18, 0.92);
+
+    /* The admin dashboard bar floats across the page and stays fixed while content scrolls. */
+    .dashboard-header {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 35;
+      box-sizing: border-box;
+      height: calc(env(safe-area-inset-top) + 4rem);
+      padding: calc(env(safe-area-inset-top) + 0.5rem) 1rem 0.5rem;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    html.page-scrolled .dashboard-header {
+      background: rgba(18, 18, 18, 0.82);
+      box-shadow: 0 8px 16px -14px rgba(0, 0, 0, 0.6);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+    }
+    .dashboard-header-spacer {
+      height: calc(env(safe-area-inset-top) + 4rem);
+    }
+  }
+
+  /* Tablets use the shared top bar; keep only the dashboard search row there. */
+  @media (min-width: 640px) and (max-width: 1023px) {
+    .dashboard-header-slot {
+      display: none;
     }
   }
 
@@ -137,11 +162,11 @@
   @media (max-width: 1023px) {
     /* Clear at rest so the glow runs through; frosted once content scrolls under it */
     .page-head.dash-glow-head,
-    body.app-glow .page-head {
+    body.app-glow .page-head:not(.dashboard-header) {
       background: transparent;
     }
     html.page-scrolled .page-head.dash-glow-head,
-    html.page-scrolled body.app-glow .page-head {
+    html.page-scrolled body.app-glow .page-head:not(.dashboard-header) {
       background: rgba(232, 241, 255, 0.82);
       -webkit-backdrop-filter: blur(16px);
       backdrop-filter: blur(16px);

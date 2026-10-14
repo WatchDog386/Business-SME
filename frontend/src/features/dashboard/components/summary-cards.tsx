@@ -42,9 +42,9 @@ export function SummaryCards({ data }: { data: DashboardData }) {
     {
       key: 'sales',
       label: "Today's revenue",
-      amount: today.sales,
-      count: today.salesCount,
-      footerLeft: `${today.salesCount} sale${today.salesCount === 1 ? '' : 's'} today`,
+      amount: today.cashReceived,
+      count: today.paymentCount,
+      footerLeft: `${today.paymentCount} payment${today.paymentCount === 1 ? '' : 's'} received today`,
       footerRight: `Week ${formatKsh(data.weekRevenue, true)}`,
       icon: ShoppingCart,
       theme: CARD_THEMES.sales,

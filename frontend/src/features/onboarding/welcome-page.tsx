@@ -4,25 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Globe, MoreHorizontal, PhoneCall, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { Dialog } from '@/components/ui/dialog';
-
-/** Set once the phone has seen the welcome page. */
-export const ONBOARDED_KEY = 'optimas_onboarded';
-
-/**
- * Review mode: show the welcome page after the opening splash on every
- * launch (when signed out), not just the first time. Set to false to go back
- * to showing it once per phone.
- */
-export const ALWAYS_SHOW_WELCOME = false;
-
-export function hasOnboarded(): boolean {
-  if (ALWAYS_SHOW_WELCOME) return false;
-  try {
-    return localStorage.getItem(ONBOARDED_KEY) === 'true';
-  } catch {
-    return true;
-  }
-}
+import { ONBOARDED_KEY } from './onboarding-state';
 
 function markOnboarded() {
   try {

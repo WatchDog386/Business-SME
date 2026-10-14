@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigationType, useOutlet } from 'react-router-dom';
 import { SpeedWheel } from '@/components/ui/workspace-loader';
@@ -52,9 +52,17 @@ export function AnimatedOutlet() {
   return (
     <>
       <div className={loading ? 'invisible' : 'animate-fade-in'} aria-hidden={loading || undefined}>
-        {outlet}
+        <Suspense fallback={<RouteChunkFallback />}>{outlet}</Suspense>
       </div>
       {loading && <RouteLoader />}
     </>
+  );
+}
+
+function RouteChunkFallback() {
+  return (
+    <div role="status" aria-live="polite" className="flex min-h-[40vh] items-center justify-center px-6 text-sm text-foreground-4">
+      Loading page…
+    </div>
   );
 }

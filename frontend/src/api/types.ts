@@ -226,6 +226,7 @@ export interface Sale {
   businessId: string;
   customerId: string | null;
   employeeId: string | null;
+  sale_type?: 'GENERAL' | 'PRODUCT' | 'SERVICE' | 'PACKAGE' | 'ADVANCE' | 'OTHER' | 'MIXED';
   subtotal: number;
   discount: number;
   tax: number;
@@ -349,10 +350,12 @@ export interface RecurringExpense {
 export interface DashboardData {
   today: {
     sales: number;
+    cashReceived: number;
     expenses: number;
     grossProfit: number;
     netProfit: number;
     salesCount: number;
+    paymentCount: number;
   };
   weekRevenue: number;
   monthRevenue: number;
@@ -361,8 +364,9 @@ export interface DashboardData {
   appointmentsToday: number;
   recentCustomers: Customer[];
   recentTransactions: Array<{
-    type: 'SALE' | 'EXPENSE';
+    type: 'SALE' | 'PAYMENT' | 'EXPENSE';
     id: string;
+    saleId?: string | null;
     amount: number;
     paymentMethod: string;
     status: string;

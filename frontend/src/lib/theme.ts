@@ -69,6 +69,25 @@ if (typeof window !== 'undefined') {
 
 export function applyTheme(theme: Theme): void {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const docEl = document.documentElement;
+  // Remove backdrops left in the DOM by older dashboard theme code. Theme
+  // selection should only switch colors; route-specific photos live in-page.
+  docEl.classList.remove('page-white', 'dash-glow-body');
+  for (const child of Array.from(docEl.children)) {
+    if (child instanceof HTMLImageElement && child.getAttribute('src') === '/images/splash-savanna.jpg') {
+      child.remove();
+    } else if (
+      child instanceof HTMLDivElement &&
+      child.className.includes('bg-gradient-to-b') &&
+      child.className.includes('from-black/70') &&
+      child.className.includes('via-black/45') &&
+      child.className.includes('to-black/75')
+    ) {
+      child.remove();
+    }
+  }
+  delete docEl.dataset.brandBackdrop;
+
   // Force light on home / auth / success pages — dark mode never applies there.
   if (isLightOnlyRoute(path)) {
     document.documentElement.classList.remove('dark');
@@ -76,36 +95,10 @@ export function applyTheme(theme: Theme): void {
     return;
   }
   const dark = theme === 'dark';
-  document.documentElement.classList.toggle('dark', dark);
+  docEl.classList.toggle('dark', dark);
   // Dashboard top is the sky glow (light) or the dark glow (dark); other pages use the plain page colour
   if (dark) setStatusBarColor(path === '/dashboard' ? '#16202F' : '#121212');
   else setStatusBarColor(path === '/dashboard' ? '#D7E7FF' : '#F8FAFC');
-  // Brand theme: show the savanna background image like the client dashboard
-  if (theme === 'brand') {
-    const docEl = document.documentElement;
-    docEl.classList.add('page-white', 'dash-glow-body');
-    // Savanna backdrop + gradient overlay – use data‑attribute to avoid CSS‑class selector bugs
-    if (docEl.dataset?.brandBackdrop !== 'true') {
-      const newImg = document.createElement('img');
-      newImg.src = '/images/splash-savanna.jpg';
-      newImg.setAttribute('aria-hidden', 'true');
-      newImg.className = 'fixed inset-0 z-[-1] h-full w-full object-cover';
-      docEl.appendChild(newImg);
-      const newGrad = document.createElement('div');
-      newGrad.className = 'fixed inset-0 z-[-1] bg-gradient-to-b from-black/70 via-black/45 to-black/75';
-      docEl.appendChild(newGrad);
-      docEl.dataset.brandBackdrop = 'true';
-    }
-  } else {
-    // Remove brand background when switching away
-    const docEl = document.documentElement;
-    docEl.classList.remove('page-white', 'dash-glow-body');
-    const img = docEl.querySelector<HTMLElement>('img[src="/images/splash-savanna.jpg"]');
-    if (img) img.remove();
-    const grad = docEl.querySelector<HTMLElement>('div.bg-gradient-to-b.from-black via-black to-black');
-    if (grad) grad.remove();
-    delete docEl.dataset.brandBackdrop;
-  }
 }
 
 export function setTheme(theme: Theme): void {

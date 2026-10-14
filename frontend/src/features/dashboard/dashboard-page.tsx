@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { setTheme } from '@/lib/theme';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { useQuery } from '@tanstack/react-query';
@@ -18,6 +18,8 @@ import { DesktopDashboard } from './desktop-dashboard';
 import { useRole } from '@/hooks/use-role';
 import { EmployeeDashboard } from './employee-dashboard';
 import { ClientDashboard } from '@/features/client/client-dashboard';
+import { notifySuccess } from '@/components/ui/popup-host';
+import { formatKES } from '@/lib/utils';
 
 /**
  * One dashboard per kind of user: admins (owner, manager, accountant) get the
@@ -35,12 +37,28 @@ function AdminDashboard() {
   const { data, error, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: dashboardApi.get,
+    refetchInterval: 5000,
   });
+  const seenPaymentIds = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (!data) return;
+    const payments = data.recentTransactions.filter((transaction) => transaction.type === 'PAYMENT');
+    if (!seenPaymentIds.current) {
+      seenPaymentIds.current = new Set(payments.map((payment) => payment.id));
+      return;
+    }
+    for (const payment of payments) {
+      if (seenPaymentIds.current.has(payment.id)) continue;
+      notifySuccess('Payment received', `${formatKES(payment.amount)} from ${payment.customerName ?? 'a client'} · ${payment.paymentMethod}.`);
+      seenPaymentIds.current.add(payment.id);
+    }
+  }, [data]);
   const isDesktop = useIsDesktop();
 
-  // Apply brand theme (savanna background) like the client dashboard
-  useEffect(() => {
-    setTheme('brand');
+  // The admin dashboard opens in dark mode by default.
+  useLayoutEffect(() => {
+    setTheme('dark');
   }, []);
 
   // Phone dashboard sits on pure white (light theme); other pages keep the soft grey
@@ -92,9 +110,12 @@ function AdminDashboard() {
       <motion.div {...rise(5)}>
         <RecentTransactions transactions={data.recentTransactions} />
       </motion.div>
-      <motion.div {...rise(6)} className="flex items-center justify-center gap-2 py-2 text-foreground-5">
-        <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden />
-        <p className="text-[11px]">© {new Date().getFullYear()} Optimas Technologies Ltd.</p>
+      <motion.div
+        {...rise(6)}
+        className="flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-black/55 p-4 text-white shadow-[0_10px_24px_-10px_rgba(0,0,0,0.6)] backdrop-blur-md"
+      >
+        <ShieldCheck className="h-4 w-4 shrink-0 text-white/80" aria-hidden />
+        <p className="text-[12px] text-white/80">© {new Date().getFullYear()} Optimas Technologies Ltd.</p>
       </motion.div>
 
     </div>

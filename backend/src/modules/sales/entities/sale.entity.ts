@@ -9,6 +9,7 @@ export const PAYMENT_STATUSES = [
   'REFUNDED',
   'CANCELLED',
 ] as const;
+export const SALE_TYPES = ['GENERAL', 'PRODUCT', 'SERVICE', 'PACKAGE', 'ADVANCE', 'OTHER', 'MIXED'] as const;
 
 @Entity('sales')
 @Index(['businessId', 'created_at'])
@@ -23,6 +24,10 @@ export class Sale extends BaseEntity {
 
   @Column({ type: 'uuid', nullable: true })
   employeeId: string | null;
+
+  /** Business category for amount-only revenue and typed item sales. */
+  @Column({ type: 'varchar', length: 20, default: 'PRODUCT' })
+  sale_type: string;
 
   @Column({ type: 'int', default: 0 })
   subtotal: number;

@@ -28,9 +28,11 @@ type FormValues = z.infer<typeof schema>;
 
 export function ServiceForm({
   onClose,
+  onCreated,
   defaultValues,
 }: {
   onClose: () => void;
+  onCreated?: (service: { id: string; name: string; price: number }) => void;
   defaultValues?: {
     id: string;
     name: string;
@@ -77,9 +79,10 @@ export function ServiceForm({
         ? servicesApi.update(defaultValues.id, payload)
         : servicesApi.create(payload);
     },
-    onSuccess: async () => {
+    onSuccess: async (service) => {
       await queryClient.invalidateQueries({ queryKey: ['services'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      if (!isEdit) onCreated?.(service);
       onClose();
     },
     onError: (err) => setFormError('root', { message: apiErrorMessage(err) }),

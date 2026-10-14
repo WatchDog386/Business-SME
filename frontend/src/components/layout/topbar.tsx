@@ -3,7 +3,7 @@ import {
   Bell,
   CalendarDays,
   ChevronsUpDown,
-  MoreHorizontal,
+  Menu,
   Search,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -97,7 +97,7 @@ export function Topbar() {
           className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-surface-3 lg:hidden"
           aria-label="Menu"
         >
-          <MoreHorizontal className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+          <Menu className="h-5 w-5" strokeWidth={2.5} aria-hidden />
         </button>
         <div className="hidden lg:block">
           <UserMenu />

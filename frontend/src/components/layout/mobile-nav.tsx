@@ -79,7 +79,8 @@ function activeIndex(tabs: Tab[], pathname: string): number {
 
 /** Centre of tab `i` across the bar, inside the side padding. */
 function tabCenter(i: number, width: number, count: number): number {
-  return INSET + ((i + 0.5) * (width - INSET * 2)) / count;
+  const center = INSET + ((i + 0.5) * (width - INSET * 2)) / count;
+  return Math.max(NOTCH_HALF, Math.min(width - NOTCH_HALF, center));
 }
 
 export function MobileNav() {

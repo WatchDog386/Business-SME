@@ -6,6 +6,7 @@ import { SaleItem } from '../sales/entities/sale-item.entity';
 import { Expense } from '../expenses/entities/expense.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { Product } from '../products/entities/product.entity';
+import { Payment } from '../sales/entities/payment.entity';
 import { SalesService } from '../sales/sales.service';
 import { ExpensesService } from '../expenses/expenses.service';
 import { BudgetsService } from '../budgets/budgets.service';
@@ -27,6 +28,8 @@ export class DashboardService {
     private readonly customerRepo: Repository<Customer>,
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
+    @InjectRepository(Payment)
+    private readonly paymentRepo: Repository<Payment>,
     private readonly salesService: SalesService,
     private readonly expensesService: ExpensesService,
     private readonly budgetsService: BudgetsService,
@@ -66,7 +69,7 @@ export class DashboardService {
       pendingApprovals,
     ] = await Promise.all([
       this.recentTransactions(businessId, 10),
-      this.sumSales(businessId, month.start, month.end),
+      this.sumPayments(businessId, month.start, month.end),
       this.topProducts(businessId, month.start, month.end, 5),
       this.countSales(businessId, today.start, today.end),
       this.budgetsService.alerts(businessId, timezone),
@@ -76,12 +79,14 @@ export class DashboardService {
     return {
       today: {
         sales: todaySales,
+        cashReceived: await this.sumPayments(businessId, today.start, today.end),
         expenses: todayExpenses,
         grossProfit,
         netProfit,
         salesCount,
+        paymentCount: await this.countPayments(businessId, today.start, today.end),
       },
-      weekRevenue: await this.sumSales(businessId, week.start, week.end),
+      weekRevenue: await this.sumPayments(businessId, week.start, week.end),
       monthRevenue,
       outstandingDebts,
       lowStock,
@@ -109,7 +114,7 @@ export class DashboardService {
       .addSelect('COALESCE(SUM(item.total), 0)', 'revenue')
       .where('sale.businessId = :businessId', { businessId })
       .andWhere("sale.payment_status != 'CANCELLED'")
-      .andWhere('sale.created_at >= :from AND sale.created_at < :to', { from, to })
+      .andWhere('sale.updated_at >= :from AND sale.updated_at < :to', { from, to })
       .andWhere('item.package_event IS NOT NULL')
       .groupBy('item.package_event')
       .getRawMany<{ event: string; qty: string; revenue: string }>();
@@ -120,7 +125,7 @@ export class DashboardService {
       count: newCount + renewals,
       new: newCount,
       renewals,
-      revenue: rows.reduce((sum, r) => sum + Number(r.revenue), 0),
+      revenue: await this.packageCashReceived(businessId, from, to),
     };
   }
 
@@ -130,8 +135,40 @@ export class DashboardService {
       .select('COALESCE(SUM(sale.total), 0)', 'sum')
       .where('sale.businessId = :businessId', { businessId })
       .andWhere("sale.payment_status != 'CANCELLED'")
+      .andWhere("sale.sale_type != 'ADVANCE'")
       .andWhere('sale.created_at >= :from', { from })
       .andWhere('sale.created_at < :to', { to })
+      .getRawOne<{ sum: string }>();
+    return Number(row?.sum ?? 0);
+  }
+
+  /** Cash revenue is the money actually received on its transaction date. */
+  private async sumPayments(businessId: string, from: Date, to: Date): Promise<number> {
+    const row = await this.paymentRepo.createQueryBuilder('payment')
+      .select('COALESCE(SUM(payment.amount), 0)', 'sum')
+      .where('payment.businessId = :businessId', { businessId })
+      .andWhere("payment.status = 'SUCCESS'")
+      .andWhere('payment.transaction_date >= :from AND payment.transaction_date < :to', { from, to })
+      .getRawOne<{ sum: string }>();
+    return Number(row?.sum ?? 0);
+  }
+
+  private async countPayments(businessId: string, from: Date, to: Date): Promise<number> {
+    return this.paymentRepo.createQueryBuilder('payment')
+      .where('payment.businessId = :businessId', { businessId })
+      .andWhere("payment.status = 'SUCCESS'")
+      .andWhere('payment.transaction_date >= :from AND payment.transaction_date < :to', { from, to })
+      .getCount();
+  }
+
+  private async packageCashReceived(businessId: string, from: Date, to: Date): Promise<number> {
+    const row = await this.paymentRepo.createQueryBuilder('payment')
+      .innerJoin(Sale, 'sale', 'sale.id = payment.saleId')
+      .select('COALESCE(SUM(payment.amount), 0)', 'sum')
+      .where('payment.businessId = :businessId', { businessId })
+      .andWhere("payment.status = 'SUCCESS'")
+      .andWhere('payment.transaction_date >= :from AND payment.transaction_date < :to', { from, to })
+      .andWhere("(sale.sale_type = 'PACKAGE' OR EXISTS (SELECT 1 FROM sale_items package_item WHERE package_item.\"saleId\" = sale.id AND package_item.productId IS NOT NULL))")
       .getRawOne<{ sum: string }>();
     return Number(row?.sum ?? 0);
   }
@@ -182,26 +219,39 @@ export class DashboardService {
   }
 
   private async dailySalesSeries(businessId: string, from: Date, to: Date) {
-    const qb = this.saleRepo
-      .createQueryBuilder('sale')
-      .select('DATE(sale.created_at)', 'date')
-      .addSelect('COALESCE(SUM(sale.total), 0)', 'total')
-      .where('sale.businessId = :businessId', { businessId })
-      .andWhere("sale.payment_status != 'CANCELLED'")
-      .andWhere('sale.created_at >= :from', { from })
-      .andWhere('sale.created_at < :to', { to })
-      .groupBy('DATE(sale.created_at)')
-      .orderBy('DATE(sale.created_at)', 'ASC');
+    const qb = this.paymentRepo
+      .createQueryBuilder('payment')
+      .select('DATE(payment.transaction_date)', 'date')
+      .addSelect('COALESCE(SUM(payment.amount), 0)', 'total')
+      .where('payment.businessId = :businessId', { businessId })
+      .andWhere("payment.status = 'SUCCESS'")
+      .andWhere('payment.transaction_date >= :from', { from })
+      .andWhere('payment.transaction_date < :to', { to })
+      .groupBy('DATE(payment.transaction_date)')
+      .orderBy('DATE(payment.transaction_date)', 'ASC');
     return qb.getRawMany<{ date: string; total: string }>();
   }
 
   private async recentTransactions(businessId: string, limit: number) {
-    const [sales, expenses] = await Promise.all([
+    const [payments, unpaidSales, expenses] = await Promise.all([
+      this.paymentRepo
+        .createQueryBuilder('payment')
+        .leftJoin(Sale, 'sale', 'sale.id = payment.saleId')
+        .leftJoin(Customer, 'customer', 'customer.id = COALESCE(payment.customerId, sale.customerId)')
+        .addSelect('customer.name', 'customer_name')
+        .addSelect('sale.id', 'sale_id')
+        .addSelect('sale.sale_type', 'sale_type')
+        .where('payment.businessId = :businessId', { businessId })
+        .andWhere("payment.status = 'SUCCESS'")
+        .orderBy('payment.transaction_date', 'DESC')
+        .take(limit)
+        .getRawAndEntities(),
       this.saleRepo
         .createQueryBuilder('sale')
-        .leftJoin('customers', 'customer', 'customer.id = sale.customerId')
+        .leftJoin(Customer, 'customer', 'customer.id = sale.customerId')
         .addSelect('customer.name', 'customer_name')
         .where('sale.businessId = :businessId', { businessId })
+        .andWhere("sale.payment_status = 'UNPAID'")
         .orderBy('sale.created_at', 'DESC')
         .take(limit)
         .getRawAndEntities(),
@@ -215,15 +265,26 @@ export class DashboardService {
     ]);
 
     const transactions = [
-      ...sales.entities.map((sale, idx) => ({
+      ...payments.entities.map((payment, idx) => ({
+        type: 'PAYMENT' as const,
+        id: payment.id,
+        saleId: (payments.raw[idx] as { sale_id?: string | null }).sale_id ?? null,
+        amount: payment.amount,
+        paymentMethod: payment.method,
+        status: payment.status,
+        description: `Payment received${(payments.raw[idx] as { sale_type?: string }).sale_type === 'ADVANCE' ? ' · advance' : ''}`,
+        customerName: (payments.raw[idx] as { customer_name?: string }).customer_name ?? 'Walk-in',
+        createdAt: payment.transaction_date,
+      })),
+      ...unpaidSales.entities.map((sale, idx) => ({
         type: 'SALE' as const,
         id: sale.id,
+        saleId: sale.id,
         amount: sale.total,
         paymentMethod: sale.payment_method,
         status: sale.payment_status,
-        description: `Sale #${sale.id.slice(0, 8).toUpperCase()}`,
-        customerName:
-          (sales.raw[idx] as { customer_name?: string }).customer_name ?? 'Walk-in',
+        description: `Unpaid sale #${sale.number ?? sale.id.slice(0, 8).toUpperCase()}`,
+        customerName: (unpaidSales.raw[idx] as { customer_name?: string }).customer_name ?? 'Walk-in',
         createdAt: sale.created_at,
       })),
       ...expenses.map((expense) => ({

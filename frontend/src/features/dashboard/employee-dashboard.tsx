@@ -133,7 +133,10 @@ export function EmployeeDashboard() {
           className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4"
           onScroll={(e) => {
             const el = e.currentTarget;
-            setSlide(Math.round(el.scrollLeft / (el.clientWidth * 0.86)));
+            const firstCard = el.firstElementChild as HTMLElement | null;
+            const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
+            const step = (firstCard?.offsetWidth ?? el.clientWidth * 0.86) + gap;
+            setSlide(Math.min(cards.length - 1, Math.round(el.scrollLeft / step)));
           }}
         >
           {cards.map((c) => (

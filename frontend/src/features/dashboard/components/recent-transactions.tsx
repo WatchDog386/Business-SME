@@ -25,7 +25,7 @@ export function RecentTransactions({
 }) {
   const [filter, setFilter] = useState<Filter>('ALL');
   const [expanded, setExpanded] = useState(false);
-  const matching = filter === 'ALL' ? transactions : transactions.filter((t) => t.type === filter);
+  const matching = filter === 'ALL' ? transactions : transactions.filter((t) => filter === 'SALE' ? t.type === 'SALE' || t.type === 'PAYMENT' : t.type === filter);
   const visible = expanded ? matching : matching.slice(0, PREVIEW);
   const hasMore = matching.length > PREVIEW;
   // Once expanded, "See all" leads to the full history for that filter
@@ -86,11 +86,12 @@ export function RecentTransactions({
             transition={{ duration: 0.2 }}
           >
             {visible.map((t) => {
-              const isSale = t.type === 'SALE';
+              const isSale = t.type === 'SALE' || t.type === 'PAYMENT';
+              const href = isSale ? (t.saleId ? `/sales/${t.saleId}` : '/sales') : '/expenses';
               return (
                 <li key={`${t.type}-${t.id}`}>
                   <Link
-                    to={isSale ? `/sales/${t.id}` : '/expenses'}
+                    to={href}
                     className="flex items-center gap-3 -mx-1 rounded-xl px-1 py-2.5 transition-[transform,background-color] active:scale-[0.99] active:bg-surface-3"
                   >
                     <span
@@ -105,10 +106,10 @@ export function RecentTransactions({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] font-semibold text-foreground">
-                        {isSale ? (t.customerName ?? 'Walk-in customer') : t.description}
+                        {t.type === 'PAYMENT' ? (t.customerName ?? 'Walk-in customer') : isSale ? (t.customerName ?? 'Walk-in customer') : t.description}
                       </span>
                       <span className="block truncate text-[12px] text-foreground-4">
-                        {formatTime(t.createdAt)} · {t.paymentMethod}
+                        {t.type === 'PAYMENT' ? `${t.description} · ${formatTime(t.createdAt)} · ${t.paymentMethod}` : `${formatTime(t.createdAt)} · ${t.paymentMethod}`}
                       </span>
                     </span>
                     <span

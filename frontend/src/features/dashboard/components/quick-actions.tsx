@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import {
@@ -53,6 +54,7 @@ export function QuickActions({
   className?: string;
 } = {}) {
   const [allOpen, setAllOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <section className={cn('px-0.5', className)}>
@@ -74,7 +76,7 @@ export function QuickActions({
           <motion.button
             key={action.to}
             type="button"
-            onClick={onSelect ? () => onSelect(action.to) : undefined}
+            onClick={() => (onSelect ? onSelect(action.to) : navigate(action.to))}
             className="flex flex-col items-center gap-2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

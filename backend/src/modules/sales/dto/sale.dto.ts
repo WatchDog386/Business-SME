@@ -14,7 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PAYMENT_METHODS } from '../entities/sale.entity';
+import { PAYMENT_METHODS, SALE_TYPES } from '../entities/sale.entity';
 
 export class SaleItemInputDto {
   @ApiPropertyOptional({ example: 'uuid-of-product' })
@@ -35,6 +35,11 @@ export class SaleItemInputDto {
 }
 
 export class CreateSaleDto {
+  @ApiPropertyOptional({ enum: SALE_TYPES })
+  @IsOptional()
+  @IsEnum(SALE_TYPES)
+  saleType?: (typeof SALE_TYPES)[number];
+
   @ApiProperty({
     type: [SaleItemInputDto],
     description:

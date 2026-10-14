@@ -11,7 +11,7 @@ import { Topbar } from './topbar';
 import { Brand } from './brand';
 import { cn } from '@/lib/utils';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
-import { hasOnboarded } from '@/features/onboarding/welcome-page';
+import { hasOnboarded } from '@/features/onboarding/onboarding-state';
 import { useTheme } from '@/lib/theme';
 import { useRole } from '@/hooks/use-role';
 import { SetPasswordGate } from '@/features/auth/set-password-gate';

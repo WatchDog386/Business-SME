@@ -252,6 +252,7 @@ export interface SaleItemInput {
 
 export interface CreateSaleInput {
   items: SaleItemInput[];
+  saleType?: 'GENERAL' | 'PRODUCT' | 'SERVICE' | 'PACKAGE' | 'ADVANCE' | 'OTHER' | 'MIXED';
   customerId?: string;
   employeeId?: string;
   discount?: number;

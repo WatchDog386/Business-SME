@@ -4,11 +4,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Minus, Trash2, Search, CheckCircle2, ShoppingCart, ChevronDown, Lock, PackagePlus, Wifi, Package } from 'lucide-react';
+import { Plus, Minus, Trash2, Search, CheckCircle2, ShoppingCart, ChevronDown, Lock, PackagePlus, Wifi, Package, BriefcaseBusiness, Banknote, ClipboardList, ArrowDownToLine, Layers3 } from 'lucide-react';
 import { customersApi, productsApi, servicesApi, salesApi } from '@/api/endpoints';
 import { Dialog } from '@/components/ui/dialog';
 import { PackageCard, planStyle } from '@/features/products/package-card';
 import { ProductForm, type ProductKind } from '@/features/products/product-form';
+import { ServiceForm } from '@/features/products/service-form';
 import { PaymentCapture, type CapturedPayment, type PayMode } from './components/payment-capture';
 import { AppBar } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
@@ -23,6 +24,9 @@ import { cn, formatKES, uuid } from '@/lib/utils';
 import { DEFAULT_PAYMENT_METHODS } from '@/lib/constants';
 import { useActiveBusiness } from '@/stores/business';
 import type { Customer } from '@/api/types';
+import { notifySuccess } from '@/components/ui/popup-host';
+
+type SaleCategory = 'GENERAL' | 'PRODUCT' | 'SERVICE' | 'PACKAGE' | 'ADVANCE' | 'OTHER';
 
 interface LineItem {
   key: string;
@@ -65,6 +69,9 @@ export function RecordSalePage() {
   // Sell something already in the catalogue, or record a new product/package and sell it straight away
   const [saleSource, setSaleSource] = useState<'existing' | 'new'>('existing');
   const [newKind, setNewKind] = useState<ProductKind>('product');
+  const [saleCategory, setSaleCategory] = useState<SaleCategory | null>(null);
+  const [packageMode, setPackageMode] = useState<'lump' | 'individual' | null>(null);
+  const [amountValue, setAmountValue] = useState('');
   const [customerId, setCustomerId] = useState<string | null>(presetCustomer);
   // Client name typed at checkout: an existing client is matched by name, a new one is created
   const [clientName, setClientName] = useState('');
@@ -217,16 +224,20 @@ export function RecordSalePage() {
         }
       }
       return salesApi.create({
-        items: lineItems.map((item) => ({
+        items: isAmountCategory
+          ? []
+          : lineItems.map((item) => ({
           productId: item.type === 'PRODUCT' ? item.id : undefined,
           serviceId: item.type === 'SERVICE' ? item.id : undefined,
           quantity: item.quantity,
         })),
+        saleType: saleCategory ?? 'PRODUCT',
+        total: isAmountCategory ? Number(amountValue) : undefined,
         customerId: resolvedCustomerId,
         discount: Number(values.discount || 0),
         taxRate: Number(values.taxRate || 0),
         paymentMethod: values.paymentMethod,
-        amountPaid: Number(values.amountPaid === '' ? 0 : values.amountPaid),
+        amountPaid: isAmountCategory ? Number(amountValue) : Number(values.amountPaid === '' ? 0 : values.amountPaid),
         reference: captured?.reference ?? undefined,
         notes: values.notes || undefined,
         idempotencyKey: idempotencyKey.current,
@@ -242,9 +253,12 @@ export function RecordSalePage() {
       await queryClient.invalidateQueries({ queryKey: ['sales'] });
       await queryClient.invalidateQueries({ queryKey: ['customers'] });
       await queryClient.invalidateQueries({ queryKey: ['products'] });
+      notifySuccess('Sale recorded', `${formatKES(sale.total)} added to revenue.`);
     },
     onError: (err) => setFormError('root', { message: apiErrorMessage(err) }),
   });
+
+  const isAmountCategory = saleCategory === 'GENERAL' || saleCategory === 'ADVANCE' || saleCategory === 'OTHER' || (saleCategory === 'PACKAGE' && packageMode === 'lump');
 
   // Record sale offers WiFi packages only, cheapest first, as on the Products page
   const packages = useMemo(() => {
@@ -368,6 +382,9 @@ export function RecordSalePage() {
     setShowDiscount(false);
     setPageStep(1);
     setSaleSource('existing');
+    setSaleCategory(null);
+    setPackageMode(null);
+    setAmountValue('');
     setCatalogSearch('');
     setSuccessSale(null);
     idempotencyKey.current = uuid();
@@ -386,6 +403,24 @@ export function RecordSalePage() {
     if (method === 'CREDIT') {
       setValue('amountPaid', 0);
     }
+  }
+
+  function submitSale(values: FormValues) {
+    if (isAmountCategory) {
+      const amount = Number(amountValue);
+      if (!Number.isFinite(amount) || amount < 1) {
+        setFormError('root', { message: 'Enter the amount received.' });
+        return;
+      }
+      if ((saleCategory === 'ADVANCE' || saleCategory === 'OTHER') && !values.notes?.trim()) {
+        setFormError('root', { message: saleCategory === 'ADVANCE' ? 'Describe what this advance is for.' : 'Describe the other source of revenue.' });
+        return;
+      }
+    } else if (!lineItems.length) {
+      setFormError('root', { message: 'Add at least one item before recording this sale.' });
+      return;
+    }
+    mutation.mutate(values);
   }
 
   if (!activeBusiness) {
@@ -433,7 +468,12 @@ export function RecordSalePage() {
     <div className="space-y-4 pb-28 font-sans text-[14px]">
       <AppBar
         title="Record sale"
-        onBack={() => (pageStep > 1 ? setPageStep((s) => (s - 1) as 1 | 2 | 3) : navigate(-1))}
+        onBack={() => {
+          if (pageStep > 1) setPageStep((s) => (s - 1) as 1 | 2 | 3);
+          else if (saleCategory === 'PACKAGE' && packageMode) setPackageMode(null);
+          else if (saleCategory) setSaleCategory(null);
+          else navigate(-1);
+        }}
         right={
           <button
             type="button"
@@ -451,13 +491,82 @@ export function RecordSalePage() {
         }
       />
 
+      {/* Choose a revenue category before entering a sale. */}
+      {pageStep === 1 && !saleCategory && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-[15px] font-semibold text-foreground">What type of revenue are you recording?</h2>
+            <p className="mt-1 text-[12.5px] text-foreground-4">Choose the matching category so payments and reports stay correctly classified.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            {([
+              { id: 'GENERAL', label: "Today's general sales", hint: 'Enter one total for the day', icon: Banknote },
+              { id: 'PRODUCT', label: 'Product sale', hint: 'Existing or new product', icon: Package },
+              { id: 'SERVICE', label: 'Service sale', hint: 'Existing or new service', icon: BriefcaseBusiness },
+              { id: 'PACKAGE', label: 'Package subscription', hint: 'Lump sum or individual plan', icon: Wifi },
+              { id: 'ADVANCE', label: 'Advance payment', hint: 'Payment before delivery', icon: ArrowDownToLine },
+              { id: 'OTHER', label: 'Other revenue', hint: 'Record another income source', icon: Layers3 },
+            ] as const).map((choice) => (
+              <button key={choice.id} type="button" onClick={() => { setSaleCategory(choice.id); setPackageMode(null); setSaleSource('existing'); setLineItems([]); }} className="flex min-h-28 flex-col items-start rounded-2xl border border-edge bg-surface p-4 text-left transition-colors hover:bg-surface-2">
+                <choice.icon className="h-5 w-5 text-accent" aria-hidden />
+                <span className="mt-3 text-[13px] font-semibold text-foreground">{choice.label}</span>
+                <span className="mt-0.5 text-[11.5px] text-foreground-4">{choice.hint}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pageStep === 1 && saleCategory === 'PACKAGE' && !packageMode && (
+        <section className="grid gap-3 sm:grid-cols-2">
+          <button type="button" onClick={() => setPackageMode('lump')} className="rounded-2xl border border-edge bg-surface p-5 text-left hover:bg-surface-2">
+            <Banknote className="h-5 w-5 text-accent" aria-hidden />
+            <span className="mt-3 block text-[14px] font-semibold text-foreground">Lump sum package revenue</span>
+            <span className="mt-1 block text-[12px] text-foreground-4">Enter the total collected for packages sold today.</span>
+          </button>
+          <button type="button" onClick={() => setPackageMode('individual')} className="rounded-2xl border border-edge bg-surface p-5 text-left hover:bg-surface-2">
+            <ClipboardList className="h-5 w-5 text-accent" aria-hidden />
+            <span className="mt-3 block text-[14px] font-semibold text-foreground">Individual subscription</span>
+            <span className="mt-1 block text-[12px] text-foreground-4">Choose a client and package to start or renew access.</span>
+          </button>
+        </section>
+      )}
+
+      {pageStep === 1 && saleCategory && isAmountCategory && (
+        <form className="space-y-4 rounded-2xl border border-edge bg-surface p-4 lg:max-w-xl" onSubmit={handleSubmit(submitSale)} noValidate>
+          <h2 className="text-[15px] font-semibold text-foreground">{saleCategory === 'GENERAL' ? "Today's general sales total" : saleCategory === 'ADVANCE' ? 'Record an advance payment' : saleCategory === 'OTHER' ? 'Record other revenue' : 'Package sales lump sum'}</h2>
+          <div className="space-y-1.5">
+            <Label htmlFor="revenue-amount">Amount received (KSh)</Label>
+            <Input id="revenue-amount" type="number" inputMode="numeric" min={1} value={amountValue} onChange={(event) => setAmountValue(event.target.value)} placeholder="0" />
+          </div>
+          {(saleCategory === 'ADVANCE' || saleCategory === 'OTHER') && (
+            <div className="space-y-1.5">
+              <Label htmlFor="sale-purpose">{saleCategory === 'ADVANCE' ? 'What is this advance for?' : 'Revenue source'}</Label>
+              <Input id="sale-purpose" placeholder={saleCategory === 'ADVANCE' ? 'e.g. advance for kitchen cabinets' : 'e.g. delivery fee'} {...register('notes')} />
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="revenue-method">Payment method</Label>
+            <Select id="revenue-method" {...register('paymentMethod')}>
+              {DEFAULT_PAYMENT_METHODS.filter((method) => method !== 'CREDIT').map((method) => <option key={method} value={method}>{method}</option>)}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="amount-customer">Client (optional)</Label>
+            <Input id="amount-customer" list="client-names" value={clientName} onChange={(event) => setClientName(event.target.value)} placeholder="Walk-in or client name" />
+          </div>
+          {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
+          <Button type="submit" loading={mutation.isPending} className="h-12 w-full rounded-xl bg-brand-600 text-white hover:bg-brand-700">Record {formatKES(Number(amountValue) || 0)}</Button>
+        </form>
+      )}
+
       {/* Step 1: choose where the item comes from */}
-      {pageStep === 1 && (
+      {pageStep === 1 && saleCategory && !isAmountCategory && (saleCategory === 'PRODUCT' || saleCategory === 'SERVICE' || (saleCategory === 'PACKAGE' && packageMode === 'individual')) && (
         <div className="grid grid-cols-2 gap-1 rounded-2xl bg-surface-3 p-1 lg:max-w-md lg:rounded-md">
           {(
             [
-              { id: 'existing', label: 'Existing product', icon: Package },
-              { id: 'new', label: 'New product or package', icon: PackagePlus },
+              { id: 'existing', label: saleCategory === 'SERVICE' ? 'Existing service' : saleCategory === 'PACKAGE' ? 'Existing package' : 'Existing product', icon: Package },
+              { id: 'new', label: saleCategory === 'SERVICE' ? 'New service' : saleCategory === 'PACKAGE' ? 'New package' : 'New product', icon: PackagePlus },
             ] as const
           ).map((opt) => (
             <button
@@ -479,7 +588,14 @@ export function RecordSalePage() {
 
       {/* New item: record its details and selling price, then it goes straight into the cart.
           Kept outside the sale form: forms can't be nested. */}
-      {pageStep === 1 && saleSource === 'new' && (
+      {pageStep === 1 && saleSource === 'new' && saleCategory === 'SERVICE' && (
+        <section className="space-y-3 rounded-2xl border border-edge bg-surface p-4 lg:max-w-2xl lg:p-6">
+          <div><h2 className="text-[15px] font-medium text-foreground">Add a new service</h2><p className="mt-0.5 text-[12.5px] text-foreground-4">Save it to your catalogue and add it to this sale.</p></div>
+          <ServiceForm onClose={() => setSaleSource('existing')} onCreated={(service) => { addItem({ type: 'SERVICE', id: service.id, name: service.name, unitPrice: service.price, stock: null }); setPageStep(2); }} />
+        </section>
+      )}
+
+      {pageStep === 1 && saleSource === 'new' && saleCategory !== 'SERVICE' && (
         <section className="space-y-4 rounded-2xl border border-edge bg-surface p-4 lg:max-w-2xl lg:rounded-md lg:p-6">
           <div>
             <h2 className="text-[15px] font-medium text-foreground">Record a new item</h2>
@@ -487,7 +603,7 @@ export function RecordSalePage() {
               It is saved to your catalogue and added to this sale, so next time it is under Existing product.
             </p>
           </div>
-          <div className="flex gap-2">
+          {saleCategory === 'PRODUCT' && <div className="flex gap-2">
             {(
               [
                 { id: 'product', label: 'Product', icon: Package },
@@ -508,10 +624,10 @@ export function RecordSalePage() {
                 {opt.label}
               </button>
             ))}
-          </div>
+          </div>}
           <ProductForm
-            key={newKind}
-            kind={newKind}
+            key={saleCategory === 'PACKAGE' ? 'package' : newKind}
+            kind={saleCategory === 'PACKAGE' ? 'package' : newKind}
             submitLabel="Save & add to sale"
             onClose={() => setSaleSource('existing')}
             onCreated={(product) => {
@@ -528,9 +644,9 @@ export function RecordSalePage() {
         </section>
       )}
 
-      <form id="record-sale-form" onSubmit={handleSubmit((values) => mutation.mutate(values))} noValidate>
+      <form id="record-sale-form" onSubmit={handleSubmit(submitSale)} noValidate>
 
-      <div className={pageStep === 1 && saleSource === 'existing' ? 'space-y-6' : 'hidden'}>
+      <div className={pageStep === 1 && saleSource === 'existing' && saleCategory !== null && !isAmountCategory ? 'space-y-6' : 'hidden'}>
           {/* Catalog — search and select (Step 1) */}
           <section className="space-y-2">
             <div className="relative">
@@ -538,19 +654,23 @@ export function RecordSalePage() {
               <Input
                 value={catalogSearch}
                 onChange={(event) => setCatalogSearch(event.target.value)}
-                placeholder="Search products and packages…"
+                placeholder={saleCategory === 'SERVICE' ? 'Search services…' : saleCategory === 'PACKAGE' ? 'Search packages…' : 'Search products…'}
                 className="h-11 rounded-full pl-10"
               />
             </div>
 
-            {productsQuery.isLoading ? (
+            {saleCategory === 'SERVICE' ? (
+              servicesQuery.isLoading ? <PageLoader inline message="Loading services" /> : (servicesQuery.data ?? []).filter((service) => !catalogSearch || service.name.toLowerCase().includes(catalogSearch.toLowerCase())).length === 0 ? (
+                <div className="px-1 py-8 text-center"><p className="text-[13px] text-foreground-4">No services found. Add a new service to continue.</p><Button type="button" variant="outline" className="mt-3" onClick={() => setSaleSource('new')}><Plus className="h-4 w-4" />Add service</Button></div>
+              ) : <div className="grid grid-cols-2 gap-3 pt-1 lg:grid-cols-3">{(servicesQuery.data ?? []).filter((service) => !catalogSearch || service.name.toLowerCase().includes(catalogSearch.toLowerCase())).map((service) => <button key={service.id} type="button" onClick={() => addItem({ type: 'SERVICE', id: service.id, name: service.name, unitPrice: service.price, stock: null })} className="flex min-h-28 flex-col items-start rounded-2xl border border-edge bg-surface p-4 text-left hover:bg-surface-2"><BriefcaseBusiness className="h-5 w-5 text-accent" /><span className="mt-3 text-[14px] font-medium text-foreground">{service.name}</span><span className="mt-1 text-[13px] tabular-nums text-foreground-2">{formatKES(service.price)}</span></button>)}</div>
+            ) : productsQuery.isLoading ? (
               <PageLoader inline message="Loading" />
-            ) : packages.length === 0 && goods.length === 0 ? (
+            ) : (saleCategory === 'PACKAGE' ? packages.length === 0 : goods.length === 0) ? (
               <div className="px-1 py-8 text-center">
-                <p className="text-[13px] text-foreground-4">Nothing found. Try a different search, or record it as a new product or package.</p>
+                <p className="text-[13px] text-foreground-4">Nothing found. Try another search, or add a new {saleCategory === 'PACKAGE' ? 'package' : 'product'}.</p>
                 <Button type="button" variant="outline" className="mt-3" onClick={() => setSaleSource('new')}>
                   <PackagePlus className="h-4 w-4" aria-hidden />
-                  New product or package
+                  {saleCategory === 'PACKAGE' ? 'New package' : 'New product'}
                 </Button>
               </div>
             ) : (
@@ -568,7 +688,7 @@ export function RecordSalePage() {
                   />
                 ))}
               </div>
-              {goods.length > 0 && (
+              {saleCategory !== 'PACKAGE' && goods.length > 0 && (
                 <div className="space-y-2 pt-3">
                   <SectionHeading>Products</SectionHeading>
                   <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">

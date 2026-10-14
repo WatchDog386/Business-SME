@@ -287,6 +287,12 @@ export class SalesService {
       roundKES(dto.amountPaid ?? totals.total),
       totals.total,
     );
+    if (roundKES(dto.amountPaid ?? totals.total) > totals.total) {
+      throw new BadRequestException({ code: 'OVERPAYMENT', message: 'The amount received cannot exceed the sale total.' });
+    }
+    if (dto.paymentMethod === 'CREDIT' && amountPaid > 0) {
+      throw new BadRequestException({ code: 'CREDIT_CANNOT_COLLECT', message: 'Choose a payment method for money received, or record this as credit with no payment.' });
+    }
     let paymentStatus: string;
     if (dto.paymentMethod === 'CREDIT') {
       paymentStatus = amountPaid <= 0 ? 'UNPAID' : 'PARTIAL';
@@ -306,11 +312,28 @@ export class SalesService {
     }
 
     const sale = await this.dataSource.transaction(async (manager) => {
+      const inferredType = isAmountOnly
+        ? 'GENERAL'
+        : resolved.length > 1 && new Set(resolved.map((item) => item.type === 'SERVICE' ? 'SERVICE' : item.billingDays ? 'PACKAGE' : 'PRODUCT')).size > 1
+          ? 'MIXED'
+          : resolved[0]?.type === 'SERVICE'
+            ? 'SERVICE'
+            : resolved[0]?.billingDays
+              ? 'PACKAGE'
+              : 'PRODUCT';
+      const saleType = dto.saleType ?? inferredType;
+      if (!isAmountOnly && ['GENERAL', 'ADVANCE', 'OTHER'].includes(saleType)) {
+        throw new BadRequestException({ code: 'SALE_TYPE_ITEMS_MISMATCH', message: 'General sales, advances, and other revenue must be recorded as an amount, without catalogue items.' });
+      }
+      if (isAmountOnly && !['GENERAL', 'ADVANCE', 'OTHER', 'PACKAGE'].includes(saleType)) {
+        throw new BadRequestException({ code: 'SALE_TYPE_AMOUNT_MISMATCH', message: 'Choose a valid category for an amount-only sale.' });
+      }
       const saleEntity = manager.create(Sale, {
         number: await this.nextNumber(manager, businessId, 'sale'),
         businessId,
         customerId: dto.customerId ?? null,
         employeeId: dto.employeeId ?? null,
+        sale_type: saleType,
         subtotal: totals.subtotal,
         discount: totals.discount,
         tax: totals.tax,
@@ -326,7 +349,7 @@ export class SalesService {
       for (const item of resolved) {
         // WiFi package: start or extend the client's subscription
         const packageEvent =
-          item.billingDays && dto.customerId
+          item.billingDays && dto.customerId && paymentStatus === 'PAID'
             ? await this.subscriptions.applyPackageSale(
                 manager,
                 businessId,
@@ -602,6 +625,37 @@ export class SalesService {
       const newPaid = paid + amount;
       sale.payment_status = newPaid >= sale.total ? 'PAID' : 'PARTIAL';
       await manager.save(sale);
+
+      // Start/extend package access only after the package invoice has been
+      // fully paid. This also activates a package completed by a later top-up.
+      if (sale.payment_status === 'PAID') {
+        const items = await manager.getRepository(SaleItem).find({ where: { saleId } });
+        const packageItems = items.filter((item) => item.productId && !item.package_event);
+        if (packageItems.length && sale.customerId) {
+          const products = await manager.getRepository(Product).find({
+            where: { id: In(packageItems.map((item) => item.productId as string)), businessId },
+          });
+          for (const item of packageItems) {
+            const product = products.find((candidate) => candidate.id === item.productId);
+            if (!product?.billing_days) continue;
+            item.package_event = await this.subscriptions.applyPackageSale(
+              manager,
+              businessId,
+              sale.customerId,
+              {
+                productId: product.id,
+                name: product.name,
+                speedMbps: product.speed_mbps,
+                billingDays: product.billing_days,
+                unitPrice: item.unit_price,
+                quantity: item.quantity,
+              },
+              saleId,
+            );
+            await manager.save(item);
+          }
+        }
+      }
 
       if (sale.customerId) {
         await this.customersService.adjustSpend(
