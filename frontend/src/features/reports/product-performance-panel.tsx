@@ -14,7 +14,7 @@ export function ProductPerformancePanel({ from, to }: { from: string; to: string
   });
 
   if (error) {
-    return <Alert variant="error" title="Could not load product performance">{apiErrorMessage(error)}</Alert>;
+    return <Alert variant="error" title="Could not load product performance" inline>{apiErrorMessage(error)}</Alert>;
   }
 
   if (isLoading || !data) {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, X } from 'lucide-react';
+import { Banknote, Camera, ClipboardPaste, Plus, Smartphone, UserPlus, Wifi, X } from 'lucide-react';
 import { customersApi, productsApi, salesApi, subscriptionsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import type { AccessHours, Customer, ServiceType, SubscriberInput } from '@/api/types';
@@ -13,6 +13,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { PageLoader } from '@/components/ui/spinner';
 import { cn, formatKES, uuid } from '@/lib/utils';
 import { useRole } from '@/hooks/use-role';
+import {
+  PaymentCapture,
+  type CaptureMode,
+  type CapturedPayment,
+} from '@/features/sales/components/payment-capture';
+import { OnboardedAccess, type OnboardedSubscriber } from './onboarded-access-step';
 
 const SERVICE_TYPES: { id: ServiceType; label: string }[] = [
   { id: 'HOTSPOT', label: 'Hotspot' },
@@ -20,15 +26,26 @@ const SERVICE_TYPES: { id: ServiceType; label: string }[] = [
   { id: 'STATIC', label: 'Static IP' },
 ];
 
-/** How the first package is settled when the subscriber is created. */
-type Payment = 'PENDING' | 'M-PESA' | 'CASH' | 'BANK' | 'EXISTING' | 'NONE';
-const PAYMENTS: { id: Payment; label: string }[] = [
-  { id: 'PENDING', label: 'No — invoice remains pending' },
-  { id: 'M-PESA', label: 'Yes — paid by M-Pesa' },
-  { id: 'CASH', label: 'Yes — paid in cash' },
-  { id: 'BANK', label: 'Yes — paid by bank' },
-  { id: 'EXISTING', label: 'Already connected — no invoice' },
-  { id: 'NONE', label: 'No package yet (pending subscriber)' },
+/**
+ * How the first month is settled as the subscriber joins. `prompt`, `camera`
+ * and `paste` are the M-Pesa paths the checkout already uses; `credit` leaves
+ * the invoice on the client's account, and the last two skip invoicing.
+ */
+type Settlement = 'prompt' | 'camera' | 'paste' | 'cash' | 'credit' | 'existing' | 'none';
+
+const SETTLEMENTS: CaptureMode[] = [
+  { id: 'prompt', title: 'Prompt to pay', hint: 'M-Pesa on their phone', icon: Smartphone },
+  { id: 'camera', title: 'Scan the message', hint: 'They already paid', icon: Camera },
+  { id: 'paste', title: 'Paste the message', hint: 'Copy their M-Pesa SMS', icon: ClipboardPaste },
+  { id: 'cash', title: 'Paid in cash', hint: 'Record what you took', icon: Banknote },
+  { id: 'credit', title: 'Owes us', hint: 'Invoice stays unpaid', icon: Banknote },
+  { id: 'existing', title: 'Already connected', hint: 'No invoice today', icon: Wifi },
+  { id: 'none', title: 'No package yet', hint: 'Just the account', icon: UserPlus },
+];
+
+const CASH_METHODS = [
+  { id: 'CASH', label: 'Cash' },
+  { id: 'BANK', label: 'Bank / mobile money to till' },
 ];
 
 const DAYS = [
@@ -74,10 +91,38 @@ function Field({ label, htmlFor, hint, children }: { label: string; htmlFor?: st
   );
 }
 
+/** What each of the non-M-Pesa settlement choices means for the invoice. */
+function SettlementNote({
+  mode,
+  due,
+  chosen,
+  children,
+}: {
+  mode: Settlement;
+  due: number;
+  chosen: { name: string; billing_days?: number | null } | undefined;
+  children?: React.ReactNode;
+}) {
+  const copy: Record<string, string> = {
+    credit: `The ${formatKES(due)} invoice is raised and left unpaid, so ${formatKES(due)} lands on their account as debt.`,
+    existing: chosen
+      ? `No invoice. ${chosen.name} runs for ${chosen.billing_days ?? 30} days from the start date.`
+      : 'No invoice is raised.',
+    none: 'No package and no invoice today. Sell them a package whenever they are ready.',
+  };
+  return (
+    <div className="space-y-3 rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
+      <p className="text-[12px] leading-relaxed text-foreground-3">{copy[mode]}</p>
+      {children}
+    </div>
+  );
+}
+
 /**
- * Add or edit a subscriber with every account detail an ISP keeps: profile,
- * contacts, location, wallet, service login, and (when adding) the first
- * package and how it was paid. Sits in the same sheet as before.
+ * Add or edit a subscriber: their profile, contacts, location, wallet and
+ * service details, plus — when adding — the first package and exactly how it
+ * was paid (prompted, scanned, pasted, cash, or left owing). Once saved, the
+ * office hands them their own login with a temporary password.
  */
 export function SubscriberForm({
   customerId,
@@ -145,21 +190,23 @@ export function SubscriberForm({
   const [newInstallation, setNewInstallation] = useState(true);
   const [discount, setDiscount] = useState('0');
   const [wallet, setWallet] = useState('0');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
   // ---- Service ----
   const [serviceType, setServiceType] = useState<ServiceType>('PPPOE');
   const [packageId, setPackageId] = useState('');
   const [router, setRouter] = useState('');
   const [mac, setMac] = useState('');
-  const [payment, setPayment] = useState<Payment>('PENDING');
-  const [mpesaCode, setMpesaCode] = useState('');
+  const [settlement, setSettlement] = useState<Settlement>('prompt');
+  const [captured, setCaptured] = useState<CapturedPayment | null>(null);
+  const [cashMethod, setCashMethod] = useState('CASH');
+  const [cashAmount, setCashAmount] = useState('');
+  const [cashRef, setCashRef] = useState('');
   const [startDate, setStartDate] = useState(today());
   const [burstId, setBurstId] = useState('');
   const [remarks, setRemarks] = useState('');
   const [hours, setHours] = useState<Record<string, DayHours>>(() => hoursFrom(null));
 
   const [error, setError] = useState<string | null>(null);
+  const [onboarded, setOnboarded] = useState<OnboardedSubscriber | null>(null);
   const idempotencyKey = useRef(uuid());
   const filled = useRef(false);
 
@@ -201,13 +248,21 @@ export function SubscriberForm({
   const chosen = packages.find((p) => p.id === packageId);
   const discountKes = Math.max(0, Math.round(Number(discount) || 0));
   const due = chosen ? Math.max(0, chosen.selling_price - discountKes) : 0;
+  const mpesaSettled = settlement === 'prompt' || settlement === 'camera' || settlement === 'paste';
+  /** Cash taken today, never more than the invoice it settles. */
+  const cashPaid = Math.min(due, Math.max(0, Math.round(Number(cashAmount) || due)));
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error('Enter the full name.');
       if (!phone.trim()) throw new Error('Enter the primary phone number.');
-      if (password !== confirm) throw new Error('The service passwords do not match.');
-      if (!editing && payment !== 'NONE' && !chosen) throw new Error('Choose a package, or pick "No package yet".');
+      if (!editing && settlement !== 'none' && !chosen) {
+        throw new Error('Choose a package, or pick "No package yet".');
+      }
+      // Money that has already changed hands must be on the invoice, not lost
+      if (!editing && mpesaSettled && !captured) {
+        throw new Error('Confirm the payment first: send the prompt, or read the M-Pesa message.');
+      }
 
       const accessHours = Object.fromEntries(
         Object.entries(hours)
@@ -234,39 +289,71 @@ export function SubscriberForm({
         macAddress: mac.trim(),
         burstProductId: burstId || null,
         accessHours: Object.keys(accessHours).length ? accessHours : null,
-        ...(password ? { servicePassword: password } : {}),
       };
 
       if (editing) {
         await customersApi.update(id!, data);
-        return id!;
+        return null;
       }
 
       const customer = await customersApi.create(data);
-      if (chosen && payment === 'EXISTING') {
+      if (chosen && settlement === 'existing') {
         await subscriptionsApi.create({ customerId: customer.id, productId: chosen.id, startedAt: startDate });
-      } else if (chosen && payment !== 'NONE') {
-        // A package sale starts the subscription and raises the invoice
-        const paid = payment !== 'PENDING';
+      } else if (chosen && settlement !== 'none') {
+        // The package sale is the invoice: it starts the subscription and, when
+        // they have not paid, puts the shortfall on their account
+        const paid = settlement === 'credit' ? 0 : settlement === 'cash' ? cashPaid : captured?.amount ?? 0;
+        const reference =
+          settlement === 'cash'
+            ? cashRef.trim().toUpperCase() || undefined
+            : captured?.reference ?? undefined;
         await salesApi.create({
           items: [{ productId: chosen.id, quantity: 1 }],
           customerId: customer.id,
           discount: Math.min(discountKes, chosen.selling_price),
-          paymentMethod: paid ? payment : 'CREDIT',
-          amountPaid: paid ? due : 0,
-          reference: payment === 'M-PESA' && mpesaCode.trim() ? mpesaCode.trim().toUpperCase() : undefined,
+          paymentMethod: settlement === 'credit' ? 'CREDIT' : settlement === 'cash' ? cashMethod : 'M-PESA',
+          amountPaid: paid,
+          reference,
+          notes: [
+            'Subscriber onboarding',
+            reference && `receipt ${reference}`,
+            captured?.when && captured.when,
+          ]
+            .filter(Boolean)
+            .join(' · '),
           idempotencyKey: idempotencyKey.current,
         });
+        return {
+          customerId: customer.id,
+          name: customer.name,
+          username: customer.username ?? '',
+          accountNumber: customer.account_number ?? '',
+          phone: customer.phone ?? '',
+          email: customer.email ?? '',
+          packageName: chosen.name,
+          invoice: { total: due, paid: Math.min(due, paid) },
+        } satisfies OnboardedSubscriber;
       }
-      return customer.id;
+      return {
+        customerId: customer.id,
+        name: customer.name,
+        username: customer.username ?? '',
+        accountNumber: customer.account_number ?? '',
+        phone: customer.phone ?? '',
+        email: customer.email ?? '',
+        packageName: chosen?.name ?? null,
+        invoice: null,
+      } satisfies OnboardedSubscriber;
     },
-    onSuccess: async () => {
+    onSuccess: async (created) => {
       await Promise.all(
         ['subscriptions', 'subscribers', 'customers', 'customer-options', 'sales', 'dashboard'].map((key) =>
           queryClient.invalidateQueries({ queryKey: [key] }),
         ),
       );
-      onDone();
+      // A new subscriber is not finished until they have their own login
+      if (created) setOnboarded(created);
+      else onDone();
     },
     onError: (err) => {
       idempotencyKey.current = uuid();
@@ -275,6 +362,9 @@ export function SubscriberForm({
   });
 
   if (editing && customerQuery.isLoading) return <PageLoader inline message="Loading" />;
+
+  // Saved: the only thing left is handing them their own login
+  if (onboarded) return <OnboardedAccess subscriber={onboarded} onDone={onDone} />;
 
   return (
       <form
@@ -286,7 +376,7 @@ export function SubscriberForm({
         }}
         noValidate
       >
-        {error && <Alert variant="error">{error}</Alert>}
+        {error && <Alert variant="error" inline>{error}</Alert>}
         <Section title="Customer profile">
           <Field label="Account number" htmlFor="sf-account">
             <Input
@@ -403,21 +493,6 @@ export function SubscriberForm({
           <Field label={editing ? 'Wallet credit (KSh)' : 'Opening wallet credit (KSh)'} htmlFor="sf-wallet">
             <Input id="sf-wallet" type="number" inputMode="numeric" min={0} value={wallet} onChange={(e) => setWallet(e.target.value)} />
           </Field>
-
-          <Field label="Service password" htmlFor="sf-password" hint={editing ? 'Leave blank to keep the current password.' : undefined}>
-            <Input id="sf-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </Field>
-          <Field label="Confirm password" htmlFor="sf-confirm">
-            <Input
-              id="sf-confirm"
-              type="password"
-              autoComplete="new-password"
-              value={confirm}
-              aria-invalid={confirm && confirm !== password ? true : undefined}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
-            {confirm && confirm !== password && <p className="mt-1 text-xs font-medium text-danger">Passwords do not match.</p>}
-          </Field>
         </Section>
 
         <Section title={editing ? 'Service' : 'Initial service'}>
@@ -489,34 +564,90 @@ export function SubscriberForm({
           </Field>
 
           {!editing && (
-            <>
-              <Field label="Payment received?" htmlFor="sf-payment">
-                <Select id="sf-payment" value={payment} onChange={(e) => setPayment(e.target.value as Payment)}>
-                  {PAYMENTS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </Select>
-                {chosen && payment !== 'NONE' && payment !== 'EXISTING' && (
-                  <p className="mt-1 text-[12px] text-foreground-3">
-                    Invoice: {formatKES(due)}
-                    {discountKes > 0 && ` (after ${formatKES(Math.min(discountKes, chosen.selling_price))} discount)`}
-                    {payment === 'PENDING' ? ' · added to the client’s debt' : ' · marked paid'}
-                  </p>
+            <div className="space-y-3">
+              <div>
+                <Label>Payment for the first month</Label>
+                <p className="mt-1 text-[12px] text-foreground-3">
+                  {chosen ? (
+                    <>
+                      {chosen.name} · <span className="font-semibold text-foreground">{formatKES(due)} due</span>
+                      {discountKes > 0 && ` (after ${formatKES(Math.min(discountKes, chosen.selling_price))} discount)`}
+                    </>
+                  ) : (
+                    'Choose a package above, or settle with "No package yet".'
+                  )}
+                </p>
+              </div>
+
+              <PaymentCapture
+                mode={settlement}
+                onModeChange={(next) => setSettlement(next as Settlement)}
+                total={due}
+                phone={phone}
+                onPhoneChange={setPhone}
+                reference={chosen?.name.split(/\s+/)[0] ?? 'Optimas'}
+                captured={captured}
+                onCaptured={setCaptured}
+                modes={SETTLEMENTS}
+                renderExtra={(mode) => (
+                  <SettlementNote mode={mode as Settlement} due={due} chosen={chosen}>
+                    {mode === 'existing' && (
+                      <Field
+                        label="Package started on"
+                        htmlFor="sf-start"
+                        hint={chosen ? `Runs for ${chosen.billing_days} days from this date.` : undefined}
+                      >
+                        <Input id="sf-start" type="date" value={startDate} max={today()} onChange={(e) => setStartDate(e.target.value)} />
+                      </Field>
+                    )}
+                  </SettlementNote>
                 )}
-              </Field>
-              {payment === 'M-PESA' && (
-                <Field label="M-Pesa code (optional)" htmlFor="sf-mpesa">
-                  <Input id="sf-mpesa" autoComplete="off" className="uppercase" placeholder="e.g. QRT8XYZ9A1" value={mpesaCode} onChange={(e) => setMpesaCode(e.target.value)} />
-                </Field>
-              )}
-              {payment === 'EXISTING' && (
-                <Field label="Package started on" htmlFor="sf-start" hint={chosen ? `Runs for ${chosen.billing_days} days from this date.` : undefined}>
-                  <Input id="sf-start" type="date" value={startDate} max={today()} onChange={(e) => setStartDate(e.target.value)} />
-                </Field>
-              )}
-            </>
+              >
+                {settlement === 'cash' && (
+                  <div className="space-y-3 rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
+                    <Field label="How did they pay?" htmlFor="sf-cash-method">
+                      <Select id="sf-cash-method" value={cashMethod} onChange={(e) => setCashMethod(e.target.value)}>
+                        {CASH_METHODS.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <Field
+                      label="Amount taken (KSh)"
+                      htmlFor="sf-cash-amount"
+                      hint={`Leave blank to record the full ${formatKES(due)}.`}
+                    >
+                      <Input
+                        id="sf-cash-amount"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        placeholder={String(due)}
+                        value={cashAmount}
+                        onChange={(e) => setCashAmount(e.target.value)}
+                      />
+                    </Field>
+                    {cashPaid < due && (
+                      <p className="text-[12px] font-medium text-warning">
+                        {formatKES(due - cashPaid)} left on their account.
+                      </p>
+                    )}
+                    <Field label="Receipt or teller number (optional)" htmlFor="sf-cash-ref">
+                      <Input
+                        id="sf-cash-ref"
+                        autoComplete="off"
+                        className="uppercase"
+                        placeholder="e.g. RCPT-0042"
+                        value={cashRef}
+                        onChange={(e) => setCashRef(e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                )}
+              </PaymentCapture>
+            </div>
           )}
 
           <Field label="Remarks" htmlFor="sf-remarks">
@@ -550,7 +681,7 @@ export function SubscriberForm({
 
         {/* Admins can remove the subscriber: a second tap confirms */}
         {editing && canRemove && confirmRemove && (
-          <Alert variant="error">
+          <Alert variant="error" inline>
             Remove {name || 'this subscriber'}? Their package, calls and app login are deleted. Past sales stay in your records.
             {removal.error && <span className="mt-1 block font-semibold">{apiErrorMessage(removal.error)}</span>}
           </Alert>
@@ -570,10 +701,19 @@ export function SubscriberForm({
           <Button variant="outline" type="button" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" loading={mutation.isPending}>
+          <Button
+            type="submit"
+            loading={mutation.isPending}
+            disabled={!editing && mpesaSettled && !captured}
+          >
             {editing ? 'Save changes' : 'Add subscriber'}
           </Button>
         </div>
+        {!editing && mpesaSettled && !captured && (
+          <p className="text-right text-[11px] font-medium text-foreground-4">
+            Send the M-Pesa prompt, or read their confirmation message, before saving.
+          </p>
+        )}
       </form>
   );
 }

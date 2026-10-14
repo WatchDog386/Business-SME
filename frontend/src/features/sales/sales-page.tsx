@@ -188,7 +188,7 @@ function SalesMobilePage() {
       </motion.button>
 
       {customerId && (
-        <Alert variant="info">
+        <Alert variant="info" inline>
           Showing sales for this customer.{' '}
           <button
             onClick={() => {
@@ -203,7 +203,7 @@ function SalesMobilePage() {
       )}
 
       {error && (
-        <Alert variant="error" title="Could not load sales">
+        <Alert variant="error" title="Could not load sales" inline>
           {apiErrorMessage(error)}
         </Alert>
       )}

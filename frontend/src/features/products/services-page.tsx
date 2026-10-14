@@ -233,7 +233,7 @@ function ServicesMobilePage() {
   return (
     <div className="space-y-5">
       {header}
-      {error && <Alert variant="error" title="Could not load services">{apiErrorMessage(error)}</Alert>}
+      {error && <Alert variant="error" title="Could not load services" inline>{apiErrorMessage(error)}</Alert>}
       {isLoading && <PageLoader inline message="Loading" />}
       {data && data.length === 0 && emptyState}
       {serviceList}

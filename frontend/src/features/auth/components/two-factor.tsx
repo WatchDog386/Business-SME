@@ -218,7 +218,7 @@ export function TwoFactorVerify({
         </div>
       )}
 
-      {error && <Alert variant="error">{error}</Alert>}
+      {error && <Alert variant="error" inline>{error}</Alert>}
 
       {useRecovery ? (
         <div>
@@ -327,7 +327,7 @@ export function TwoFactorSetupStep({
   if (loadError) {
     return (
       <div className="flex flex-col gap-4">
-        <Alert variant="error">{loadError}</Alert>
+        <Alert variant="error" inline>{loadError}</Alert>
         <Button className={primaryButton} onClick={onRestart}>
           {restartLabel}
         </Button>
@@ -439,7 +439,7 @@ export function TwoFactorSetupStep({
         </div>
       </div>
 
-      {error && <Alert variant="error">{error}</Alert>}
+      {error && <Alert variant="error" inline>{error}</Alert>}
 
       <AnimatePresence initial={false}>
         {(readyForCode || isDesktop) && (

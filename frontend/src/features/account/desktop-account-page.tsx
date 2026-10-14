@@ -157,7 +157,7 @@ export function DesktopAccountPage() {
           />
           {summary.error && (
             <div className="mb-4">
-              <Alert variant="error" title="Could not load the daily books">
+              <Alert variant="error" title="Could not load the daily books" inline>
                 {apiErrorMessage(summary.error)}
               </Alert>
             </div>

@@ -204,8 +204,8 @@ function DailyReportPage() {
         {r && <span className="text-[12px] text-foreground-4">{updatedText(r)}</span>}
       </div>
 
-      {report.error && <Alert variant="error">{apiErrorMessage(report.error)}</Alert>}
-      {downloadError && <Alert variant="error">{downloadError}</Alert>}
+        {report.error && <Alert variant="error" inline>{apiErrorMessage(report.error)}</Alert>}
+        {downloadError && <Alert variant="error" inline>{downloadError}</Alert>}
       {report.isLoading && <PageLoader inline message="Loading" />}
 
       {r && (

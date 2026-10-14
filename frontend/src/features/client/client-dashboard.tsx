@@ -132,7 +132,7 @@ export function ClientDashboard() {
   if (error || !data) {
     return (
       <div className="space-y-4 pt-10">
-        <Alert variant="error" title="Could not load your account">
+        <Alert variant="error" title="Could not load your account" inline>
           {apiErrorMessage(error)}
         </Alert>
         <button type="button" onClick={logout} className="mx-auto block text-[13px] font-semibold text-foreground-3">

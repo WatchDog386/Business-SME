@@ -409,7 +409,7 @@ function DesktopStaffScreen({ businessId, businessName }: { businessId: string; 
       </div>
 
       {error && (
-        <Alert variant="error" title="Could not load the team">
+        <Alert variant="error" title="Could not load the team" inline>
           {apiErrorMessage(error)}
         </Alert>
       )}
@@ -689,7 +689,7 @@ function AddStaffForm({
         </div>
       </div>
 
-      {(error || localError) && <Alert variant="error">{error || localError}</Alert>}
+          {(error || localError) && <Alert variant="error" inline>{error || localError}</Alert>}
 
       <p className="text-[12px] leading-relaxed text-foreground-5">
         Share the email and password with them. They set up two-factor sign-in when they first log in. Leave name and

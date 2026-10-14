@@ -44,7 +44,7 @@ export function CustomerDetailPage() {
 
   if (customerQuery.error || !customerQuery.data) {
     return (
-      <Alert variant="error" title="Subscriber not found">
+      <Alert variant="error" title="Subscriber not found" inline>
         {apiErrorMessage(customerQuery.error)}
       </Alert>
     );

@@ -159,7 +159,7 @@ export function TwoFactorSetting({ tile = false }: { tile?: boolean }) {
                       void turnOff();
                     }}
                   >
-                    {error && <Alert variant="error">{error}</Alert>}
+                    {error && <Alert variant="error" inline>{error}</Alert>}
                     <label htmlFor="tfa-password">Password</label>
                     <PasswordInput
                       id="tfa-password"

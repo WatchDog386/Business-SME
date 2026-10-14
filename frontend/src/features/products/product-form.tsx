@@ -215,7 +215,7 @@ function PackageForm({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit((v) => mutation.mutate(v))} noValidate>
-      {errors.root && <Alert variant="error">{errors.root.message}</Alert>}
+      {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Label htmlFor="pkg-name">Package name</Label>
@@ -308,7 +308,7 @@ function ItemForm({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit((v) => mutation.mutate(v))} noValidate>
-      {errors.root && <Alert variant="error">{errors.root.message}</Alert>}
+      {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Label htmlFor="product-name">Product name</Label>

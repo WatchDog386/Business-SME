@@ -109,7 +109,7 @@ function RecurringForm({
       onSubmit={handleSubmit((values) => mutation.mutate(values))}
       noValidate
     >
-      {errors.root && <Alert variant="error">{errors.root.message}</Alert>}
+            {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
       <div>
         <Label htmlFor="rec-description">Description</Label>
         <Input id="rec-description" placeholder="e.g. Office rent" {...register('description')} />
@@ -244,10 +244,10 @@ export function RecurringExpensesPage() {
       />
 
       {!canApprove && (
-        <Alert variant="info">Only admins, managers and accountants can manage recurring expenses.</Alert>
+        <Alert variant="info" inline>Only admins, managers and accountants can manage recurring expenses.</Alert>
       )}
       {error && (
-        <Alert variant="error" title="Could not load recurring expenses">
+        <Alert variant="error" title="Could not load recurring expenses" inline>
           {apiErrorMessage(error)}
         </Alert>
       )}

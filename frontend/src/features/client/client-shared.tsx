@@ -130,8 +130,8 @@ export function PaySheet({ pkg, defaultPhone, onDone }: { pkg: Pkg; defaultPhone
 
   return (
     <div className="space-y-4">
-      {push && <Alert variant="error">{push.message}</Alert>}
-      {error && <Alert variant="error">{error}</Alert>}
+      {push && <Alert variant="error" inline>{push.message}</Alert>}
+      {error && <Alert variant="error" inline>{error}</Alert>}
       <div>
         <label htmlFor="client-pay-phone" className="mb-1 block text-[12px] font-medium text-foreground-3">
           Your M-Pesa number

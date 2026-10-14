@@ -35,7 +35,7 @@ function AccountMobilePage() {
 
   if (error || !data) {
     return (
-      <Alert variant="error" title="Could not load your account">
+      <Alert variant="error" title="Could not load your account" inline>
         {apiErrorMessage(error)}
       </Alert>
     );

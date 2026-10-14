@@ -54,7 +54,7 @@ export function ForgotPasswordPage() {
       >
         {error && <Alert variant="error">{error}</Alert>}
         {sent && (
-          <Alert variant="success">
+          <Alert variant="success" inline>
             <p>{sent}</p>
             <button
               type="button"

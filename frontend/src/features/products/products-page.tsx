@@ -365,7 +365,7 @@ export function ProductsPage() {
     </Card>
   ) : null;
 
-  const errorNode = error && <Alert variant="error" title="Could not load products">{apiErrorMessage(error)}</Alert>;
+  const errorNode = error && <Alert variant="error" title="Could not load products" inline>{apiErrorMessage(error)}</Alert>;
   const loadingNode = isLoading && <PageLoader inline message="Loading" />;
 
   return (
@@ -534,7 +534,7 @@ function ProductHistory({ productId }: { productId: string }) {
     return <PageLoader inline message="Loading" />;
   }
 
-  if (error) return <Alert variant="error">{apiErrorMessage(error)}</Alert>;
+  if (error) return <Alert variant="error" inline>{apiErrorMessage(error)}</Alert>;
 
   if (!data || data.length === 0) {
     return (

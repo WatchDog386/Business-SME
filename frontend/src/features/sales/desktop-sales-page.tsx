@@ -268,7 +268,7 @@ export function DesktopSalesPage() {
       </div>
 
       {customerId && (
-        <Alert variant="info">
+        <Alert variant="info" inline>
           Showing sales for this customer.{' '}
           <button
             type="button"
@@ -284,7 +284,7 @@ export function DesktopSalesPage() {
       )}
 
       {error && (
-        <Alert variant="error" title="Could not load sales">
+        <Alert variant="error" title="Could not load sales" inline>
           {apiErrorMessage(error)}
         </Alert>
       )}

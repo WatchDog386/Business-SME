@@ -13,6 +13,11 @@ export interface User {
   emailVerified: boolean;
   /** Two-factor sign-in, turned on by the person in Settings. */
   twoFactorEnabled?: boolean;
+  /**
+   * The password was chosen by the office (a subscriber's first login). The app
+   * asks them for their own before showing anything else.
+   */
+  mustChangePassword?: boolean;
   /** True for the app-owner platform-admin accounts. */
 }
 

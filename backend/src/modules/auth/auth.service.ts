@@ -55,6 +55,8 @@ export interface AuthResult {
     phone: string | null;
     avatarUrl: string | null;
     emailVerified: boolean;
+    /** True while the person is still on a password the office chose for them. */
+    mustChangePassword: boolean;
   };
 }
 
@@ -342,6 +344,7 @@ export class AuthService {
       avatarUrl: user.avatar_url,
       emailVerified: user.email_verified,
       twoFactorEnabled: user.totp_enabled,
+      mustChangePassword: user.must_change_password,
     };
   }
 
@@ -362,6 +365,7 @@ export class AuthService {
       phone: user.phone,
       avatarUrl: user.avatar_url,
       emailVerified: user.email_verified,
+      mustChangePassword: user.must_change_password,
     };
   }
 
@@ -383,7 +387,8 @@ export class AuthService {
       });
     }
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
-    await this.usersService.update(user.id, { password_hash: passwordHash });
+    // They have chosen a password themselves, so the office's temporary one is done
+    await this.usersService.update(user.id, { password_hash: passwordHash, must_change_password: false });
   }
 
   async forgotPassword(email: string): Promise<{ resetToken?: string }> {
@@ -424,7 +429,7 @@ export class AuthService {
       });
     }
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await this.usersService.update(user.id, { password_hash: passwordHash });
+    await this.usersService.update(user.id, { password_hash: passwordHash, must_change_password: false });
     await this.usersService.clearResetToken(user.id);
   }
 
@@ -445,7 +450,8 @@ export class AuthService {
         phone: user.phone,
         avatarUrl: user.avatar_url,
         emailVerified: user.email_verified,
-        },
+        mustChangePassword: user.must_change_password,
+      },
     };
   }
 

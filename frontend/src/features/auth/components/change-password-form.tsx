@@ -35,7 +35,7 @@ type FormValues = z.infer<typeof schema>;
  * Change your own password. Used by the subscriber's account page and by the
  * staff profile. `dark` is for sitting on the subscriber's dark panels.
  */
-export function ChangePasswordForm({ dark = false }: { dark?: boolean }) {
+export function ChangePasswordForm({ dark = false, onDone }: { dark?: boolean; onDone?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
@@ -56,6 +56,7 @@ export function ChangePasswordForm({ dark = false }: { dark?: boolean }) {
       setDone(true);
       reset();
       notifySuccess('Password changed', 'Use your new password the next time you sign in.');
+      onDone?.();
     },
     onError: (err) => {
       setError(apiErrorMessage(err));

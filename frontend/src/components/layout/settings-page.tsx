@@ -13,7 +13,7 @@ import {
   UserRound,
   Banknote,
   Users,
-  X,
+  LogOut,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { useActiveBusiness } from '@/stores/business';
 import { useAuthStore } from '@/stores/auth';
 import { TwoFactorSetting } from './two-factor-setting';
 import { BubbleTile, ProfileRing, profileCompletion } from './profile-visuals';
+import { requestLogout } from './session-timeout';
 
 interface Item {
   to: string;
@@ -81,25 +82,28 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
 
   return createPortal(
     <div className="fixed inset-0 z-[70] overflow-y-auto bg-surface-2 scrollbar-none animate-fade-in">
-      {/* Header: the same floating dark card with the same shadow as the dashboard header */}
+      {/* Header: plain bar on the page — Back on the left, Log Out on the right */}
       <header className="sticky top-0 z-10 bg-surface-2 px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
-        <div className="mx-auto flex h-14 max-w-md items-center justify-between rounded-3xl bg-[#1F1F22] px-2 text-white shadow-[0_10px_24px_-10px_rgba(15,23,42,0.45)]">
+        <div className="mx-auto flex h-14 max-w-md items-center justify-between">
           <button
             type="button"
             onClick={close}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 pl-1.5 text-white transition-transform active:scale-90"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 pl-1 text-foreground-2 transition-transform active:scale-90"
             aria-label="Back"
           >
             <ChevronLeft className="h-5 w-5" aria-hidden />
           </button>
-          <h1 className="flex-1 text-center text-[17px] font-semibold tracking-tight">Settings</h1>
+          <h1 className="flex-1 text-center text-[17px] font-semibold tracking-tight text-foreground">Settings</h1>
           <button
             type="button"
-            onClick={close}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white transition-transform active:scale-90"
-            aria-label="Close"
+            onClick={() => {
+              onOpenChange(false);
+              requestLogout();
+            }}
+            className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-danger-soft pl-3 pr-4 text-[13px] font-semibold text-danger transition-transform active:scale-90"
           >
-            <X className="h-5 w-5" aria-hidden />
+            <LogOut className="h-4 w-4" aria-hidden />
+            Log out
           </button>
         </div>
       </header>
@@ -155,7 +159,7 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
         )}
 
         <p className="pt-6 text-center text-[11px] text-foreground-5">
-          Theme and Log out are in My Profile · Optimas Technologies Ltd
+          Theme and photo are in My Profile · Optimas Technologies Ltd
         </p>
       </div>
     </div>,

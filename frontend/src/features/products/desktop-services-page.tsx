@@ -230,7 +230,7 @@ export function DesktopServicesPage() {
       </div>
 
       {error && (
-        <Alert variant="error" title="Could not load services">
+        <Alert variant="error" title="Could not load services" inline>
           {apiErrorMessage(error)}
         </Alert>
       )}

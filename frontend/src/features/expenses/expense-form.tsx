@@ -130,7 +130,7 @@ export function ExpenseForm({
       onSubmit={handleSubmit((values) => mutation.mutate(values))}
       noValidate
     >
-      {errors.root && <Alert variant="error">{errors.root.message}</Alert>}
+      {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
       <div>
         <Label htmlFor="expense-description">Description</Label>
         <Input

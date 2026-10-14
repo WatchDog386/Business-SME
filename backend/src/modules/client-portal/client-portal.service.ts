@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
+import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
 import { Customer } from '../customers/entities/customer.entity';
 import { Product } from '../products/entities/product.entity';
@@ -42,6 +43,15 @@ function accountLoginEmail(customerId: string): string {
 }
 export function isAccountLogin(email: string): boolean {
   return email.endsWith(`@${ACCOUNT_LOGIN_DOMAIN}`);
+}
+
+/** Letters and digits without look-alikes (no O/0, l/1), so it reads over the phone. */
+const TEMP_PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+
+/** A temporary password the office reads out once; the client replaces it at first sign-in. */
+export function generateTempPassword(length = 10): string {
+  const bytes = randomBytes(length);
+  return Array.from(bytes, (b) => TEMP_PASSWORD_ALPHABET[b % TEMP_PASSWORD_ALPHABET.length]).join('');
 }
 
 @Injectable()
@@ -178,14 +188,26 @@ export class ClientPortalService {
     const email = member && !isAccountLogin(member.user.email) ? member.user.email : null;
     const login = { username: customer.username, accountNumber: customer.account_number };
     return member
-      ? { enabled: member.status === 'ACTIVE', email, ...login, createdAt: member.created_at }
-      : { enabled: false, email: null, ...login, createdAt: null };
+      ? {
+          enabled: member.status === 'ACTIVE',
+          email,
+          ...login,
+          createdAt: member.created_at,
+          mustChangePassword: member.user.must_change_password,
+        }
+      : { enabled: false, email: null, ...login, createdAt: null, mustChangePassword: false };
   }
 
+  /**
+   * Creates or resets a client's own app login. The office rarely types a
+   * password: leave it out and one is generated here and returned once, so it
+   * can be sent to the client (WhatsApp, SMS or read out). Either way the
+   * client must replace it at their first sign-in.
+   */
   async grantAccess(
     businessId: string,
     customerId: string,
-    input: { email?: string; password: string },
+    input: { email?: string; password?: string },
     actorId: string,
   ) {
     const customer = await this.customer(businessId, customerId);
@@ -198,6 +220,7 @@ export class ClientPortalService {
     }
     // No email: an internal address keeps the login unique; they sign in with their username
     const email = realEmail ?? accountLoginEmail(customerId);
+    const password = input.password?.trim() || generateTempPassword();
 
     let user = await this.users.findByEmail(email);
     if (user) {
@@ -212,13 +235,17 @@ export class ClientPortalService {
         });
       }
       // Existing login for this client: set the new password
-      await this.users.update(user.id, { password_hash: await bcrypt.hash(input.password, 10) });
+      await this.users.update(user.id, {
+        password_hash: await bcrypt.hash(password, 10),
+        must_change_password: true,
+      });
     } else {
       user = await this.users.create({
         email,
         fullName: customer.name,
         phone: customer.phone,
-        passwordHash: await bcrypt.hash(input.password, 10),
+        passwordHash: await bcrypt.hash(password, 10),
+        mustChangePassword: true,
       });
     }
 
@@ -245,7 +272,8 @@ export class ClientPortalService {
       entityId: customerId,
       metadata: { email },
     });
-    return this.getAccess(businessId, customerId);
+    // The temporary password is handed back once: it is never stored in clear
+    return { ...(await this.getAccess(businessId, customerId)), password };
   }
 
   async revokeAccess(businessId: string, customerId: string, actorId: string) {

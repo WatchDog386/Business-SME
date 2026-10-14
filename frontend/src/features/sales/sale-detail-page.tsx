@@ -66,7 +66,7 @@ export function SaleDetailPage() {
 
   if (error || !data) {
     return (
-      <Alert variant="error" title="Sale not found">
+      <Alert variant="error" title="Sale not found" inline>
         {apiErrorMessage(error)}
       </Alert>
     );
@@ -306,7 +306,7 @@ function RecordPaymentDialog({
         onSubmit={handleSubmit((values) => mutation.mutate(values))}
         noValidate
       >
-        {errors.root && <Alert variant="error">{errors.root.message}</Alert>}
+        {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
         <div>
           <Label htmlFor="payment-amount">Amount (KSh)</Label>
           <Input

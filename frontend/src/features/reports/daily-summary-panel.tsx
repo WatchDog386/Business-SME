@@ -14,7 +14,7 @@ export function DailySummaryPanel({ from, to }: { from: string; to: string }) {
   });
 
   if (error) {
-    return <Alert variant="error" title="Could not load the daily summary">{apiErrorMessage(error)}</Alert>;
+    return <Alert variant="error" title="Could not load the daily summary" inline>{apiErrorMessage(error)}</Alert>;
   }
 
   if (isLoading || !data) {

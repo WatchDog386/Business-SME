@@ -147,7 +147,7 @@ function CustomersMobilePage() {
       </div>
 
       {error && (
-        <Alert variant="error" title="Could not load customers">
+        <Alert variant="error" title="Could not load customers" inline>
           {apiErrorMessage(error)}
         </Alert>
       )}

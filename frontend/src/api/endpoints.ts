@@ -419,11 +419,16 @@ export interface ClientAccess {
   username: string | null;
   accountNumber: string | null;
   createdAt: string | null;
+  /** True while the client is still on the password the office generated. */
+  mustChangePassword: boolean;
+  /** Only on a grant: the temporary password, returned once and never stored. */
+  password?: string;
 }
 
 export const clientAccessApi = {
   get: (customerId: string) => api<ClientAccess>({ method: 'GET', url: `/customers/${customerId}/app-access` }),
-  grant: (customerId: string, data: { email?: string; password: string }) =>
+  /** Leave the password out and one is generated: the office sends it to the client. */
+  grant: (customerId: string, data: { email?: string; password?: string } = {}) =>
     api<ClientAccess>({ method: 'POST', url: `/customers/${customerId}/app-access`, data }),
   revoke: (customerId: string) => api<ClientAccess>({ method: 'DELETE', url: `/customers/${customerId}/app-access` }),
 };

@@ -30,7 +30,7 @@ export function ConfirmDialog({
         {description && (
           <p className="text-sm text-foreground-3">{description}</p>
         )}
-        {error && <Alert variant="error">{error}</Alert>}
+        {error && <Alert variant="error" inline>{error}</Alert>}
         <div className="flex justify-end gap-3">
           <Button
             variant="outline"

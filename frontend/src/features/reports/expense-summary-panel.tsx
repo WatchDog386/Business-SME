@@ -15,7 +15,7 @@ export function ExpenseSummaryPanel({ from, to }: { from: string; to: string }) 
   });
 
   if (error) {
-    return <Alert variant="error" title="Could not load expenses">{apiErrorMessage(error)}</Alert>;
+    return <Alert variant="error" title="Could not load expenses" inline>{apiErrorMessage(error)}</Alert>;
   }
 
   if (isLoading || !data) {

@@ -14,6 +14,7 @@ import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { hasOnboarded } from '@/features/onboarding/welcome-page';
 import { useTheme } from '@/lib/theme';
 import { useRole } from '@/hooks/use-role';
+import { SetPasswordGate } from '@/features/auth/set-password-gate';
 
 /** The only pages a subscriber (CLIENT role) may open. */
 const CLIENT_PATHS = [
@@ -80,6 +81,9 @@ export function AppShell() {
   if (businesses.length === 0) {
     return <NoAccess name={user?.fullName} onSignOut={logout} />;
   }
+
+  // Still on a password the office gave them: they set their own before the app
+  if (user?.mustChangePassword) return <SetPasswordGate />;
 
   // Clients only have their own dashboard and account page: no staff menu, footer bar
   // or any other page. CLIENT_PATHS lists what they are allowed to open.

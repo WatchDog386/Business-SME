@@ -20,10 +20,18 @@ export interface CapturedPayment {
   when: string | null;
 }
 
+/** One card in the "how are they paying?" grid. */
+export interface CaptureMode {
+  id: string;
+  title: string;
+  hint: string;
+  icon: typeof Smartphone;
+}
+
 // Loaded only when the camera is used; never bundled
 const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js';
 
-const MODES: Array<{ id: PayMode; title: string; hint: string; icon: typeof Smartphone }> = [
+const MODES: CaptureMode[] = [
   { id: 'prompt', title: 'Prompt to pay', hint: 'M-Pesa on their phone', icon: Smartphone },
   { id: 'camera', title: 'Scan message', hint: 'Use the camera', icon: Camera },
   { id: 'paste', title: 'Paste message', hint: 'Copy the M-Pesa SMS', icon: ClipboardPaste },
@@ -34,8 +42,11 @@ const MODES: Array<{ id: PayMode; title: string; hint: string; icon: typeof Smar
  * The checkout's "How is the client paying?": send an M-Pesa prompt (STK
  * push) and wait for the PIN, read the M-Pesa message with the camera, or
  * paste it. Cash and other methods are handled by the page's own fields.
+ *
+ * Subscriber onboarding passes its own `modes` (it also offers "owes us" and
+ * "already connected"), plus `renderExtra` and `children` for those choices.
  */
-export function PaymentCapture({
+export function PaymentCapture<T extends string = PayMode>({
   mode,
   onModeChange,
   total,
@@ -44,9 +55,12 @@ export function PaymentCapture({
   reference,
   captured,
   onCaptured,
+  modes,
+  renderExtra,
+  children,
 }: {
-  mode: PayMode;
-  onModeChange: (mode: PayMode) => void;
+  mode: T;
+  onModeChange: (mode: T) => void;
   total: number;
   phone: string;
   onPhoneChange: (phone: string) => void;
@@ -54,14 +68,21 @@ export function PaymentCapture({
   reference: string;
   captured: CapturedPayment | null;
   onCaptured: (payment: CapturedPayment | null) => void;
+  /** Cards to offer; defaults to prompt / camera / paste / cash. */
+  modes?: CaptureMode[];
+  /** Panel shown for a mode of this page's own (e.g. "owes us"). */
+  renderExtra?: (mode: string) => React.ReactNode;
+  /** Extra fields under the chosen mode (e.g. cash amount and receipt). */
+  children?: React.ReactNode;
 }) {
   const status = useQuery({ queryKey: ['mpesa-status'], queryFn: paymentsApi.mpesaStatus, staleTime: 5 * 60_000 });
   const promptReady = status.data?.stkPush ?? true;
+  const cards = modes ?? MODES;
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="How is the client paying?">
-        {MODES.map(({ id, title, hint, icon: Icon }) => {
+        {cards.map(({ id, title, hint, icon: Icon }) => {
           const active = mode === id;
           return (
             <button
@@ -71,7 +92,7 @@ export function PaymentCapture({
               aria-checked={active}
               onClick={() => {
                 if (mode !== id) onCaptured(null);
-                onModeChange(id);
+                onModeChange(id as T);
               }}
               className={cn(
                 'relative flex flex-col items-start gap-2 rounded-2xl border-[1.5px] p-3 text-left transition-colors',
@@ -105,10 +126,13 @@ export function PaymentCapture({
       ) : mode === 'prompt' ? (
         <PromptToPay total={total} phone={phone} onPhoneChange={onPhoneChange} reference={reference} onPaid={onCaptured} />
       ) : mode === 'camera' ? (
-        <CameraReader onRead={(text) => onCaptured(fromMessage(text, 'camera'))} onFallback={() => onModeChange('paste')} />
+        <CameraReader onRead={(text) => onCaptured(fromMessage(text, 'camera'))} onFallback={() => onModeChange('paste' as T)} />
       ) : mode === 'paste' ? (
         <PasteReader onRead={(text) => onCaptured(fromMessage(text, 'paste'))} />
+      ) : renderExtra ? (
+        renderExtra(mode)
       ) : null}
+      {children}
     </div>
   );
 }

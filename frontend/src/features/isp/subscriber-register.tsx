@@ -149,7 +149,7 @@ export function SubscriberRegister({ onAdd, onEdit }: { onAdd: () => void; onEdi
       </div>
 
       {error && (
-        <Alert variant="error" title="Could not load subscribers">
+        <Alert variant="error" title="Could not load subscribers" inline>
           {apiErrorMessage(error)}
         </Alert>
       )}

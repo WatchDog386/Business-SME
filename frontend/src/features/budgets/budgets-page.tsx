@@ -92,7 +92,7 @@ function BudgetForm({
         mutation.mutate();
       }}
     >
-      {formError && <Alert variant="error">{formError}</Alert>}
+            {formError && <Alert variant="error" inline>{formError}</Alert>}
       <div>
         <Label htmlFor="budget-category">Category</Label>
         {existing ? (
@@ -212,7 +212,7 @@ export function BudgetsPage() {
       </div>
 
       {error && (
-        <Alert variant="error" title="Could not load budgets">
+        <Alert variant="error" title="Could not load budgets" inline>
           {apiErrorMessage(error)}
         </Alert>
       )}
@@ -252,7 +252,7 @@ export function BudgetsPage() {
           </div>
 
           {isCurrentMonth && flagged.length > 0 && (
-            <Alert variant="warning" title="Budget alerts">
+            <Alert variant="warning" title="Budget alerts" inline>
               {flagged
                 .map((i) => `${i.category_name} is at ${i.percent}% of its budget`)
                 .join(' · ')}

@@ -45,7 +45,7 @@ export function NotificationsPage() {
   if (isLoading) return <PageLoader inline message="Loading" />;
   if (error || !data) {
     return (
-      <Alert variant="error" title="Could not load notifications">
+      <Alert variant="error" title="Could not load notifications" inline>
         {apiErrorMessage(error)}
       </Alert>
     );

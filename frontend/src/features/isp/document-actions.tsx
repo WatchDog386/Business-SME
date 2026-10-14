@@ -145,7 +145,7 @@ export function DocumentActions({ sale }: { sale: SaleDetail }) {
             <Label htmlFor="email-to">Send to</Label>
             <Input id="email-to" type="email" value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="client@example.com" required />
           </div>
-          {email.error && <Alert variant="error">{apiErrorMessage(email.error)}</Alert>}
+              {email.error && <Alert variant="error" inline>{apiErrorMessage(email.error)}</Alert>}
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setEmailOpen(false)}>
               Cancel

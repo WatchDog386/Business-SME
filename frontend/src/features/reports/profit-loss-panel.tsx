@@ -13,7 +13,7 @@ export function ProfitLossPanel({ from, to }: { from: string; to: string }) {
   });
 
   if (error) {
-    return <Alert variant="error" title="Could not load the profit report">{apiErrorMessage(error)}</Alert>;
+    return <Alert variant="error" title="Could not load the profit report" inline>{apiErrorMessage(error)}</Alert>;
   }
 
   if (isLoading || !data) {

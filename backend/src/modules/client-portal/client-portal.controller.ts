@@ -42,9 +42,11 @@ class GrantAccessDto {
   @IsEmail({}, { message: 'Enter a valid email address.' })
   email?: string;
 
+  /** Optional: leave it out and the server generates a readable temporary one. */
+  @IsOptional()
   @IsString()
   @MinLength(8, { message: 'The password must be at least 8 characters.' })
-  password: string;
+  password?: string;
 }
 
 type Membership = { role: UserRole; customerId?: string | null };
@@ -126,7 +128,9 @@ export class ClientAccessController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Create or reset the client app login (account number or email + password)' })
+  @ApiOperation({
+    summary: 'Create or reset the client app login; the generated temporary password is returned once',
+  })
   grant(
     @CurrentBusiness() business: { id: string },
     @CurrentUser() user: AuthUser,

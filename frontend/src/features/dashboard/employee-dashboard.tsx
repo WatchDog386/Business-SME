@@ -75,7 +75,7 @@ export function EmployeeDashboard() {
   if (isLoading) return <WorkspaceLoader />;
   if (error || !data) {
     return (
-      <Alert variant="error" title="Could not load your dashboard">
+      <Alert variant="error" title="Could not load your dashboard" inline>
         {apiErrorMessage(error)}
       </Alert>
     );

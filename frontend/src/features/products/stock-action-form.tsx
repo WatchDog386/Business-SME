@@ -91,7 +91,7 @@ export function StockActionForm({
         {productName} — current stock is recorded automatically. A stock
         movement entry will be added to history.
       </p>
-      {errors.root && <Alert variant="error">{errors.root.message}</Alert>}
+      {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
       <div>
         <Label htmlFor="stock-quantity">{label}</Label>
         <Input

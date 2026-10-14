@@ -860,9 +860,11 @@ export function RecordSalePage() {
               {/* Confirm */}
               <section className="space-y-2.5">
                 {needsClient && (
-                  <Alert variant="warning">Enter the client's name so their WiFi subscription starts or renews.</Alert>
-                )}
-                {errors.root && <Alert variant="error">{errors.root.message}</Alert>}
+                <Alert variant="warning" inline>Enter the client's name so their WiFi subscription starts or renews.</Alert>
+              )}
+              {errors.root && (
+                <Alert variant="error" inline>{errors.root.message}</Alert>
+              )}
                 <Button
                   type="submit"
                   form="record-sale-form"

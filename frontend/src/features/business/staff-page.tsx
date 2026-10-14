@@ -585,7 +585,7 @@ function AddMemberForm({
 
       {(error || localError) && (
         <div className="mt-3">
-          <Alert variant="error">{error || localError}</Alert>
+            <Alert variant="error" inline>{error || localError}</Alert>
         </div>
       )}
 
@@ -734,7 +734,7 @@ function StaffScreen({ businessId, businessName }: { businessId: string; busines
     <div className="space-y-5 pb-8">
       <ProfileHeader roleLabel={myRole ? ROLES[myRole].label : 'Staff'} />
 
-      {error && <Alert variant="error" title="Could not load the team">{apiErrorMessage(error)}</Alert>}
+      {error && <Alert variant="error" title="Could not load the team" inline>{apiErrorMessage(error)}</Alert>}
       {actionError && (
         <Alert variant="error" title="That change didn’t go through">
           {actionError}

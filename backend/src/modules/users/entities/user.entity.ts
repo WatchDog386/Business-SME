@@ -28,6 +28,14 @@ export class User extends BaseEntity {
   @Column({ type: 'timestamptz', nullable: true, select: false })
   reset_token_expires_at: Date | null;
 
+  /**
+   * Set when the office hands someone a password (a subscriber's first app
+   * login). They sign in with it, but the app asks for a password of their own
+   * before anything else. Cleared once they change it.
+   */
+  @Column({ type: 'boolean', default: false })
+  must_change_password: boolean;
+
   // ---- Two-factor authentication (authenticator app, required for everyone) ----
 
   /** On once the user has scanned the secret and confirmed a code. */

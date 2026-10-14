@@ -173,7 +173,7 @@ export function DesktopReportsPage() {
         </div>
 
         {(error || downloadError) && (
-          <Alert variant="error" title="Something didn't load">
+          <Alert variant="error" title="Something didn't load" inline>
             {downloadError ?? apiErrorMessage(error)}
           </Alert>
         )}

@@ -280,7 +280,7 @@ function ExpensesMobilePage() {
       </Select>
 
       {error && (
-        <Alert variant="error" title="Could not load expenses">
+        <Alert variant="error" title="Could not load expenses" inline>
           {apiErrorMessage(error)}
         </Alert>
       )}

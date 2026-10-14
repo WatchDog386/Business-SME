@@ -28,12 +28,15 @@ export class UsersService {
     phone?: string | null;
     fullName: string;
     passwordHash: string;
+    /** True when the office chose the password, so the person changes it after signing in. */
+    mustChangePassword?: boolean;
   }): Promise<User> {
     const user = this.repo.create({
       email: data.email.toLowerCase(),
       phone: data.phone ?? null,
       full_name: data.fullName,
       password_hash: data.passwordHash,
+      must_change_password: data.mustChangePassword ?? false,
     });
     return this.repo.save(user);
   }
