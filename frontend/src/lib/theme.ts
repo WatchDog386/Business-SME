@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'brand';
 
 const STORAGE_KEY = 'biashara_theme';
 
 const listeners = new Set<(theme: Theme) => void>();
 
-/** Dark is the default; user can override in Settings, which stores a preference. */
+/** Reads the saved theme from localStorage; defaults to dark. */
 export function getTheme(): Theme {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored === 'light' || stored === 'dark' || stored === 'brand') return stored as Theme;
   return 'dark';
 }
 
@@ -78,6 +80,34 @@ export function applyTheme(theme: Theme): void {
   // Dashboard top is the sky glow (light) or the dark glow (dark); other pages use the plain page colour
   if (dark) setStatusBarColor(path === '/dashboard' ? '#16202F' : '#121212');
   else setStatusBarColor(path === '/dashboard' ? '#D7E7FF' : '#F8FAFC');
+  // Brand theme: show the savanna background image like the client dashboard
+  if (theme === 'brand') {
+    const docEl = document.documentElement;
+    docEl.classList.add('page-white', 'dash-glow-body');
+    // Savanna backdrop + gradient overlay (same as client dashboard)
+    const img = docEl.querySelector<HTMLElement>('img[src="/images/splash-savanna.jpg"]');
+    if (!img) {
+      const newImg = document.createElement('img');
+      newImg.src = '/images/splash-savanna.jpg';
+      newImg.setAttribute('aria-hidden', 'true');
+      newImg.className = 'fixed inset-0 z-[-1] h-full w-full object-cover';
+      docEl.appendChild(newImg);
+    }
+    const grad = docEl.querySelector<HTMLElement>('div.bg-gradient-to-b.from-black/70.via-black/45.to-black/75');
+    if (!grad) {
+      const newGrad = document.createElement('div');
+      newGrad.className = 'fixed inset-0 z-[-1] bg-gradient-to-b from-black/70 via-black/45 to-black/75';
+      docEl.appendChild(newGrad);
+    }
+  } else {
+    // Remove brand background when switching away
+    const docEl = document.documentElement;
+    docEl.classList.remove('page-white', 'dash-glow-body');
+    const img = docEl.querySelector<HTMLElement>('img[src="/images/splash-savanna.jpg"]');
+    if (img) img.remove();
+    const grad = docEl.querySelector<HTMLElement>('div.bg-gradient-to-b.from-black/70.via-black/45.to-black/75');
+    if (grad) grad.remove();
+  }
 }
 
 export function setTheme(theme: Theme): void {

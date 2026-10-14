@@ -20,13 +20,12 @@ export function DashboardHeader() {
   const [scanOpen, setScanOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // Only notifications not yet read on this device
   const { unread: notificationCount } = useNotifications();
-  const firstName = user?.fullName ? user.fullName.split(' ')[0] : 'there';
+const firstName = user?.fullName ? user.fullName.split(' ')[0] : 'there';
 
   return (
     <>
-      <header className="page-head flex items-center gap-3 rounded-3xl bg-[#1F1F22] px-3 py-2.5 text-white shadow-[0_10px_24px_-10px_rgba(15,23,42,0.45)]">
+      <header className="page-head flex items-center justify-between gap-3 rounded-3xl bg-[#1F1F22] px-3 py-2.5 text-white shadow-[0_10px_24px_-10px_rgba(15,23,42,0.45)]">
         <button
           onClick={() => setMenuOpen(true)}
           className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/90 bg-[radial-gradient(circle_at_30%_25%,#9BE15D_0%,#4CAF2E_38%,#2E7D1A_70%,#174D0C_100%)] shadow-[0_4px_10px_rgba(0,0,0,0.45),inset_0_-3px_6px_rgba(0,0,0,0.35)] transition-transform active:scale-95"
@@ -37,7 +36,7 @@ export function DashboardHeader() {
           ) : active?.logo_url ? (
             <img src={active.logo_url} alt="Business logo" className="h-full w-full object-cover" />
           ) : (
-            <>
+            < >
               {/* Glossy shine across the top of the badge */}
               <span
                 aria-hidden
@@ -79,11 +78,6 @@ export function DashboardHeader() {
             >
               <Bell className="h-5 w-5" strokeWidth={1.9} aria-hidden />
             </motion.span>
-            {notificationCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[#1F1F22]">
-                {notificationCount > 99 ? '99+' : notificationCount}
-              </span>
-            )}
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
@@ -94,6 +88,16 @@ export function DashboardHeader() {
           </button>
         </div>
       </header>
+
+      {/* Search bar, below the header */}
+      <button
+        onClick={() => setSearchOpen(true)}
+        className="flex w-full items-center gap-2.5 rounded-full border border-white/80 bg-white/85 px-4 py-3.5 text-left shadow-[0_6px_18px_-6px_rgba(37,99,235,0.28),0_1px_2px_rgba(15,23,42,0.06)] backdrop-blur transition-transform active:scale-[0.99] [.dark_&]:border-transparent [.dark_&]:bg-surface-3 [.dark_&]:shadow-none"
+        aria-label="Search products, customers and sales"
+      >
+        <DuoSearch className="h-5 w-5 shrink-0 text-brand-600 [.dark_&]:text-brand-400" />
+        <span className="truncate text-sm text-foreground-4">Search products, customers, sales…</span>
+      </button>
 
       {/* Search bar, below the header */}
       <button
