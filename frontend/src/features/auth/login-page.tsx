@@ -21,6 +21,7 @@ import { TwoFactorVerify } from './components/two-factor';
 import { Brand } from '@/components/layout/brand';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { usePhotoStatusBar } from '@/hooks/use-photo-status-bar';
+import { useTheme } from '@/lib/theme';
 import type { AuthResult, MfaChallenge } from '@/api/types';
 
 const schema = z.object({
@@ -46,6 +47,7 @@ export function LoginPage() {
   // From "Verify and continue" until the dashboard opens, one loader covers everything
   const [verifying, setVerifying] = useState(false);
   const isDesktop = useIsDesktop();
+  const [theme] = useTheme();
 
   const {
     register,
@@ -138,11 +140,10 @@ export function LoginPage() {
       >
         {error &&
           (wrongDetails ? (
-            /* The details did not match: the dark "Invalid Details" popup */
+            /* The details did not match: the "Invalid Details" popup on its white card */
             <Alert
               variant="error"
               title="Invalid Details"
-              tone="dark"
               illustration={<InvalidDetailsArt />}
               actionLabel="Okay"
               duration={null}
@@ -166,7 +167,7 @@ export function LoginPage() {
               className="h-12 pl-12 pr-5 text-sm rounded-full"
               {...register('identifier')}
             />
-            <Mail className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <Mail className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" aria-hidden />
           </div>
           {errors.identifier && (
             <p className="mt-1 text-xs font-medium text-danger">{errors.identifier.message}</p>
@@ -183,7 +184,7 @@ export function LoginPage() {
               className="h-12 pl-12 pr-12 text-sm rounded-full"
               {...register('password')}
             />
-            <Lock className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <Lock className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" aria-hidden />
           </div>
           {errors.password && (
             <p className="mt-1 text-xs font-medium text-danger">
@@ -213,8 +214,11 @@ export function LoginPage() {
       </form>
   );
 
-  // Phones: photo header with the logo, and a translucent sheet holding the form (matches the home page)
+  // Phones: photo header with the logo, and a sheet holding the form. The sheet
+  // follows the chosen theme and its fields match the Statement / Deposit pills
+  // on the subscriber dashboard.
   if (!isDesktop) {
+    const dark = theme === 'dark';
     return (
       <div className="relative flex min-h-[100dvh] flex-col bg-white">
         {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
@@ -222,15 +226,32 @@ export function LoginPage() {
         <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[env(safe-area-inset-top)] [&_img]:drop-shadow-[0_2px_6px_rgba(255,255,255,0.35)]">
           <Brand size="xl" />
         </div>
-        {/* Whitish frosted sheet, same as the home page */}
-        <main className="relative flex shrink-0 flex-col rounded-t-3xl bg-white/80 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-md">
-          <div className="mx-auto h-1 w-12 rounded-full bg-slate-400" aria-hidden />
-          <h1 className="mt-5 text-center text-[22px] font-semibold tracking-tight">Welcome back!</h1>
-          <p className="mb-6 mt-1 text-center text-sm text-slate-700">Sign in with your Optimas staff account.</p>
-          {/* Same muted, borderless fields as the original sign-in page */}
-          <div className="mt-6 [&_input]:!rounded-lg [&_input]:!border-transparent [&_input]:!bg-slate-100 [&_input]:!text-slate-600 [&_input]:!shadow-none [&_input]:placeholder:text-slate-400 [&_label]:sr-only">
-            {form}
-          </div>
+        <main
+          className={
+            'relative flex shrink-0 flex-col rounded-t-3xl px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 ' +
+            (dark
+              ? 'border-t border-white/15 bg-black/55 text-white shadow-[0_-10px_24px_rgba(0,0,0,0.45)] backdrop-blur-md'
+              : 'bg-white/80 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-md')
+          }
+        >
+          <div className={dark ? 'mx-auto h-1 w-12 rounded-full bg-white/40' : 'mx-auto h-1 w-12 rounded-full bg-slate-400'} aria-hidden />
+          <h1 className={dark ? 'mt-5 text-center text-[22px] font-semibold tracking-tight text-white' : 'mt-5 text-center text-[22px] font-semibold tracking-tight text-slate-900'}>
+            Welcome back!
+          </h1>
+          <p className={dark ? 'mb-6 mt-1 text-center text-sm text-white/70' : 'mb-6 mt-1 text-center text-sm text-slate-700'}>
+            Sign in with your Optimas staff account.
+          </p>
+          {dark ? (
+            /* Outlined pills, as on the subscriber dashboard's Statement and Deposit buttons */
+            <div className="mt-6 [&_input]:!h-12 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-transparent [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:text-white/60 [&_button]:!text-white/70 [&_.auth-link]:!text-[#7BCFD2] [&_.text-danger]:!text-red-300 [&_label]:sr-only">
+              {form}
+            </div>
+          ) : (
+            /* Muted, borderless fields as in the original sign-in page */
+            <div className="mt-6 [&_input]:!rounded-lg [&_input]:!border-transparent [&_input]:!bg-slate-100 [&_input]:!text-slate-600 [&_input]:!shadow-none [&_input]:placeholder:text-slate-400 [&_label]:sr-only">
+              {form}
+            </div>
+          )}
         </main>
       </div>
     );
