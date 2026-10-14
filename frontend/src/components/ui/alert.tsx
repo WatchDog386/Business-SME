@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { dismissPopup, notify, type PopupKind } from './popup-host';
+import { dismissPopup, notify, type PopupKind, type PopupOptions } from './popup-host';
 
 type AlertVariant = Exclude<PopupKind, 'loading'>;
 
@@ -56,22 +56,37 @@ export function Alert({
   title,
   children,
   inline = false,
+  tone,
+  illustration,
+  actionLabel,
+  duration,
 }: {
   variant?: AlertVariant;
   title?: string;
   children?: React.ReactNode;
   /** Stay on the page instead of popping up. */
   inline?: boolean;
+  /** Dark popup with a dashed rule, as on the sign-in page. */
+  tone?: PopupOptions['tone'];
+  illustration?: React.ReactNode;
+  actionLabel?: string;
+  /** Milliseconds before the popup closes itself; null waits for Okay. */
+  duration?: number | null;
 }) {
   const message = textOf(children);
   const heading = title ?? (variant === 'error' ? 'Something went wrong' : undefined);
 
   useEffect(() => {
     if (inline) return;
-    const id = notify(variant, heading ?? (variant === 'success' ? 'Done' : 'Notice'), message);
+    const id = notify(variant, heading ?? (variant === 'success' ? 'Done' : 'Notice'), message, {
+      tone,
+      illustration,
+      actionLabel,
+      duration,
+    });
     // The state behind the message can clear sooner than the popup: take it down
     return () => dismissPopup(id);
-  }, [inline, variant, heading, message]);
+  }, [inline, variant, heading, message, tone, illustration, actionLabel, duration]);
 
   if (!inline) return null;
 

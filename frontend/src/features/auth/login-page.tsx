@@ -6,13 +6,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { authApi, businessesApi } from '@/api/endpoints';
-import { apiErrorMessage } from '@/api/client';
+import { ApiErrorShape, apiErrorMessage } from '@/api/client';
 import { useAuthStore } from '@/stores/auth';
 import { useBusinessStore } from '@/stores/business';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
+import { InvalidDetailsArt } from '@/components/brand/invalid-details-art';
 import { Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
 import { AuthLayout } from './components/auth-layout';
@@ -37,6 +38,8 @@ export function LoginPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  /** Wrong details get the "Invalid Details" popup; a network or server fault does not. */
+  const [wrongDetails, setWrongDetails] = useState(false);
   // Two-factor is optional: people who turned it on in Settings enter a code next
   const [challenge, setChallenge] = useState<MfaChallenge | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -78,6 +81,7 @@ export function LoginPage() {
   const restart = () => {
     setChallenge(null);
     setError(null);
+    setWrongDetails(false);
   };
 
   const mutation = useMutation({
@@ -85,10 +89,14 @@ export function LoginPage() {
       authApi.login(values.identifier, values.password),
     onSuccess: (result) => {
       setError(null);
+      setWrongDetails(false);
       if ('accessToken' in result) void finishSignIn(result);
       else setChallenge(result);
     },
-    onError: (err) => setError(apiErrorMessage(err)),
+    onError: (err) => {
+      setError(apiErrorMessage(err));
+      setWrongDetails(err instanceof ApiErrorShape && err.code === 'INVALID_CREDENTIALS');
+    },
   });
 
   // Phone sign-in shows the photo right up behind the status bar (same as the home page)
@@ -128,7 +136,22 @@ export function LoginPage() {
         onSubmit={handleSubmit((values) => mutation.mutate(values))}
         noValidate
       >
-        {error && <Alert variant="error">{error}</Alert>}
+        {error &&
+          (wrongDetails ? (
+            /* The details did not match: the dark "Invalid Details" popup */
+            <Alert
+              variant="error"
+              title="Invalid Details"
+              tone="dark"
+              illustration={<InvalidDetailsArt />}
+              actionLabel="Okay"
+              duration={null}
+            >
+              {error}
+            </Alert>
+          ) : (
+            <Alert variant="error">{error}</Alert>
+          ))}
         <div>
           <Label htmlFor="email">Username or email</Label>
           <div className="relative">
