@@ -124,7 +124,7 @@ export function UserMenu() {
             <button
               role="menuitemcheckbox"
               aria-checked={isDark}
-              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              onClick={() => setTheme(isDark ? 'brand' : 'dark')}
               className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-foreground-2 hover:bg-surface-2"
             >
               {isDark ? <Sun className="h-4 w-4 text-foreground-4" aria-hidden /> : <Moon className="h-4 w-4 text-foreground-4" aria-hidden />}

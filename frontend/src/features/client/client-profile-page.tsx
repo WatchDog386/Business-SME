@@ -275,7 +275,7 @@ export function ClientProfilePage() {
             type="button"
             role="switch"
             aria-checked={isDark}
-            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            onClick={() => setTheme(isDark ? 'brand' : 'dark')}
             className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-transform active:scale-[0.99]"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white">

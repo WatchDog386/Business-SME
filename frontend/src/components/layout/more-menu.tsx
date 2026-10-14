@@ -112,7 +112,7 @@ export function MoreMenu({
       <div className="mt-6 overflow-hidden rounded-2xl bg-surface">
         <button
           type="button"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          onClick={() => setTheme(theme === 'dark' ? 'brand' : 'dark')}
           className="flex w-full items-center gap-3 px-4 py-3.5 text-sm font-medium text-foreground-2 active:bg-surface-2"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-3 text-foreground-3">

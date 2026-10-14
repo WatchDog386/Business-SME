@@ -163,7 +163,7 @@ function DesktopTopbar() {
           type="button"
           role="switch"
           aria-checked={isDark}
-          onClick={() => setTheme(isDark ? 'light' : 'dark')}
+          onClick={() => setTheme(isDark ? 'brand' : 'dark')}
           className="flex items-center gap-2 text-[13px] font-medium text-accent"
         >
           <span className={cn('relative h-5 w-9 rounded-full transition-colors', isDark ? 'bg-accent' : 'bg-edge-2')}>

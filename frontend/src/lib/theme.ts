@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export type Theme = 'light' | 'dark' | 'brand';
+export type Theme = 'dark' | 'brand';
 
 const STORAGE_KEY = 'biashara_theme';
 
@@ -9,7 +9,7 @@ const listeners = new Set<(theme: Theme) => void>();
 /** Reads the saved theme from localStorage; defaults to dark. */
 export function getTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === 'light' || stored === 'dark' || stored === 'brand') return stored as Theme;
+  if (stored === 'dark' || stored === 'brand') return stored as Theme;
   return 'dark';
 }
 
