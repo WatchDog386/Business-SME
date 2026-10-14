@@ -12,8 +12,8 @@ import { useBusinessStore } from '@/stores/business';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Alert } from '@/components/ui/alert';
 import { InvalidDetailsArt } from '@/components/brand/invalid-details-art';
+import { notifyError } from '@/components/ui/popup-host';
 import { Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
 import { AuthLayout } from './components/auth-layout';
@@ -38,9 +38,6 @@ export function LoginPage() {
   const setBusinesses = useBusinessStore((s) => s.setBusinesses);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  /** Wrong details get the "Invalid Details" popup; a network or server fault does not. */
-  const [wrongDetails, setWrongDetails] = useState(false);
   // Two-factor is optional: people who turned it on in Settings enter a code next
   const [challenge, setChallenge] = useState<MfaChallenge | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -82,22 +79,27 @@ export function LoginPage() {
 
   const restart = () => {
     setChallenge(null);
-    setError(null);
-    setWrongDetails(false);
   };
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
       authApi.login(values.identifier, values.password),
     onSuccess: (result) => {
-      setError(null);
-      setWrongDetails(false);
       if ('accessToken' in result) void finishSignIn(result);
       else setChallenge(result);
     },
+    // Raised the moment they press Sign in, not while they are still typing:
+    // the picture only comes out when the details themselves were wrong
     onError: (err) => {
-      setError(apiErrorMessage(err));
-      setWrongDetails(err instanceof ApiErrorShape && err.code === 'INVALID_CREDENTIALS');
+      if (err instanceof ApiErrorShape && err.code === 'INVALID_CREDENTIALS') {
+        notifyError('Invalid Details', apiErrorMessage(err), {
+          illustration: <InvalidDetailsArt />,
+          actionLabel: 'Okay',
+          duration: null,
+        });
+        return;
+      }
+      notifyError('Could not sign in', apiErrorMessage(err));
     },
   });
 
@@ -138,21 +140,6 @@ export function LoginPage() {
         onSubmit={handleSubmit((values) => mutation.mutate(values))}
         noValidate
       >
-        {error &&
-          (wrongDetails ? (
-            /* The details did not match: the "Invalid Details" popup on its white card */
-            <Alert
-              variant="error"
-              title="Invalid Details"
-              illustration={<InvalidDetailsArt />}
-              actionLabel="Okay"
-              duration={null}
-            >
-              {error}
-            </Alert>
-          ) : (
-            <Alert variant="error">{error}</Alert>
-          ))}
         <div>
           <Label htmlFor="email">Username or email</Label>
           <div className="relative">
