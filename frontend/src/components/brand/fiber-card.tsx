@@ -472,12 +472,25 @@ function initialsOf(name: string): string {
 }
 
 /** Signed-in person at the top of the page ("Welcome back"), with notifications. */
-export function ProfileHeader({ roleLabel }: { roleLabel?: string }) {
+export function ProfileHeader({
+  roleLabel,
+  showBackButton,
+}: { roleLabel?: string; showBackButton?: boolean }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const name = user?.fullName ?? 'You';
-  return (
-    <header className="page-head flex items-center justify-between gap-3">
+
+  const leftContent = showBackButton
+    ? (
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="flex min-w-0 items-center gap-3 text-left"
+        aria-label="Go back"
+      >
+        <span className="text-[15px] font-semibold text-foreground">Back</span>
+      </button>
+    ) : (
       <button type="button" onClick={() => navigate('/profile')} className="flex min-w-0 items-center gap-3 text-left">
         <span
           className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full text-[15px] font-semibold shadow-md ring-2 ring-white"
@@ -493,6 +506,11 @@ export function ProfileHeader({ roleLabel }: { roleLabel?: string }) {
           <span className="block text-[18px] font-semibold tracking-tight text-foreground">Welcome back 👋</span>
         </span>
       </button>
+    );
+
+  return (
+    <header className="page-head flex items-center justify-between gap-3">
+      {leftContent}
       <button
         type="button"
         onClick={() => navigate('/notifications')}

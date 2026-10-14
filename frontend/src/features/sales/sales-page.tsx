@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { ArrowUpDown, ChevronLeft, Search, ShoppingCart, Receipt } from 'lucide-react';
 import { dashboardApi, salesApi } from '@/api/endpoints';
 import { Chips } from '@/components/layout/app-bar';
-import { useAuthStore } from '@/stores/auth';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,16 +18,6 @@ import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { DesktopSalesPage } from './desktop-sales-page';
 
 const PAGE_SIZE = 20;
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 function shortKsh(amount: number): string {
   if (amount >= 1_000_000) return `${(amount / 1_000_000).toLocaleString('en-KE', { maximumFractionDigits: 1 })}M`;
@@ -44,7 +33,6 @@ export function SalesPage() {
 
 function SalesMobilePage() {
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
   const [searchParams, setSearchParams] = useSearchParams();
   const customerId = searchParams.get('customer') ?? '';
   const [page, setPage] = useState(1);
@@ -95,22 +83,15 @@ function SalesMobilePage() {
           <span className="block font-semibold">Your Sales! 🛒</span>
         </h1>
         <div className="flex shrink-0 items-center">
-          <span className="relative z-10 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#2A2A2E] text-[14px] font-semibold text-white ring-2 ring-white [.dark_&]:ring-black">
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              initialsOf(user?.fullName ?? 'You')
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}
-            className="-ml-3 flex h-12 w-12 items-center justify-center rounded-full bg-black pl-2 text-white active:scale-90 [.dark_&]:bg-white [.dark_&]:text-black"
-            aria-label="Back"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        </div>
+  <button
+    type="button"
+    onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}
+    className="-ml-3 flex h-12 w-12 items-center justify-center rounded-full bg-black pl-2 text-white active:scale-90 [.dark_&]:bg-white [.dark_&]:text-black"
+    aria-label="Back"
+  >
+    <ChevronLeft className="h-5 w-5" />
+  </button>
+</div>
       </header>
 
       <Chips

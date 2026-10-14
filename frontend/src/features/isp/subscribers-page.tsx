@@ -97,7 +97,7 @@ function SubscribersMobilePage() {
 
       {/* Phones: unchanged card layout */}
       <div className="space-y-5 lg:hidden">
-      <ProfileHeader roleLabel={role ? ROLE_LABEL[role] : undefined} />
+      <ProfileHeader roleLabel={role ? ROLE_LABEL[role] : undefined} showBackButton />
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
         <FiberHeroCard

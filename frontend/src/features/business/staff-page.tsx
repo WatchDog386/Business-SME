@@ -732,7 +732,7 @@ function StaffScreen({ businessId, businessName }: { businessId: string; busines
 
   return (
     <div className="space-y-5 pb-8">
-      <ProfileHeader roleLabel={myRole ? ROLES[myRole].label : 'Staff'} />
+      <ProfileHeader roleLabel={myRole ? ROLES[myRole].label : 'Staff'} showBackButton />
 
       {error && <Alert variant="error" title="Could not load the team" inline>{apiErrorMessage(error)}</Alert>}
       {actionError && (
