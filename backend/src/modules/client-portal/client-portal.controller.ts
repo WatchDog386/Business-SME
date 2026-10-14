@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { IsEmail, IsOptional, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsEmail, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessGuard } from '../../common/guards/business.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -33,6 +33,12 @@ class ClientPayDto {
   @IsString()
   @MaxLength(20)
   phone?: string;
+
+  /** Part payment: what to actually prompt for. Never more than the package price. */
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  amount?: number;
 }
 
 class GrantAccessDto {

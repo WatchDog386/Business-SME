@@ -18,6 +18,7 @@ import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { PaymentsService } from '../payments/payments.service';
 import { SalesService } from '../sales/sales.service';
 import { DocumentsService, DocKind } from '../documents/documents.service';
+import { roundKES } from '../../common/utils/money';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
 import { UserRole } from '../../common/types/auth-user.interface';
@@ -92,7 +93,7 @@ export class ClientPortalService {
       this.saleRepo.find({
         where: { businessId, customerId },
         order: { created_at: 'DESC' },
-        take: 20,
+        take: 50,
       }),
     ]);
     return {
@@ -121,7 +122,12 @@ export class ClientPortalService {
   }
 
   /** M-Pesa prompt to the client's phone for their package (or one they switch to). */
-  async pay(businessId: string, customerId: string, userId: string, input: { productId?: string; phone?: string }) {
+  async pay(
+    businessId: string,
+    customerId: string,
+    userId: string,
+    input: { productId?: string; phone?: string; amount?: number },
+  ) {
     const customer = await this.customer(businessId, customerId);
     const current = await this.subscriptions.forCustomer(businessId, customerId);
     const productId = input.productId ?? current?.productId;
@@ -130,10 +136,12 @@ export class ClientPortalService {
     if (!pkg || !pkg.billing_days) throw new BadRequestException({ code: 'NOT_A_PACKAGE', message: 'Choose a WiFi package.' });
     const phone = input.phone?.trim() || customer.phone;
     if (!phone) throw new BadRequestException({ code: 'PHONE_REQUIRED', message: 'Enter your M-Pesa number.' });
+    // A client may pay part of a package, never more than it
+    const amount = input.amount ? Math.min(roundKES(input.amount), pkg.selling_price) : pkg.selling_price;
 
     const push = await this.payments.stkPush(businessId, {
       phone,
-      amount: pkg.selling_price,
+      amount,
       reference: pkg.name.split(/\s+/)[0],
       description: 'WiFi package',
     });

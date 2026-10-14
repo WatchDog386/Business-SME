@@ -18,11 +18,11 @@ import {
   DuoSales,
 } from '@/components/brand/duo-icons';
 import { QuickActions, type QuickAction } from '@/features/dashboard/components/quick-actions';
-import { PaySheet, PaymentRow } from './client-shared';
+import { PaymentRow } from './client-shared';
+import { ClientBackdrop } from './client-backdrop';
 import { clientApi, type ClientHome } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Alert } from '@/components/ui/alert';
-import { Dialog } from '@/components/ui/dialog';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
 import { useAuthStore } from '@/stores/auth';
@@ -30,8 +30,6 @@ import { cn, formatKES } from '@/lib/utils';
 
 type Pkg = ClientHome['packages'][number];
 
-/** Lime green from the reference design, already used by the app's own dialogs. */
-const GREEN = '#8BC53F';
 /** Dark green of the package card. */
 const CARD_FROM = '#12463A';
 const CARD_MID = '#0D5B3F';
@@ -55,20 +53,15 @@ function initials(name: string) {
   );
 }
 
-/** Glossy green ball with a shine across the top, like the reference's icons and avatar. */
-function GlossyBall({ children, className }: { children: React.ReactNode; className?: string }) {
+/** Teal ringed avatar: the saved photo when there is one, initials otherwise. */
+function ProfileAvatar({ name, src }: { name: string; src?: string | null }) {
   return (
-    <span
-      className={cn(
-        'relative flex items-center justify-center overflow-hidden rounded-full border-2 border-white/85 bg-[radial-gradient(circle_at_30%_24%,#A9E06D_0%,#57A81E_38%,#2F7A0C_70%,#17540A_100%)] text-white shadow-[0_4px_10px_rgba(0,0,0,0.45),inset_0_-3px_6px_rgba(0,0,0,0.35)]',
-        className,
+    <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#3A8F91] to-[#2F7F81] text-[14px] font-semibold text-white ring-2 ring-white">
+      {src ? (
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <span>{initials(name)}</span>
       )}
-    >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-1.5 top-0.5 h-1/2 rounded-full bg-gradient-to-b from-white/45 to-white/0"
-      />
-      <span className="relative">{children}</span>
     </span>
   );
 }
@@ -109,7 +102,7 @@ function PillButton({
 
 /**
  * Client dashboard: a WiFi client's own app, laid out like the reference banking
- * home screen — a photo behind the page, a dark top bar with the greeting, a green
+ * home screen — a photo behind the page, a bare top bar with the greeting, a green
  * package card, a balance strip, quick actions and a floating bottom bar.
  * They never see anything of the business beyond this.
  */
@@ -117,7 +110,6 @@ export function ClientDashboard() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const [payFor, setPayFor] = useState<Pkg | null>(null);
   const [query, setQuery] = useState('');
   const { data, isLoading, error } = useQuery({ queryKey: ['client-me'], queryFn: clientApi.me });
   const topRef = useRef<HTMLDivElement>(null);
@@ -147,10 +139,14 @@ export function ClientDashboard() {
   const status = sub ? STATUS[sub.status] : null;
   const firstName = (data.customer.name || user?.fullName || '').split(' ')[0];
   const period = current?.billingDays ?? 30;
-  const left = sub ? Math.max(0, Math.min(1, sub.daysLeft / period)) : 0;
   const phoneDigits = (data.business.phone ?? '').replace(/\D/g, '').replace(/^0/, '254');
 
-const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const jump = (ref: React.RefObject<HTMLElement | null>) =>
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  /** Sends the client to the amount step of the M-Pesa flow. */
+  const pay = (pkg: Pkg | null) =>
+    navigate(pkg ? `/my-amount?pkg=${pkg.id}` : '/my-amount');
 
   /** Quick actions reuse the admin dashboard's own grid, so the tiles always match. */
   const quickActions: QuickAction[] = [
@@ -163,46 +159,41 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
   ].filter((a) => a.to !== 'call' || Boolean(data.business.phone)) as QuickAction[];
 
   const onQuickAction = (to: string) => {
-    if (to === 'pay') return navigate('/my-pay');
+    if (to === 'pay') return pay(current);
     if (to === 'packages') return navigate('/my-packages');
-    if (to === 'receipts') return navigate('/my-payments');
+    if (to === 'receipts') return navigate('/my-notifications');
     if (to === 'call' || to === 'whatsapp') return navigate('/my-contact');
     if (to === 'details') return navigate('/my-account');
   };
 
   return (
     <div className="relative isolate -mx-4 -mt-2 min-h-[100dvh] pb-8">
-      {/* Photo behind the whole page, dark enough for white text to read */}
-      <img
-        src="/images/splash-savanna.jpg"
-        alt=""
-        aria-hidden
-        className="fixed inset-0 -z-20 h-full w-full object-cover"
-      />
-      <div
-        aria-hidden
-        className="fixed inset-0 -z-10 bg-gradient-to-b from-black/70 via-black/45 to-black/75"
-      />
+      {/* Photo behind the whole page, dark enough for white text to read; it stays put on scroll */}
+      <ClientBackdrop />
 
       <div ref={topRef} />
 
       {/* Top bar: avatar, centred greeting, then notifications and the account button */}
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-4 bg-black/45 py-3 pl-5 pr-9 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
-        <GlossyBall className="h-12 w-12 shrink-0">
-          <span className="-skew-x-12 text-[20px] font-black leading-none [text-shadow:0_2px_3px_rgba(0,0,0,0.45)]">
-            {initials(data.customer.name).slice(0, 1)}
-          </span>
-        </GlossyBall>
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-4 px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <ProfileAvatar name={data.customer.name} src={user?.avatarUrl} />
         <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-white">
           Hello {firstName} 👋
         </h1>
         <button
           type="button"
-          onClick={() => jump(paymentsRef)}
+          onClick={() => navigate('/my-notifications')}
           className="relative shrink-0 text-white transition-transform active:scale-90"
-          aria-label="Notifications and receipts"
+          aria-label="Notifications"
         >
           <Bell className="h-6 w-6" strokeWidth={1.9} aria-hidden />
+          {data.payments.length > 0 && (
+            <span
+              aria-hidden
+              className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#8BC53F] px-1 text-[9px] font-bold text-white"
+            >
+              {data.payments.length}
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -214,7 +205,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
         </button>
       </header>
 
-      <div className="px-4 pt-3">
+      <div className="px-5 pt-3">
         {/* Search takes you to the packages page with the term */}
         <form
           onSubmit={(e) => {
@@ -278,7 +269,7 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
                   <Receipt className="h-4 w-4" aria-hidden />
                   Statement
                 </PillButton>
-                <PillButton onClick={() => setPayFor(current)}>
+                <PillButton onClick={() => pay(current)}>
                   <RefreshCw className="h-4 w-4" aria-hidden />
                   {sub?.status === 'EXPIRED' ? 'Renew' : 'Deposit'}
                 </PillButton>
@@ -301,45 +292,37 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
           </Panel>
         )}
 
-        {/* Days-left bar, in the reference's loan balance style */}
+        {/* Days-left bar, in the reference's loan balance style: light left half,
+            chamfered dark right half with the action and its ring */}
         {sub && (
-          <div className="relative mt-4 flex items-stretch overflow-hidden rounded-[20px] border border-white/15 shadow-[0_14px_34px_-18px_rgba(0,0,0,0.85)]">
+          <div className="relative mt-4 flex items-stretch overflow-hidden rounded-xl border border-white/15 shadow-[0_14px_34px_-18px_rgba(0,0,0,0.85)]">
             <div
-              className="flex min-w-0 flex-1 items-center gap-2 px-4 py-3.5 text-white"
+              className="flex min-w-0 flex-1 items-center px-4 py-4 text-white"
               style={{ background: `linear-gradient(120deg, ${CARD_FROM} 0%, ${CARD_MID} 100%)` }}
             >
-              <p className="min-w-0 truncate text-[13px] text-white/90">
-                Days left: <span className="font-semibold text-white">{Math.max(0, sub.daysLeft)}</span>
+              <p className="min-w-0 truncate text-[15px] font-medium text-white/90">
+                Days left:{' '}
+                <span className="font-semibold text-white">
+                  {Math.max(0, sub.daysLeft)} of {period}
+                </span>
               </p>
-              <div className="h-1.5 min-w-[40px] flex-1 overflow-hidden rounded-full bg-white/20">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${Math.max(3, left * 100)}%`, background: status?.bar }}
-                />
-              </div>
             </div>
 
-            {/* Diagonal notch between the two halves, like the reference */}
-            <span
-              aria-hidden
-              className="w-5 shrink-0 bg-white/10"
-              style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }}
-            />
-
+            {/* The dark half laps over the light one on a diagonal, as in the reference */}
             <button
               type="button"
-              onClick={() => current && setPayFor(current)}
-              className="flex shrink-0 items-center gap-2 px-4 py-3.5 text-white"
-              style={{ background: `linear-gradient(120deg, ${CARD_MID} 0%, ${CARD_TO} 100%)` }}
+              onClick={() => current && pay(current)}
+              className="relative flex shrink-0 items-center gap-2.5 py-4 pl-7 pr-3 text-white"
+              style={{
+                background: `linear-gradient(120deg, ${CARD_MID} 0%, ${CARD_TO} 100%)`,
+                clipPath: 'polygon(1.5rem 0, 100% 0, 100% 100%, 0 100%)',
+              }}
             >
-              <span className="whitespace-nowrap text-[13px] font-medium">
+              <span className="whitespace-nowrap text-[14px] font-medium">
                 {sub.status === 'EXPIRED' ? 'Renew now' : 'Pay now'}
               </span>
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-                style={{ border: `2px solid ${GREEN}` }}
-              >
-                <ArrowRight className="h-4 w-4" style={{ color: GREEN }} aria-hidden />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#8BC53F] bg-black/25">
+                <ArrowRight className="h-4 w-4 text-white" strokeWidth={2.4} aria-hidden />
               </span>
             </button>
           </div>
@@ -357,39 +340,44 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
           />
         </Panel>
 
-        {/* My payments */}
-        <div ref={paymentsRef} className="mt-4">
-          <Panel className="p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[15px] font-semibold text-white">My payments</h2>
-              <span className="text-[12px] text-white/70">{data.payments.length}</span>
-            </div>
-            {data.payments.length === 0 ? (
-              <p className="py-6 text-center text-[13px] text-white/70">No payments yet.</p>
-            ) : (
-              <ul className="space-y-1">
-                {data.payments.map((p) => (
-                  <PaymentRow key={p.id} payment={p} />
-                ))}
-              </ul>
-            )}
-          </Panel>
+        {/* My payments, straight on the photo with no card around it */}
+        <div ref={paymentsRef} className="mt-5">
+          <div className="mb-1 flex items-center justify-between px-1">
+            <h2 className="text-[15px] font-semibold tracking-tight text-white">My payments</h2>
+            <span className="text-[12px] text-white/70">{data.payments.length}</span>
+          </div>
+          {data.payments.length === 0 ? (
+            <p className="py-6 text-center text-[13px] text-white/70">No payments yet.</p>
+          ) : (
+            <ul className="divide-y divide-white/10">
+              {data.payments.map((p) => (
+                <PaymentRow key={p.id} payment={p} />
+              ))}
+            </ul>
+          )}
         </div>
+
 
         {/* Need help */}
         {data.business.phone && (
-          <div className="pt-4">
+          <div className="pt-5">
             <Panel className="p-4">
               <p className="text-[15px] font-semibold text-white">Need help with your WiFi?</p>
               <p className="mt-0.5 text-[12px] text-white/75">
                 Our support team at {data.business.name} is here for you.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2.5">
-                <PillButton onClick={() => window.location.assign(`tel:${data.business.phone}`)}>
+                <PillButton
+                  className="border-[#0288D1] bg-[#0288D1]"
+                  onClick={() => window.location.assign(`tel:${data.business.phone}`)}
+                >
                   <Phone className="h-4 w-4" aria-hidden />
                   Call us
                 </PillButton>
-                <PillButton onClick={() => window.open(`https://wa.me/${phoneDigits}`, '_blank')}>
+                <PillButton
+                  className="border-[#25D366] bg-[#25D366]"
+                  onClick={() => window.open(`https://wa.me/${phoneDigits}`, '_blank')}
+                >
                   <WhatsAppIcon className="h-4 w-4" aria-hidden />
                   WhatsApp
                 </PillButton>
@@ -398,18 +386,6 @@ const jump = (ref: React.RefObject<HTMLDivElement>) => ref.current?.scrollIntoVi
           </div>
         )}
       </div>
-
-
-
-      <Dialog
-        open={Boolean(payFor)}
-        onOpenChange={(o) => !o && setPayFor(null)}
-        title={payFor ? `Pay for ${payFor.name.replace(/\s*\d+\s*mbps\s*$/i, '')}` : 'Pay'}
-        description={payFor ? `${formatKES(payFor.price)} for ${payFor.billingDays ?? 30} days of WiFi` : undefined}
-      >
-        {payFor && <PaySheet pkg={payFor} defaultPhone={data.customer.phone ?? ''} onDone={() => setPayFor(null)} />}
-      </Dialog>
     </div>
   );
 }
-

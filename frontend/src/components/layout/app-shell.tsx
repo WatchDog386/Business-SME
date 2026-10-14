@@ -22,6 +22,9 @@ const CLIENT_PATHS = [
   '/my-account',
   '/my-packages',
   '/my-pay',
+  '/my-amount',
+  '/my-method',
+  '/my-notifications',
   '/my-payments',
   '/my-contact',
 ];

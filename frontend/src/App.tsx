@@ -34,6 +34,8 @@ import {
   ClientPayPage,
   ClientPaymentsPage,
 } from '@/features/client/client-pages';
+import { ClientAmountPage, ClientMethodPage } from '@/features/client/client-pay-flow';
+import { ClientNotificationsPage } from '@/features/client/client-notifications';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { NotFoundPage } from '@/features/misc/not-found-page';
 import { OfflineBanner } from '@/components/layout/offline-banner';
@@ -88,6 +90,9 @@ export default function App() {
         <Route path="/my-account" element={<ClientProfilePage />} />
         <Route path="/my-packages" element={<ClientPackagesPage />} />
         <Route path="/my-pay" element={<ClientPayPage />} />
+        <Route path="/my-amount" element={<ClientAmountPage />} />
+        <Route path="/my-method" element={<ClientMethodPage />} />
+        <Route path="/my-notifications" element={<ClientNotificationsPage />} />
         <Route path="/my-payments" element={<ClientPaymentsPage />} />
         <Route path="/my-contact" element={<ClientContactPage />} />
         <Route path="/profile" element={<ProfilePage />} />

@@ -391,7 +391,8 @@ export interface ClientHome {
 
 export const clientApi = {
   me: () => api<ClientHome>({ method: 'GET', url: '/client/me' }),
-  pay: (data: { productId?: string; phone?: string }) => api<StkPush>({ method: 'POST', url: '/client/pay', data }),
+  pay: (data: { productId?: string; phone?: string; amount?: number }) =>
+    api<StkPush>({ method: 'POST', url: '/client/pay', data }),
   payStatus: (checkoutRequestId: string) =>
     api<StkPush & { saleId: string | null }>({ method: 'GET', url: '/client/pay/' + encodeURIComponent(checkoutRequestId) }),
   /** Downloads the client's own invoice or receipt. */

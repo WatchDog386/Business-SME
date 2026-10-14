@@ -46,7 +46,7 @@ export function ClientProfilePage() {
   const [theme, setTheme] = useTheme();
   const isDark = theme === 'dark';
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [pickedAvatar, setPickedAvatar] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const { data } = useQuery({ queryKey: ['client-me'], queryFn: clientApi.me });
@@ -65,6 +65,8 @@ export function ClientProfilePage() {
   const name = data?.customer.name || user?.fullName || '';
   const phone = data?.customer.phone ?? user?.phone ?? null;
   const email = user?.email ?? data?.customer.email ?? null;
+  /** The photo just picked, or the one already saved on the account. */
+  const avatarUrl = pickedAvatar ?? user?.avatarUrl ?? null;
 
   // The server holds the real name/phone, so seed the form once it arrives
   useEffect(() => {
@@ -73,12 +75,25 @@ export function ClientProfilePage() {
     setValue('phone', data.customer.phone ?? user?.phone ?? '');
   }, [data, user, setValue]);
 
+  const saveAvatar = useMutation({
+    mutationFn: (url: string) => authApi.updateProfile({ avatarUrl: url }),
+    onSuccess: (updated) => {
+      // The server copy is the one that counts: drop the local copy so every
+      // screen (this page and the dashboard) shows the saved photo
+      setPickedAvatar(null);
+      setUser(updated);
+      void queryClient.invalidateQueries({ queryKey: ['client-me'] });
+      notifySuccess('Photo updated', 'Your new photo now shows on your dashboard.');
+    },
+  });
+
   const saveDetails = useMutation({
     mutationFn: (values: DetailsValues) =>
       authApi.updateProfile({
         fullName: values.fullName.trim(),
         phone: values.phone.trim() || undefined,
-        avatarUrl: avatarUrl,
+        // Only ever send a photo: an empty value here would wipe the saved one
+        avatarUrl: avatarUrl ?? undefined,
       }),
     onSuccess: (updated) => {
       setUser(updated);
@@ -89,6 +104,8 @@ export function ClientProfilePage() {
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Allow picking the same file twice in a row
+    e.target.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       setAvatarError('Choose an image file.');
@@ -100,7 +117,13 @@ export function ClientProfilePage() {
     }
     setAvatarError(null);
     const reader = new FileReader();
-    reader.onload = () => setAvatarUrl(reader.result as string);
+    // Shown straight away, then saved on its own so it never depends on the
+    // details form being submitted
+    reader.onload = () => {
+      const url = reader.result as string;
+      setPickedAvatar(url);
+      saveAvatar.mutate(url);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -172,8 +195,13 @@ export function ClientProfilePage() {
           <h2 className="mt-4 text-[18px] font-semibold text-white">{name}</h2>
           {phone && <p className="text-[13px] text-white/75">{phone}</p>}
           {email && <p className="text-[13px] text-white/75">{email}</p>}
-          <p className="mt-1 text-[11px] text-white/50">PNG, JPG or WEBP · up to 2MB</p>
+          <p className="mt-1 text-[11px] text-white/50">
+            {saveAvatar.isPending ? 'Saving photo…' : 'PNG, JPG or WEBP · up to 2MB'}
+          </p>
           {avatarError && <p className="mt-1 text-xs text-red-300">{avatarError}</p>}
+          {saveAvatar.isError && (
+            <p className="mt-1 text-xs text-red-300">{apiErrorMessage(saveAvatar.error)}</p>
+          )}
         </section>
 
         {/* Editable details */}

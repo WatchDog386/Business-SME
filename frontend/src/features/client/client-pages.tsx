@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Mail, MessageCircle, Phone, Search, Wallet } from 'lucide-react';
 import { clientApi, type ClientHome } from '@/api/endpoints';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { PackageCard, planStyle } from '@/features/products/package-card';
 import type { Product } from '@/api/types';
 import { cn, formatKES } from '@/lib/utils';
-import { PaySheet, PaymentRow } from './client-shared';
+import { PaymentRow } from './client-shared';
 
 /** Client packages are the lean shape; PackageCard expects the staff Product shape. */
 export function toProduct(p: ClientHome['packages'][number]): Product {
@@ -125,8 +125,9 @@ export function ClientSearch({
 /** Every package the provider offers, with a pay button on each. */
 export function ClientPackagesPage() {
   const { home, isLoading } = useClientHome();
-  const [payFor, setPayFor] = useState<ClientHome['packages'][number] | null>(null);
-  const [query, setQuery] = useState('');
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [query, setQuery] = useState(params.get('q') ?? '');
 
   if (isLoading || !home) return <WorkspaceLoader />;
 
@@ -153,11 +154,11 @@ export function ClientPackagesPage() {
                 key={p.id}
                 product={toProduct(p)}
                 index={i}
-                onAdd={() => setPayFor(p)}
+                onAdd={() => navigate(`/my-amount?pkg=${p.id}`)}
                 footer={
                   <button
                     type="button"
-                    onClick={() => setPayFor(p)}
+                    onClick={() => navigate(`/my-amount?pkg=${p.id}`)}
                     className="inline-flex h-10 items-center rounded-xl border-[1.5px] px-3.5 text-[13px] font-medium tabular-nums transition-colors active:opacity-70"
                     style={
                       isMine
@@ -173,14 +174,6 @@ export function ClientPackagesPage() {
           })}
         </div>
       )}
-
-      {payFor && (
-        <PaySheet
-          pkg={payFor}
-          defaultPhone={home.customer.phone ?? ''}
-          onDone={() => setPayFor(null)}
-        />
-      )}
     </ClientShell>
   );
 }
@@ -190,7 +183,7 @@ export function ClientPackagesPage() {
 /** Renew or switch package, with the provider's packages as a list. */
 export function ClientPayPage() {
   const { home, isLoading } = useClientHome();
-  const [payFor, setPayFor] = useState<ClientHome['packages'][number] | null>(null);
+  const navigate = useNavigate();
 
   if (isLoading || !home) return <WorkspaceLoader />;
 
@@ -202,13 +195,13 @@ export function ClientPayPage() {
       <section className="rounded-lg border border-white/15 bg-black/55 p-4 backdrop-blur-md">
         <h2 className="text-[15px] font-semibold text-white">Pay for your package</h2>
         <p className="mt-0.5 text-[12px] text-white/75">
-          Pick a package and you'll get an M-Pesa prompt on your phone.
+          Pick how much to pay and you'll get an M-Pesa prompt on your phone.
         </p>
 
         {mine && (
           <button
             type="button"
-            onClick={() => setPayFor(mine)}
+            onClick={() => navigate(`/my-amount?pkg=${mine.id}`)}
             className="mt-3 flex w-full items-center gap-3 rounded-lg bg-white/10 p-3 text-left transition-transform active:scale-[0.99]"
           >
             <Wallet className="h-5 w-5 shrink-0 text-[#8BC53F]" aria-hidden />
@@ -236,11 +229,11 @@ export function ClientPayPage() {
             key={p.id}
             product={toProduct(p)}
             index={home.packages.indexOf(p) || i}
-            onAdd={() => setPayFor(p)}
+            onAdd={() => navigate(`/my-amount?pkg=${p.id}`)}
             footer={
               <button
                 type="button"
-                onClick={() => setPayFor(p)}
+                onClick={() => navigate(`/my-amount?pkg=${p.id}`)}
                 className="inline-flex h-10 items-center rounded-xl border-[1.5px] px-3.5 text-[13px] font-medium tabular-nums transition-colors active:opacity-70"
                 style={{ borderColor: planStyle(p.name.replace(/\s*\d+\s*mbps\s*$/i, ''), i).from, color: planStyle(p.name.replace(/\s*\d+\s*mbps\s*$/i, ''), i).from }}
               >
@@ -250,14 +243,6 @@ export function ClientPayPage() {
           />
         ))}
       </div>
-
-      {payFor && (
-        <PaySheet
-          pkg={payFor}
-          defaultPhone={home.customer.phone ?? ''}
-          onDone={() => setPayFor(null)}
-        />
-      )}
     </ClientShell>
   );
 }
