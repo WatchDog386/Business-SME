@@ -136,6 +136,7 @@ export class DashboardService {
       .where('sale.businessId = :businessId', { businessId })
       .andWhere("sale.payment_status != 'CANCELLED'")
       .andWhere("sale.sale_type != 'ADVANCE'")
+      .andWhere('EXISTS (SELECT 1 FROM sale_items recognized_item WHERE recognized_item.\"saleId\" = sale.id)')
       .andWhere('sale.created_at >= :from', { from })
       .andWhere('sale.created_at < :to', { to })
       .getRawOne<{ sum: string }>();
@@ -168,7 +169,7 @@ export class DashboardService {
       .where('payment.businessId = :businessId', { businessId })
       .andWhere("payment.status = 'SUCCESS'")
       .andWhere('payment.transaction_date >= :from AND payment.transaction_date < :to', { from, to })
-      .andWhere("(sale.sale_type = 'PACKAGE' OR EXISTS (SELECT 1 FROM sale_items package_item WHERE package_item.\"saleId\" = sale.id AND package_item.productId IS NOT NULL))")
+      .andWhere("(sale.sale_type = 'PACKAGE' OR EXISTS (SELECT 1 FROM sale_items package_item INNER JOIN products package_product ON package_product.id = package_item.\"productId\" WHERE package_item.\"saleId\" = sale.id AND package_product.billing_days IS NOT NULL))")
       .getRawOne<{ sum: string }>();
     return Number(row?.sum ?? 0);
   }

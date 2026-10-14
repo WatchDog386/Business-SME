@@ -83,6 +83,51 @@ function AmountRow({
   );
 }
 
+function OutstandingBalances({ home, navigate, onCustom }: { home: ClientHome; navigate: (path: string) => void; onCustom: (sale: ClientHome['payments'][number]) => void }) {
+  const open = home.payments.filter((sale) => sale.balance > 0 && !['CANCELLED', 'REFUNDED'].includes(sale.status));
+  if (!open.length) return null;
+  return (
+    <section className="mt-6 space-y-2">
+      <h2 className="px-1 text-[14px] font-semibold text-white">Outstanding balances</h2>
+      {open.map((sale) => (
+        <div key={sale.id} className="rounded-2xl border border-white/15 bg-black/55 p-4 backdrop-blur-md">
+          <p className="text-[14px] font-semibold text-white">{sale.packageName || `Invoice ${sale.number ? `#${sale.number}` : ''}`}</p>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-[12px] text-white/65">Remaining {formatKES(sale.balance)}</span>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => onCustom(sale)} className="rounded-full border border-white/25 px-3 py-1.5 text-[11px] font-medium text-white">Choose amount</button>
+              <button type="button" onClick={() => navigate(`/my-method?saleId=${sale.id}&amount=${Math.round(sale.balance)}`)} className="rounded-full bg-[#8BC53F] px-3 py-1.5 text-[11px] font-semibold text-white">Pay balance</button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function BalanceTopUpDialog({ sale, amount, onAmountChange, onClose, navigate }: {
+  sale: ClientHome['payments'][number] | null;
+  amount: string;
+  onAmountChange: (amount: string) => void;
+  onClose: () => void;
+  navigate: (path: string) => void;
+}) {
+  if (!sale) return null;
+  const parsed = Number(amount);
+  const valid = Number.isFinite(parsed) && parsed >= 1 && parsed <= sale.balance;
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()} title="Top up invoice balance" description={`Up to ${formatKES(sale.balance)} remaining`}>
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="invoice-topup-amount" className="mb-1 block text-[12px] font-medium text-foreground-3">Amount in KSh</label>
+          <Input id="invoice-topup-amount" type="number" inputMode="numeric" min={1} max={sale.balance} value={amount} onChange={(event) => onAmountChange(event.target.value)} placeholder={String(Math.round(sale.balance))} />
+        </div>
+        <button type="button" disabled={!valid} onClick={() => { onClose(); navigate(`/my-method?saleId=${sale.id}&amount=${Math.round(parsed)}`); }} className="h-14 w-full rounded-2xl bg-[#8BC53F] text-[15px] font-semibold text-white disabled:opacity-50">Continue to payment</button>
+      </div>
+    </Dialog>
+  );
+}
+
 /**
  * Step 1 of paying: what the client is paying for. The package's daily rate is the
  * quick pick; a custom amount lets them pay part of it. Whatever they choose
@@ -95,6 +140,13 @@ export function ClientAmountPage() {
   const [picked, setPicked] = useState<{ amount: number; label: string } | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
+  const [balanceTarget, setBalanceTarget] = useState<ClientHome['payments'][number] | null>(null);
+  const [balanceAmount, setBalanceAmount] = useState('');
+
+  const beginBalanceTopUp = (sale: ClientHome['payments'][number]) => {
+    setBalanceTarget(sale);
+    setBalanceAmount(String(Math.round(sale.balance)));
+  };
 
   if (isLoading || !home) return <WorkspaceLoader />;
 
@@ -106,16 +158,10 @@ export function ClientAmountPage() {
     return (
       <ClientShell title="">
         <h1 className="text-[26px] font-bold text-white">Payment amount</h1>
-        <p className="mt-4 rounded-2xl border border-white/15 bg-black/55 p-4 text-[14px] text-white/80 backdrop-blur-md">
-          You don't have a WiFi package yet. Pick one first and you can pay for it here.
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate('/my-packages')}
-          className="mt-4 h-12 w-full rounded-xl bg-[#8BC53F] text-[15px] font-semibold text-white"
-        >
-          Browse packages
-        </button>
+        <OutstandingBalances home={home} navigate={navigate} onCustom={beginBalanceTopUp} />
+        <p className="mt-4 rounded-2xl border border-white/15 bg-black/55 p-4 text-[14px] text-white/80 backdrop-blur-md">You don't have a WiFi package yet. Pick one first and you can pay for it here.</p>
+        <button type="button" onClick={() => navigate('/my-packages')} className="mt-4 h-12 w-full rounded-xl bg-[#8BC53F] text-[15px] font-semibold text-white">Browse packages</button>
+        <BalanceTopUpDialog sale={balanceTarget} amount={balanceAmount} onAmountChange={setBalanceAmount} onClose={() => setBalanceTarget(null)} navigate={navigate} />
       </ClientShell>
     );
   }
@@ -163,6 +209,7 @@ export function ClientAmountPage() {
         <p className="mt-4 px-1 text-[12px] text-white/65">
           {pkg.name.replace(/\s*\d+\s*mbps\s*$/i, '') || pkg.name} is {formatKES(pkg.price)} for {days} days.
         </p>
+        <OutstandingBalances home={home} navigate={navigate} onCustom={beginBalanceTopUp} />
 
         {/* Pinned to the bottom, like the reference */}
         <div className="mt-auto bg-gradient-to-t from-black/85 to-transparent px-1 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6">
@@ -224,6 +271,7 @@ export function ClientAmountPage() {
           </button>
         </div>
       </Dialog>
+      <BalanceTopUpDialog sale={balanceTarget} amount={balanceAmount} onAmountChange={setBalanceAmount} onClose={() => setBalanceTarget(null)} navigate={navigate} />
     </ClientShell>
   );
 }
@@ -251,6 +299,9 @@ export function ClientMethodPage() {
   }, [home, phone]);
 
   const pkg = home?.packages.find((p) => p.id === params.get('pkg')) ?? null;
+  const saleId = params.get('saleId');
+  const balanceSale = home?.payments.find((sale) => sale.id === saleId) ?? null;
+  const paymentLabel = saleId ? balanceSale?.packageName || `invoice ${balanceSale?.number ? `#${balanceSale.number}` : ''}` : pkg?.name.replace(/\s*\d+\s*mbps\s*$/i, '') || 'your package';
   const amount = Math.max(1, Math.round(Number(params.get('amount')) || pkg?.price || 0));
 
   // Countdown while the client types their PIN
@@ -286,19 +337,19 @@ export function ClientMethodPage() {
     if (push.state === 'paid') {
       notifySuccess(
         'Payment received',
-        `${formatKES(amount)} paid for ${name}${push.receipt ? `. M-Pesa ${push.receipt}` : ''}.`,
+        `${formatKES(amount)} paid toward ${paymentLabel || name}${push.receipt ? `. M-Pesa ${push.receipt}` : ''}.`,
       );
     } else {
       notifyError('Payment not completed', push.message || 'The M-Pesa prompt was not completed.');
     }
-  }, [push, amount, pkg]);
+  }, [push, amount, pkg, paymentLabel]);
 
   if (isLoading || !home) return <WorkspaceLoader />;
 
   const send = async () => {
     setSending(true);
     try {
-      const next = await clientApi.pay({ productId: pkg?.id, phone, amount });
+      const next = await clientApi.pay({ productId: saleId ? undefined : pkg?.id, saleId: saleId ?? undefined, phone, amount });
       told.current = false;
       setPush(next);
       setLeft(PIN_SECONDS);
@@ -325,7 +376,7 @@ export function ClientMethodPage() {
             </span>
             <p className="text-[20px] font-semibold text-white">Payment received</p>
             <p className="text-[13px] text-white/75">
-              You paid {formatKES(amount)} for {pkg?.name.replace(/\s*\d+\s*mbps\s*$/i, '') || 'your package'}.
+              You paid {formatKES(amount)} toward {paymentLabel || 'your package'}.
               {push?.receipt ? ` M-Pesa ${push.receipt}.` : ''}
             </p>
             <button

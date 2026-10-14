@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -39,6 +40,11 @@ export class CreateSaleDto {
   @IsOptional()
   @IsEnum(SALE_TYPES)
   saleType?: (typeof SALE_TYPES)[number];
+
+  @ApiPropertyOptional({ description: 'Apply the client’s available advance credit to this product or service sale.' })
+  @IsOptional()
+  @IsBoolean()
+  applyAdvances?: boolean;
 
   @ApiProperty({
     type: [SaleItemInputDto],

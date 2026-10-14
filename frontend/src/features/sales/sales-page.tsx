@@ -135,7 +135,7 @@ function SalesMobilePage() {
         {[
           {
             label: 'Today',
-            value: dashboard.data ? shortKsh(dashboard.data.today.sales) : '—',
+            value: dashboard.data ? shortKsh(dashboard.data.today.cashReceived) : '—',
             bg: 'bg-emerald-50 [.dark_&]:bg-surface',
             text: 'text-emerald-700 [.dark_&]:text-emerald-400',
           },
@@ -224,6 +224,7 @@ function SalesMobilePage() {
                     </span>
                     <span className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">{sale.customer_name ?? 'Walk-in customer'}</p>
+                      <p className="truncate text-[11px] text-foreground-5">{saleCategoryLabel(sale.sale_type)}</p>
                       <p className="sm:hidden truncate text-xs text-foreground-5">
                         {sale.number ? invoiceNo(sale.number) : `#${sale.id.slice(0, 8).toUpperCase()}`} · {formatKES(sale.total)}
                       </p>
@@ -258,4 +259,17 @@ function SalesMobilePage() {
       )}
     </div>
   );
+}
+
+function saleCategoryLabel(type?: string) {
+  const labels: Record<string, string> = {
+    GENERAL: "Today's general sales",
+    PRODUCT: 'Product sale',
+    SERVICE: 'Service sale',
+    PACKAGE: 'Package subscription',
+    ADVANCE: 'Advance payment',
+    OTHER: 'Other revenue',
+    MIXED: 'Mixed sale',
+  };
+  return labels[type ?? 'PRODUCT'] ?? 'Product sale';
 }

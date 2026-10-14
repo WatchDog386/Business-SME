@@ -227,6 +227,8 @@ export interface Sale {
   customerId: string | null;
   employeeId: string | null;
   sale_type?: 'GENERAL' | 'PRODUCT' | 'SERVICE' | 'PACKAGE' | 'ADVANCE' | 'OTHER' | 'MIXED';
+  advance_credit?: number;
+  advance_used?: number;
   subtotal: number;
   discount: number;
   tax: number;

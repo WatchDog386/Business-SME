@@ -82,6 +82,7 @@ export class ReportsService {
         .addSelect('COALESCE(SUM(sale.total), 0)', 'revenue')
         .where('sale.businessId = :businessId', { businessId })
         .andWhere("sale.payment_status != 'CANCELLED'")
+        .andWhere("sale.sale_type != 'ADVANCE'")
         .andWhere('sale.created_at >= :start', { start })
         .andWhere('sale.created_at < :end', { end })
         .groupBy('DATE(sale.created_at)')
@@ -149,6 +150,7 @@ export class ReportsService {
       .addSelect('COALESCE(SUM(item.cost_price * item.quantity), 0)', 'cogs')
       .where('sale.businessId = :businessId', { businessId })
       .andWhere("sale.payment_status != 'CANCELLED'")
+      .andWhere("sale.sale_type != 'ADVANCE'")
       .andWhere('sale.created_at >= :start', { start })
       .andWhere('sale.created_at < :end', { end })
       .groupBy('COALESCE(product.name, service.name, item.item_name)')
@@ -257,6 +259,7 @@ export class ReportsService {
       .select('COALESCE(SUM(sale.total), 0)', 'sum')
       .where('sale.businessId = :businessId', { businessId })
       .andWhere("sale.payment_status != 'CANCELLED'")
+      .andWhere("sale.sale_type != 'ADVANCE'")
       .andWhere('sale.created_at >= :start', { start })
       .andWhere('sale.created_at < :end', { end })
       .getRawOne<{ sum: string }>();
@@ -270,6 +273,7 @@ export class ReportsService {
       .select('COALESCE(SUM(item.cost_price * item.quantity), 0)', 'sum')
       .where('sale.businessId = :businessId', { businessId })
       .andWhere("sale.payment_status != 'CANCELLED'")
+      .andWhere("sale.sale_type != 'ADVANCE'")
       .andWhere('sale.created_at >= :start', { start })
       .andWhere('sale.created_at < :end', { end })
       .getRawOne<{ sum: string }>();
@@ -294,6 +298,7 @@ export class ReportsService {
       .select('COUNT(*)', 'count')
       .where('sale.businessId = :businessId', { businessId })
       .andWhere("sale.payment_status != 'CANCELLED'")
+      .andWhere("sale.sale_type != 'ADVANCE'")
       .andWhere('sale.created_at >= :start', { start })
       .andWhere('sale.created_at < :end', { end })
       .getRawOne<{ count: string }>();
@@ -307,6 +312,7 @@ export class ReportsService {
       .addSelect('COALESCE(SUM(sale.total), 0)', 'total')
       .where('sale.businessId = :businessId', { businessId })
       .andWhere("sale.payment_status != 'CANCELLED'")
+      .andWhere("sale.sale_type != 'ADVANCE'")
       .andWhere('sale.created_at >= :start', { start })
       .andWhere('sale.created_at < :end', { end })
       .groupBy('sale.payment_method')

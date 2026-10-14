@@ -41,6 +41,18 @@ export class Sale extends BaseEntity {
   @Column({ type: 'int' })
   total: number;
 
+  /** Cash already received earlier and applied to this sale. Not a new payment. */
+  @Column({ type: 'int', default: 0 })
+  advance_credit: number;
+
+  /** Credit consumed from this advance receipt, if this sale is an ADVANCE. */
+  @Column({ type: 'int', default: 0 })
+  advance_used: number;
+
+  /** Source advance sale and amount applied, so cancellation can return it. */
+  @Column({ type: 'simple-json', nullable: true })
+  advance_allocations: Array<{ saleId: string; amount: number }> | null;
+
   @Column({ type: 'simple-enum', enum: PAYMENT_STATUSES, default: 'PAID' })
   payment_status: string;
 

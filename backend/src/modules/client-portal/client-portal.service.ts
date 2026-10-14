@@ -6,12 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
 import { Customer } from '../customers/entities/customer.entity';
 import { Product } from '../products/entities/product.entity';
 import { Sale } from '../sales/entities/sale.entity';
+import { SaleItem } from '../sales/entities/sale-item.entity';
+import { Payment } from '../sales/entities/payment.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { BusinessMember } from '../businesses/entities/business-member.entity';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
@@ -28,8 +30,10 @@ interface PendingPay {
   businessId: string;
   customerId: string;
   userId: string;
-  productId: string;
+  productId?: string;
+  saleId?: string;
   recordedSaleId: string | null;
+  recording?: Promise<string>;
 }
 
 /**
@@ -63,6 +67,8 @@ export class ClientPortalService {
     @InjectRepository(Customer) private readonly customerRepo: Repository<Customer>,
     @InjectRepository(Product) private readonly productRepo: Repository<Product>,
     @InjectRepository(Sale) private readonly saleRepo: Repository<Sale>,
+    @InjectRepository(SaleItem) private readonly saleItemRepo: Repository<SaleItem>,
+    @InjectRepository(Payment) private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Business) private readonly businessRepo: Repository<Business>,
     @InjectRepository(BusinessMember) private readonly memberRepo: Repository<BusinessMember>,
     private readonly subscriptions: SubscriptionsService,
@@ -96,6 +102,11 @@ export class ClientPortalService {
         take: 50,
       }),
     ]);
+    const saleIds = sales.map((sale) => sale.id);
+    const [payments, saleItems] = saleIds.length ? await Promise.all([
+      this.paymentRepo.find({ where: { businessId, saleId: In(saleIds), status: 'SUCCESS' } }),
+      this.saleItemRepo.find({ where: { saleId: In(saleIds) } }),
+    ]) : [[], []];
     return {
       business: { name: business?.name ?? 'Optimas', phone: business?.phone ?? null, email: business?.email ?? null },
       customer: {
@@ -117,7 +128,29 @@ export class ClientPortalService {
       })),
       payments: sales
         .filter((s) => s.payment_status !== 'CANCELLED')
-        .map((s) => ({ id: s.id, number: s.number, total: s.total, status: s.payment_status, method: s.payment_method, at: s.created_at })),
+        .map((s) => {
+          const advanceCredit = s.advance_credit ?? 0;
+          const cashPaid = payments.filter((payment) => payment.saleId === s.id).reduce((sum, payment) => sum + payment.amount, 0);
+          const paid = cashPaid + advanceCredit;
+          const packageItem = saleItems.find((item) =>
+            item.saleId === s.id && item.productId &&
+            (s.sale_type === 'PACKAGE' || packages.some((pkg) => pkg.id === item.productId)),
+          );
+          return {
+            id: s.id,
+            number: s.number,
+            total: s.total,
+            paid,
+            balance: Math.max(0, s.total - paid),
+            advanceCredit,
+            advanceUsed: s.advance_used ?? 0,
+            advanceAvailable: s.sale_type === 'ADVANCE' ? Math.max(0, s.total - (s.advance_used ?? 0)) : 0,
+            status: s.payment_status,
+            method: s.payment_method,
+            at: s.created_at,
+            packageName: packageItem?.item_name ?? null,
+          };
+        }),
     };
   }
 
@@ -126,9 +159,35 @@ export class ClientPortalService {
     businessId: string,
     customerId: string,
     userId: string,
-    input: { productId?: string; phone?: string; amount?: number },
+    input: { productId?: string; saleId?: string; phone?: string; amount?: number },
   ) {
     const customer = await this.customer(businessId, customerId);
+    if (input.saleId) {
+      const sale = await this.saleRepo.findOne({ where: { businessId, id: input.saleId, customerId } });
+      if (!sale || ['CANCELLED', 'REFUNDED', 'PAID'].includes(sale.payment_status)) {
+        throw new BadRequestException({ code: 'SALE_NOT_PAYABLE', message: 'This invoice has no balance to pay.' });
+      }
+      const paidRow = await this.paymentRepo.createQueryBuilder('payment')
+        .select('COALESCE(SUM(payment.amount), 0)', 'paid')
+        .where('payment.businessId = :businessId AND payment.saleId = :saleId', { businessId, saleId: sale.id })
+        .andWhere("payment.status = 'SUCCESS'")
+        .getRawOne<{ paid: string }>();
+      const balance = Math.max(0, sale.total - (sale.advance_credit ?? 0) - Number(paidRow?.paid ?? 0));
+      const amount = input.amount == null ? balance : roundKES(input.amount);
+      if (amount < 1 || amount > balance) {
+        throw new BadRequestException({ code: 'INVALID_BALANCE_PAYMENT', message: `Enter an amount up to the outstanding KES ${balance.toLocaleString('en-KE')}.` });
+      }
+      const phone = input.phone?.trim() || customer.phone;
+      if (!phone) throw new BadRequestException({ code: 'PHONE_REQUIRED', message: 'Enter your M-Pesa number.' });
+      const push = await this.payments.stkPush(businessId, {
+        phone,
+        amount,
+        reference: sale.number ? `INV${sale.number}` : 'Invoice balance',
+        description: 'Invoice balance payment',
+      });
+      this.pending.set(push.checkoutRequestId, { businessId, customerId, userId, saleId: sale.id, recordedSaleId: null });
+      return push;
+    }
     const current = await this.subscriptions.forCustomer(businessId, customerId);
     const productId = input.productId ?? current?.productId;
     if (!productId) throw new BadRequestException({ code: 'CHOOSE_PACKAGE', message: 'Choose a WiFi package to pay for.' });
@@ -137,7 +196,8 @@ export class ClientPortalService {
     const phone = input.phone?.trim() || customer.phone;
     if (!phone) throw new BadRequestException({ code: 'PHONE_REQUIRED', message: 'Enter your M-Pesa number.' });
     // A client may pay part of a package, never more than it
-    const amount = input.amount ? Math.min(roundKES(input.amount), pkg.selling_price) : pkg.selling_price;
+    const amount = input.amount == null ? pkg.selling_price : roundKES(input.amount);
+    if (amount < 1 || amount > pkg.selling_price) throw new BadRequestException({ code: 'INVALID_AMOUNT', message: `Enter an amount up to KES ${pkg.selling_price.toLocaleString('en-KE')}.` });
 
     const push = await this.payments.stkPush(businessId, {
       phone,
@@ -157,21 +217,38 @@ export class ClientPortalService {
     }
     const status = await this.payments.stkStatus(businessId, checkoutRequestId);
     if (status.state === 'paid' && !entry.recordedSaleId) {
-      const sale = await this.sales.create(
-        businessId,
-        {
-          items: [{ productId: entry.productId, quantity: 1 }],
-          customerId,
-          paymentMethod: 'M-PESA',
-          amountPaid: status.amount,
-          reference: status.receipt ?? undefined,
-          notes: `Paid by the client in the app${status.receipt ? ` · M-Pesa ${status.receipt}` : ''}`,
-          // The checkout id makes the sale idempotent: never recorded twice
-          idempotencyKey: `stk-${checkoutRequestId}`,
-        } as Parameters<SalesService['create']>[1],
-        { userId: entry.userId, role: UserRole.CLIENT },
-      );
-      entry.recordedSaleId = sale.id;
+      if (!entry.recording) {
+        entry.recording = (async () => {
+          if (entry.saleId) {
+            const sale = await this.sales.recordPayment(
+              businessId,
+              entry.saleId,
+              { amount: status.amount, method: 'M-PESA', reference: status.receipt ?? checkoutRequestId, notes: 'Client invoice balance payment' },
+              { userId: entry.userId },
+            );
+            return sale.id;
+          }
+          const sale = await this.sales.create(
+            businessId,
+            {
+              items: [{ productId: entry.productId, quantity: 1 }],
+              saleType: 'PACKAGE',
+              customerId,
+              paymentMethod: 'M-PESA',
+              amountPaid: status.amount,
+              reference: status.receipt ?? checkoutRequestId,
+              notes: `Paid by the client in the app${status.receipt ? ` · M-Pesa ${status.receipt}` : ''}`,
+              idempotencyKey: `stk-${checkoutRequestId}`,
+            } as Parameters<SalesService['create']>[1],
+            { userId: entry.userId, role: UserRole.CLIENT },
+          );
+          return sale.id;
+        })().catch((error: unknown) => {
+          entry.recording = undefined;
+          throw error;
+        });
+      }
+      entry.recordedSaleId = await entry.recording;
     }
     return { ...status, saleId: entry.recordedSaleId };
   }

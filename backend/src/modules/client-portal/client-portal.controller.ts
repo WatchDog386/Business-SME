@@ -27,6 +27,10 @@ import { ClientPortalService } from './client-portal.service';
 class ClientPayDto {
   @IsOptional()
   @IsUUID()
+  saleId?: string;
+
+  @IsOptional()
+  @IsUUID()
   productId?: string;
 
   @IsOptional()
@@ -34,7 +38,7 @@ class ClientPayDto {
   @MaxLength(20)
   phone?: string;
 
-  /** Part payment: what to actually prompt for. Never more than the package price. */
+  /** Amount to prompt for, capped by the selected package price or invoice balance. */
   @IsOptional()
   @IsNumber()
   @Min(1)

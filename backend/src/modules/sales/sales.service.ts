@@ -283,16 +283,17 @@ export class SalesService {
       });
     }
 
-    const amountPaid = Math.min(
-      roundKES(dto.amountPaid ?? totals.total),
-      totals.total,
-    );
-    if (roundKES(dto.amountPaid ?? totals.total) > totals.total) {
+    const requestedAmount = roundKES(dto.amountPaid ?? (dto.paymentMethod === 'CREDIT' ? 0 : totals.total));
+    if (requestedAmount > totals.total) {
       throw new BadRequestException({ code: 'OVERPAYMENT', message: 'The amount received cannot exceed the sale total.' });
     }
-    if (dto.paymentMethod === 'CREDIT' && amountPaid > 0) {
+    if (requestedAmount < 0) {
+      throw new BadRequestException({ code: 'INVALID_AMOUNT', message: 'The amount received cannot be negative.' });
+    }
+    if (dto.paymentMethod === 'CREDIT' && requestedAmount > 0) {
       throw new BadRequestException({ code: 'CREDIT_CANNOT_COLLECT', message: 'Choose a payment method for money received, or record this as credit with no payment.' });
     }
+    const amountPaid = requestedAmount;
     let paymentStatus: string;
     if (dto.paymentMethod === 'CREDIT') {
       paymentStatus = amountPaid <= 0 ? 'UNPAID' : 'PARTIAL';
@@ -311,6 +312,8 @@ export class SalesService {
       });
     }
 
+    let appliedAdvance = 0;
+    const advanceAllocations: Array<{ saleId: string; amount: number }> = [];
     const sale = await this.dataSource.transaction(async (manager) => {
       const inferredType = isAmountOnly
         ? 'GENERAL'
@@ -322,12 +325,59 @@ export class SalesService {
               ? 'PACKAGE'
               : 'PRODUCT';
       const saleType = dto.saleType ?? inferredType;
+      if (!isAmountOnly && saleType !== inferredType) {
+        throw new BadRequestException({
+          code: 'SALE_TYPE_ITEMS_MISMATCH',
+          message: `This sale contains ${inferredType.toLowerCase()} items, so it must use the ${inferredType.toLowerCase()} category.`,
+        });
+      }
       if (!isAmountOnly && ['GENERAL', 'ADVANCE', 'OTHER'].includes(saleType)) {
         throw new BadRequestException({ code: 'SALE_TYPE_ITEMS_MISMATCH', message: 'General sales, advances, and other revenue must be recorded as an amount, without catalogue items.' });
       }
       if (isAmountOnly && !['GENERAL', 'ADVANCE', 'OTHER', 'PACKAGE'].includes(saleType)) {
         throw new BadRequestException({ code: 'SALE_TYPE_AMOUNT_MISMATCH', message: 'Choose a valid category for an amount-only sale.' });
       }
+      if (saleType === 'ADVANCE' && !dto.customerId) {
+        throw new BadRequestException({ code: 'ADVANCE_NEEDS_CLIENT', message: 'Choose the client who paid this advance.' });
+      }
+      if (['ADVANCE', 'OTHER'].includes(saleType) && !dto.notes?.trim()) {
+        throw new BadRequestException({ code: 'SALE_DESCRIPTION_REQUIRED', message: 'Add what this advance is for or describe the other revenue source.' });
+      }
+      if (dto.applyAdvances && (!dto.customerId || !['PRODUCT', 'SERVICE'].includes(saleType))) {
+        throw new BadRequestException({ code: 'ADVANCE_NOT_APPLICABLE', message: 'Advance credit can only be applied to this client’s product or service sale.' });
+      }
+
+      if (dto.applyAdvances && dto.customerId) {
+        if (this.dataSource.options.type === 'postgres') {
+          await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`customer-advance:${businessId}:${dto.customerId}`]);
+        }
+        const advances = await manager.getRepository(Sale).find({
+          where: { businessId, customerId: dto.customerId, sale_type: 'ADVANCE', payment_status: 'PAID' },
+          order: { created_at: 'ASC' },
+        });
+        let needed = Math.max(0, totals.total - amountPaid);
+        for (const advance of advances) {
+          const available = Math.max(0, advance.total - (advance.advance_used ?? 0));
+          const use = Math.min(available, needed);
+          if (use <= 0) continue;
+          advance.advance_used = (advance.advance_used ?? 0) + use;
+          await manager.save(advance);
+          advanceAllocations.push({ saleId: advance.id, amount: use });
+          appliedAdvance += use;
+          needed -= use;
+          if (needed <= 0) break;
+        }
+      }
+      const collectedAndAdvanced = amountPaid + appliedAdvance;
+      if (collectedAndAdvanced > totals.total) {
+        throw new BadRequestException({ code: 'ADVANCE_OVERPAYMENT', message: 'The selected advance credit and new payment exceed the sale total.' });
+      }
+      paymentStatus = collectedAndAdvanced >= totals.total
+        ? 'PAID'
+        : collectedAndAdvanced > 0
+          ? 'PARTIAL'
+          : 'UNPAID';
+
       const saleEntity = manager.create(Sale, {
         number: await this.nextNumber(manager, businessId, 'sale'),
         businessId,
@@ -338,6 +388,9 @@ export class SalesService {
         discount: totals.discount,
         tax: totals.tax,
         total: totals.total,
+        advance_credit: appliedAdvance,
+        advance_used: 0,
+        advance_allocations: advanceAllocations.length ? advanceAllocations : null,
         payment_status: paymentStatus,
         payment_method: dto.paymentMethod,
         notes: dto.notes ?? null,
@@ -412,12 +465,12 @@ export class SalesService {
         );
       }
 
-      if (dto.customerId) {
+      if (dto.customerId && saleType !== 'ADVANCE') {
         await this.customersService.adjustSpend(
           businessId,
           dto.customerId,
           totals.total,
-          totals.total - amountPaid,
+          totals.total - amountPaid - appliedAdvance,
           true,
         );
       }
@@ -433,6 +486,7 @@ export class SalesService {
           paymentMethod: dto.paymentMethod,
           paymentStatus,
           amountPaid,
+          advanceCredit: appliedAdvance,
           items: resolved.map((i) => ({
             name: i.name,
             quantity: i.quantity,
@@ -517,6 +571,26 @@ export class SalesService {
     return { items, total: Number(totalRow?.count ?? 0), page, limit };
   }
 
+  async availableAdvances(businessId: string, customerId: string) {
+    await this.customersService.get(businessId, customerId);
+    const sales = await this.saleRepo.find({
+      where: { businessId, customerId, sale_type: 'ADVANCE', payment_status: 'PAID' },
+      order: { created_at: 'ASC' },
+    });
+    const advances = sales
+      .map((sale) => ({
+        id: sale.id,
+        number: sale.number,
+        total: sale.total,
+        used: sale.advance_used ?? 0,
+        available: Math.max(0, sale.total - (sale.advance_used ?? 0)),
+        purpose: sale.notes,
+        created_at: sale.created_at,
+      }))
+      .filter((sale) => sale.available > 0);
+    return { total: advances.reduce((sum, sale) => sum + sale.available, 0), advances };
+  }
+
   async get(businessId: string, id: string) {
     const sale = await this.saleRepo.findOne({
       where: { id, businessId },
@@ -585,14 +659,21 @@ export class SalesService {
       });
     }
 
+    if (dto.reference) {
+      const prior = await this.paymentRepo.findOne({
+        where: { businessId, saleId, reference: dto.reference, status: 'SUCCESS' },
+      });
+      if (prior) return this.get(businessId, saleId);
+    }
+
     const alreadyPaid = await this.paymentRepo
       .createQueryBuilder('payment')
       .select('COALESCE(SUM(payment.amount), 0)', 'paid')
       .where('payment.saleId = :saleId', { saleId })
-      .andWhere("payment.status != 'REFUNDED'")
+      .andWhere("payment.status = 'SUCCESS'")
       .getRawOne<{ paid: string }>();
     const paid = Number(alreadyPaid?.paid ?? 0);
-    const remaining = sale.total - paid;
+    const remaining = sale.total - paid - (sale.advance_credit ?? 0);
     const amount = roundKES(dto.amount);
 
     if (amount <= 0) {
@@ -608,7 +689,32 @@ export class SalesService {
       });
     }
 
+    let duplicateReference = false;
     await this.dataSource.transaction(async (manager) => {
+      if (this.dataSource.options.type === 'postgres') {
+        await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`sale-payment:${saleId}`]);
+      }
+      if (dto.reference) {
+        const prior = await manager.getRepository(Payment).findOne({
+          where: { businessId, saleId, reference: dto.reference, status: 'SUCCESS' },
+        });
+        if (prior) {
+          duplicateReference = true;
+          return;
+        }
+      }
+      const paidRow = await manager.getRepository(Payment).createQueryBuilder('payment')
+        .select('COALESCE(SUM(payment.amount), 0)', 'paid')
+        .where('payment.businessId = :businessId AND payment.saleId = :saleId', { businessId, saleId })
+        .andWhere("payment.status = 'SUCCESS'")
+        .getRawOne<{ paid: string }>();
+      const paidInTransaction = Number(paidRow?.paid ?? 0);
+      if (amount > sale.total - (sale.advance_credit ?? 0) - paidInTransaction) {
+        throw new BadRequestException({
+          code: 'OVERPAYMENT',
+          message: `This sale only has KES ${Math.max(0, sale.total - (sale.advance_credit ?? 0) - paidInTransaction).toLocaleString('en-KE')} remaining.`,
+        });
+      }
       const payment = manager.create(Payment, {
         receipt_number: await this.nextNumber(manager, businessId, 'receipt'),
         businessId,
@@ -622,7 +728,7 @@ export class SalesService {
       });
       await manager.save(payment);
 
-      const newPaid = paid + amount;
+      const newPaid = paidInTransaction + (sale.advance_credit ?? 0) + amount;
       sale.payment_status = newPaid >= sale.total ? 'PAID' : 'PARTIAL';
       await manager.save(sale);
 
@@ -668,6 +774,8 @@ export class SalesService {
       }
     });
 
+    if (duplicateReference) return this.get(businessId, saleId);
+
     await this.auditService.log({
       businessId,
       userId: actor.userId,
@@ -697,18 +805,42 @@ export class SalesService {
     if (sale.payment_status === 'CANCELLED') {
       return this.get(businessId, saleId);
     }
+    if (sale.sale_type === 'ADVANCE' && (sale.advance_used ?? 0) > 0) {
+      throw new BadRequestException({
+        code: 'ADVANCE_ALREADY_APPLIED',
+        message: 'This advance has already been applied to a sale and cannot be cancelled.',
+      });
+    }
 
     const items = await this.itemRepo.find({ where: { saleId } });
     const alreadyPaid = await this.paymentRepo
       .createQueryBuilder('payment')
       .select('COALESCE(SUM(payment.amount), 0)', 'paid')
       .where('payment.saleId = :saleId', { saleId })
-      .andWhere("payment.status != 'REFUNDED'")
+      .andWhere("payment.status = 'SUCCESS'")
       .getRawOne<{ paid: string }>();
     const paid = Number(alreadyPaid?.paid ?? 0);
-    const unpaidBalance = Math.max(0, sale.total - paid);
+    const unpaidBalance = Math.max(0, sale.total - paid - (sale.advance_credit ?? 0));
 
     await this.dataSource.transaction(async (manager) => {
+      if (sale.customerId && this.dataSource.options.type === 'postgres') {
+        await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`customer-advance:${businessId}:${sale.customerId}`]);
+      }
+      const currentSale = await manager.getRepository(Sale).findOne({ where: { id: saleId, businessId } });
+      if (currentSale?.sale_type === 'ADVANCE' && (currentSale.advance_used ?? 0) > 0) {
+        throw new BadRequestException({ code: 'ADVANCE_ALREADY_APPLIED', message: 'This advance has already been applied to a sale and cannot be cancelled.' });
+      }
+      if (sale.customerId && (sale.advance_allocations ?? []).length) {
+        for (const allocation of sale.advance_allocations ?? []) {
+          const advance = await manager.getRepository(Sale).findOne({
+            where: { id: allocation.saleId, businessId, customerId: sale.customerId, sale_type: 'ADVANCE' },
+          });
+          if (advance) {
+            advance.advance_used = Math.max(0, (advance.advance_used ?? 0) - allocation.amount);
+            await manager.save(advance);
+          }
+        }
+      }
       const movements = items
         .filter((item) => item.productId)
         .map((item) => ({
@@ -752,7 +884,7 @@ export class SalesService {
       sale.cancelled_by = actor.userId;
       await manager.save(sale);
 
-      if (sale.customerId) {
+      if (sale.customerId && sale.sale_type !== 'ADVANCE') {
         await this.customersService.adjustSpend(
           businessId,
           sale.customerId,

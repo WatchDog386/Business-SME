@@ -73,7 +73,9 @@ export function SaleDetailPage() {
   }
 
   const sale = data;
-  const paid = sale.payments.reduce((acc, p) => acc + p.amount, 0);
+  const cashPaid = sale.payments.reduce((acc, p) => acc + p.amount, 0);
+  const advanceCredit = sale.advance_credit ?? 0;
+  const paid = cashPaid + advanceCredit;
   const remaining = Math.max(0, sale.total - paid);
   const canCancel = sale.payment_status !== 'CANCELLED' && sale.payment_status !== 'REFUNDED';
 
@@ -97,6 +99,7 @@ export function SaleDetailPage() {
                   {sale.number ? invoiceNo(sale.number) : `#${sale.id.slice(0, 8).toUpperCase()}`}
                 </h2>
                 <Badge variant={statusVariant(sale.payment_status)}>{statusLabel(sale.payment_status)}</Badge>
+                <span className="text-[11px] font-medium text-foreground-4">{saleCategoryLabel(sale.sale_type)}</span>
               </div>
               <p className="text-xs text-foreground-4">{formatDateTime(sale.created_at)} · {sale.customer?.name ?? 'Walk-in customer'}</p>
             </div>
@@ -140,7 +143,9 @@ export function SaleDetailPage() {
         {/* Items — flat, polished */}
         <section className="space-y-2">
           <h2 className="px-1 text-[13px] font-medium tracking-tight text-foreground">Items — {sale.items.length}</h2>
-          <ul className="divide-y divide-edge max-lg:divide-y-0">
+          {sale.items.length === 0 ? (
+            <p className="rounded-xl bg-surface-2 px-3 py-3 text-xs text-foreground-4">Amount-only record · {saleCategoryLabel(sale.sale_type)}</p>
+          ) : <ul className="divide-y divide-edge max-lg:divide-y-0">
             {sale.items.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-3 px-1 py-3">
                 <div className="min-w-0">
@@ -150,7 +155,7 @@ export function SaleDetailPage() {
                 <span className="text-sm font-medium tabular-nums text-foreground">{formatKES(item.total)}</span>
               </li>
             ))}
-          </ul>
+          </ul>}
           <div className="space-y-1.5 px-1 pt-3">
             <div className="flex justify-between text-xs">
               <span className="text-foreground-4">Subtotal</span>
@@ -160,6 +165,18 @@ export function SaleDetailPage() {
               <div className="flex justify-between text-xs">
                 <span className="text-foreground-4">Discount</span>
                 <span className="font-medium tabular-nums text-danger">−{formatKES(sale.discount)}</span>
+              </div>
+            )}
+            {advanceCredit > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-foreground-4">Client advance applied</span>
+                <span className="font-medium tabular-nums text-foreground">−{formatKES(advanceCredit)}</span>
+              </div>
+            )}
+            {sale.sale_type === 'ADVANCE' && (sale.advance_used ?? 0) > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-foreground-4">Advance still available</span>
+                <span className="font-medium tabular-nums text-foreground">{formatKES(Math.max(0, sale.total - (sale.advance_used ?? 0)))}</span>
               </div>
             )}
             <div className="flex justify-between border-t border-edge pt-2.5 text-sm font-medium">
@@ -174,10 +191,16 @@ export function SaleDetailPage() {
           {/* Payments — flat */}
           <section className="space-y-2">
             <h2 className="px-1 text-[13px] font-medium tracking-tight text-foreground">Payments</h2>
-            {sale.payments.length === 0 ? (
+            {sale.payments.length === 0 && advanceCredit === 0 ? (
               <p className="px-1 text-sm text-foreground-4">No payments recorded yet.</p>
             ) : (
               <ul className="divide-y divide-edge max-lg:divide-y-0">
+                {advanceCredit > 0 && (
+                  <li className="flex items-center justify-between px-1 py-3">
+                    <div><p className="text-sm font-medium text-foreground">Client advance applied</p><p className="text-xs text-foreground-5">Existing advance · not a new cash receipt</p></div>
+                    <span className="text-sm font-medium tabular-nums text-foreground">{formatKES(advanceCredit)}</span>
+                  </li>
+                )}
                 {sale.payments.map((payment) => (
                   <li key={payment.id} className="flex items-center justify-between px-1 py-3 hover:bg-surface-2 transition-colors">
                     <div>
@@ -252,6 +275,19 @@ export function SaleDetailPage() {
       />
     </div>
   );
+}
+
+function saleCategoryLabel(type?: string) {
+  const labels: Record<string, string> = {
+    GENERAL: "Today's general sales",
+    PRODUCT: 'Product sale',
+    SERVICE: 'Service sale',
+    PACKAGE: 'Package subscription',
+    ADVANCE: 'Advance payment',
+    OTHER: 'Other revenue',
+    MIXED: 'Mixed sale',
+  };
+  return labels[type ?? 'PRODUCT'] ?? 'Product sale';
 }
 
 function RecordPaymentDialog({

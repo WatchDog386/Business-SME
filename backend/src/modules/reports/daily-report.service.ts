@@ -50,6 +50,7 @@ export class DailyReportService {
         .addSelect('customer.name', 'customer_name')
         .where('sale.businessId = :businessId', { businessId })
         .andWhere("sale.payment_status != 'CANCELLED'")
+        .andWhere("sale.sale_type != 'ADVANCE'")
         .andWhere('sale.created_at >= :start AND sale.created_at < :end', { start, end })
         .orderBy('sale.created_at', 'DESC')
         .getRawAndEntities(),
@@ -66,6 +67,7 @@ export class DailyReportService {
         .addSelect('COALESCE(item.cost_price, 0) * item.quantity', 'cost')
         .where('sale.businessId = :businessId', { businessId })
         .andWhere("sale.payment_status != 'CANCELLED'")
+        .andWhere("sale.sale_type != 'ADVANCE'")
         .andWhere('sale.created_at >= :start AND sale.created_at < :end', { start, end })
         .getRawMany<{ name: string; billing_days: number | null; event: string | null; quantity: string; total: string; cost: string }>(),
       this.paymentRepo
@@ -99,10 +101,11 @@ export class DailyReportService {
     ]);
 
     // Revenue
-    const revenue = sales.entities.reduce((sum, s) => sum + s.total, 0);
-    const salesCount = sales.entities.length;
+    const revenueSales = sales.entities.filter((sale) => sale.sale_type !== 'ADVANCE');
+    const revenue = revenueSales.reduce((sum, s) => sum + s.total, 0);
+    const salesCount = revenueSales.length;
     const byMethodSales = new Map<string, { total: number; count: number }>();
-    for (const s of sales.entities) {
+    for (const s of revenueSales) {
       const m = byMethodSales.get(s.payment_method) ?? { total: 0, count: 0 };
       m.total += s.total;
       m.count += 1;
@@ -252,6 +255,7 @@ export class DailyReportService {
         .addSelect('COUNT(*)', 'count')
         .where('sale.businessId = :businessId', { businessId })
         .andWhere("sale.payment_status != 'CANCELLED'")
+        .andWhere("sale.sale_type != 'ADVANCE'")
         .andWhere('sale.created_at >= :start AND sale.created_at < :end', { start, end })
         .getRawOne<{ sum: string; count: string }>(),
       this.itemRepo
@@ -260,6 +264,7 @@ export class DailyReportService {
         .select('COALESCE(SUM(COALESCE(item.cost_price, 0) * item.quantity), 0)', 'sum')
         .where('sale.businessId = :businessId', { businessId })
         .andWhere("sale.payment_status != 'CANCELLED'")
+        .andWhere("sale.sale_type != 'ADVANCE'")
         .andWhere('sale.created_at >= :start AND sale.created_at < :end', { start, end })
         .getRawOne<{ sum: string }>(),
       this.expenseRepo

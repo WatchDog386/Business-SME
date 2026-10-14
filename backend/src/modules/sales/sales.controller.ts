@@ -67,6 +67,15 @@ export class SalesController {
     });
   }
 
+  @Get('customer/:customerId/advances')
+  @ApiOperation({ summary: 'Available advance credit for a client' })
+  availableAdvances(
+    @CurrentBusiness() business: { id: string },
+    @Param('customerId', ParseUUIDPipe) customerId: string,
+  ) {
+    return this.salesService.availableAdvances(business.id, customerId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a sale with items and payments' })
   get(

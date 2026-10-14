@@ -253,6 +253,7 @@ export interface SaleItemInput {
 export interface CreateSaleInput {
   items: SaleItemInput[];
   saleType?: 'GENERAL' | 'PRODUCT' | 'SERVICE' | 'PACKAGE' | 'ADVANCE' | 'OTHER' | 'MIXED';
+  applyAdvances?: boolean;
   customerId?: string;
   employeeId?: string;
   discount?: number;
@@ -293,6 +294,8 @@ export const salesApi = {
   }) =>
     api<Paginated<Sale>>({ method: 'GET', url: '/sales', params }),
   get: (id: string) => api<SaleDetail>({ method: 'GET', url: `/sales/${id}` }),
+  availableAdvances: (customerId: string) =>
+    api<{ total: number; advances: Array<{ id: string; number: number | null; total: number; used: number; available: number; purpose: string | null; created_at: string }> }>({ method: 'GET', url: `/sales/customer/${customerId}/advances` }),
   preview: (data: CreateSaleInput) =>
     api<SalePreview>({ method: 'POST', url: '/sales/preview', data }),
   create: (data: CreateSaleInput) =>
@@ -387,12 +390,12 @@ export interface ClientHome {
   customer: { id: string; name: string; phone: string | null; email: string | null; balance: number; totalSpent: number };
   subscription: Subscription | null;
   packages: Array<{ id: string; name: string; price: number; speedMbps: number | null; billingDays: number | null; description: string | null }>;
-  payments: Array<{ id: string; number: number | null; total: number; status: string; method: string; at: string }>;
+  payments: Array<{ id: string; number: number | null; total: number; paid: number; balance: number; advanceCredit: number; advanceUsed: number; advanceAvailable: number; status: string; method: string; at: string; packageName: string | null }>;
 }
 
 export const clientApi = {
   me: () => api<ClientHome>({ method: 'GET', url: '/client/me' }),
-  pay: (data: { productId?: string; phone?: string; amount?: number }) =>
+  pay: (data: { productId?: string; saleId?: string; phone?: string; amount?: number }) =>
     api<StkPush>({ method: 'POST', url: '/client/pay', data }),
   payStatus: (checkoutRequestId: string) =>
     api<StkPush & { saleId: string | null }>({ method: 'GET', url: '/client/pay/' + encodeURIComponent(checkoutRequestId) }),

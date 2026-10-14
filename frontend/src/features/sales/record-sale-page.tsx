@@ -56,6 +56,19 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+function saleCategoryName(type?: string) {
+  const names: Record<string, string> = {
+    GENERAL: "today's general sales",
+    PRODUCT: 'product sale',
+    SERVICE: 'service sale',
+    PACKAGE: 'package subscription',
+    ADVANCE: 'advance payment',
+    OTHER: 'other revenue',
+    MIXED: 'mixed sale',
+  };
+  return names[type ?? 'PRODUCT'] ?? 'sale';
+}
+
 export function RecordSalePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -72,10 +85,11 @@ export function RecordSalePage() {
   const [saleCategory, setSaleCategory] = useState<SaleCategory | null>(null);
   const [packageMode, setPackageMode] = useState<'lump' | 'individual' | null>(null);
   const [amountValue, setAmountValue] = useState('');
+  const [applyClientAdvance, setApplyClientAdvance] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(presetCustomer);
   // Client name typed at checkout: an existing client is matched by name, a new one is created
   const [clientName, setClientName] = useState('');
-  const [successSale, setSuccessSale] = useState<{ id: string; total: number; payment_status: string } | null>(null);
+  const [successSale, setSuccessSale] = useState<{ id: string; total: number; payment_status: string; sale_type?: string } | null>(null);
   const idempotencyKey = useRef(uuid());
 
   const productsQuery = useQuery({
@@ -102,6 +116,8 @@ export function RecordSalePage() {
     watch,
     setValue,
     reset,
+    clearErrors,
+    getValues,
     formState: { errors },
     setError: setFormError,
   } = useForm<FormValues>({
@@ -127,9 +143,6 @@ export function RecordSalePage() {
   const appliedDiscount = Math.min(Math.max(0, Math.round(discount)), subtotal);
   const tax = Math.round(((subtotal - appliedDiscount) * taxRate) / 100);
   const total = subtotal - appliedDiscount + tax;
-  const balanceOwed = Math.max(0, total - amountPaid);
-  const isPartial = balanceOwed > 0 && total > 0;
-
   const [pageStep, setPageStep] = useState<1 | 2 | 3>(1);
   // Checkout payment: M-Pesa prompt, camera, pasted message, or cash/other
   const [payMode, setPayMode] = useState<PayMode>('prompt');
@@ -142,6 +155,18 @@ export function RecordSalePage() {
     ? (customersQuery.data as Customer[])
     : ((customersQuery.data as { items?: Customer[] })?.items ?? []);
   const matchedClient = customerList.find((c) => c.name.trim().toLowerCase() === clientName.trim().toLowerCase());
+  const checkoutCustomerId = clientName.trim() ? matchedClient?.id ?? null : customerId;
+  const canApplyAdvance = (saleCategory === 'PRODUCT' || saleCategory === 'SERVICE') && !!checkoutCustomerId;
+  const advanceQuery = useQuery({
+    queryKey: ['sales', 'available-advances', checkoutCustomerId],
+    queryFn: () => salesApi.availableAdvances(checkoutCustomerId as string),
+    enabled: !!activeBusiness && canApplyAdvance,
+  });
+  const availableAdvance = advanceQuery.data?.total ?? 0;
+  const advanceToApply = applyClientAdvance ? Math.min(total, availableAdvance) : 0;
+  const amountDueAfterAdvance = Math.max(0, total - advanceToApply);
+  const balanceOwed = Math.max(0, total - amountPaid - advanceToApply);
+  const isPartial = balanceOwed > 0 && total > 0;
 
   // A known client brings their phone number for the M-Pesa prompt
   useEffect(() => {
@@ -170,7 +195,7 @@ export function RecordSalePage() {
     setPayMode(mode);
     if (mode === 'cash') {
       setValue('paymentMethod', 'CASH');
-      setValue('amountPaid', total);
+      setValue('amountPaid', paymentMethod === 'CREDIT' ? 0 : amountDueAfterAdvance);
     } else {
       setValue('paymentMethod', 'M-PESA');
     }
@@ -232,6 +257,7 @@ export function RecordSalePage() {
           quantity: item.quantity,
         })),
         saleType: saleCategory ?? 'PRODUCT',
+        applyAdvances: !isAmountCategory && applyClientAdvance,
         total: isAmountCategory ? Number(amountValue) : undefined,
         customerId: resolvedCustomerId,
         discount: Number(values.discount || 0),
@@ -248,6 +274,7 @@ export function RecordSalePage() {
         id: sale.id,
         total: sale.total,
         payment_status: sale.payment_status,
+        sale_type: sale.sale_type,
       });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       await queryClient.invalidateQueries({ queryKey: ['sales'] });
@@ -333,6 +360,8 @@ export function RecordSalePage() {
       unitPrice: product.selling_price,
       stock: product.track_inventory ? product.stock_quantity : null,
     });
+    setSaleCategory(product.billing_days ? 'PACKAGE' : 'PRODUCT');
+    if (product.billing_days) setPackageMode('individual');
     setPageStep(2);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetProduct, productsQuery.data]);
@@ -345,6 +374,7 @@ export function RecordSalePage() {
     presetServiceApplied.current = true;
     if (!service) return;
     addItem({ type: 'SERVICE', id: service.id, name: service.name, unitPrice: service.price, stock: null });
+    setSaleCategory('SERVICE');
     setPageStep(2);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetService, servicesQuery.data]);
@@ -385,6 +415,7 @@ export function RecordSalePage() {
     setSaleCategory(null);
     setPackageMode(null);
     setAmountValue('');
+    setApplyClientAdvance(false);
     setCatalogSearch('');
     setSuccessSale(null);
     idempotencyKey.current = uuid();
@@ -416,6 +447,10 @@ export function RecordSalePage() {
         setFormError('root', { message: saleCategory === 'ADVANCE' ? 'Describe what this advance is for.' : 'Describe the other source of revenue.' });
         return;
       }
+      if (saleCategory === 'ADVANCE' && !customerId && !clientName.trim()) {
+        setFormError('root', { message: 'Choose or enter the client who paid this advance.' });
+        return;
+      }
     } else if (!lineItems.length) {
       setFormError('root', { message: 'Add at least one item before recording this sale.' });
       return;
@@ -440,11 +475,13 @@ export function RecordSalePage() {
         </span>
         <h2 className="text-lg font-medium tracking-tight text-foreground">Sale recorded!</h2>
         <p className="max-w-xs text-[13px] leading-relaxed text-foreground-3">
-          Sale total of{' '}
-          <span className="font-medium tabular-nums text-foreground">
-            {formatKES(successSale.total)}
-          </span>{' '}
-          has been saved. Stock, customer and profit were updated automatically.
+          {successSale.sale_type === 'PACKAGE' && successSale.payment_status !== 'PAID' ? (
+            <>Payment recorded. Package access will start when the balance is paid. The {formatKES(successSale.total)} sale is included in revenue as payments are received.</>
+          ) : successSale.sale_type === 'ADVANCE' ? (
+            <>Advance payment of {formatKES(successSale.total)} recorded and included in received revenue.</>
+          ) : (
+            <>Recorded as {saleCategoryName(successSale.sale_type)}. Total {formatKES(successSale.total)} saved; amounts received are included in revenue.</>
+          )}
         </p>
         <Badge variant={statusVariant(successSale.payment_status)}>
           {statusLabel(successSale.payment_status)}
@@ -474,7 +511,7 @@ export function RecordSalePage() {
           else if (saleCategory) setSaleCategory(null);
           else navigate(-1);
         }}
-        right={
+        right={saleCategory && !isAmountCategory && (saleCategory !== 'PACKAGE' || packageMode === 'individual') ? (
           <button
             type="button"
             onClick={() => setPageStep(2)}
@@ -488,7 +525,7 @@ export function RecordSalePage() {
               </span>
             )}
           </button>
-        }
+        ) : undefined}
       />
 
       {/* Choose a revenue category before entering a sale. */}
@@ -507,7 +544,7 @@ export function RecordSalePage() {
               { id: 'ADVANCE', label: 'Advance payment', hint: 'Payment before delivery', icon: ArrowDownToLine },
               { id: 'OTHER', label: 'Other revenue', hint: 'Record another income source', icon: Layers3 },
             ] as const).map((choice) => (
-              <button key={choice.id} type="button" onClick={() => { setSaleCategory(choice.id); setPackageMode(null); setSaleSource('existing'); setLineItems([]); }} className="flex min-h-28 flex-col items-start rounded-2xl border border-edge bg-surface p-4 text-left transition-colors hover:bg-surface-2">
+              <button key={choice.id} type="button" onClick={() => { setSaleCategory(choice.id); setPackageMode(null); setSaleSource('existing'); setLineItems([]); setAmountValue(''); setApplyClientAdvance(false); setValue('notes', ''); clearErrors(); setNewKind(choice.id === 'PACKAGE' ? 'package' : 'product'); }} className="flex min-h-28 flex-col items-start rounded-2xl border border-edge bg-surface p-4 text-left transition-colors hover:bg-surface-2">
                 <choice.icon className="h-5 w-5 text-accent" aria-hidden />
                 <span className="mt-3 text-[13px] font-semibold text-foreground">{choice.label}</span>
                 <span className="mt-0.5 text-[11.5px] text-foreground-4">{choice.hint}</span>
@@ -519,12 +556,12 @@ export function RecordSalePage() {
 
       {pageStep === 1 && saleCategory === 'PACKAGE' && !packageMode && (
         <section className="grid gap-3 sm:grid-cols-2">
-          <button type="button" onClick={() => setPackageMode('lump')} className="rounded-2xl border border-edge bg-surface p-5 text-left hover:bg-surface-2">
+          <button type="button" onClick={() => { setPackageMode('lump'); setAmountValue(''); clearErrors(); }} className="rounded-2xl border border-edge bg-surface p-5 text-left hover:bg-surface-2">
             <Banknote className="h-5 w-5 text-accent" aria-hidden />
             <span className="mt-3 block text-[14px] font-semibold text-foreground">Lump sum package revenue</span>
             <span className="mt-1 block text-[12px] text-foreground-4">Enter the total collected for packages sold today.</span>
           </button>
-          <button type="button" onClick={() => setPackageMode('individual')} className="rounded-2xl border border-edge bg-surface p-5 text-left hover:bg-surface-2">
+          <button type="button" onClick={() => { setPackageMode('individual'); setAmountValue(''); clearErrors(); }} className="rounded-2xl border border-edge bg-surface p-5 text-left hover:bg-surface-2">
             <ClipboardList className="h-5 w-5 text-accent" aria-hidden />
             <span className="mt-3 block text-[14px] font-semibold text-foreground">Individual subscription</span>
             <span className="mt-1 block text-[12px] text-foreground-4">Choose a client and package to start or renew access.</span>
@@ -603,28 +640,6 @@ export function RecordSalePage() {
               It is saved to your catalogue and added to this sale, so next time it is under Existing product.
             </p>
           </div>
-          {saleCategory === 'PRODUCT' && <div className="flex gap-2">
-            {(
-              [
-                { id: 'product', label: 'Product', icon: Package },
-                { id: 'package', label: 'WiFi package', icon: Wifi },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setNewKind(opt.id)}
-                aria-pressed={newKind === opt.id}
-                className={cn(
-                  'inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors lg:rounded-md',
-                  newKind === opt.id ? 'border-accent bg-accent-soft text-accent-text' : 'border-edge text-foreground-3 hover:bg-surface-2',
-                )}
-              >
-                <opt.icon className="h-4 w-4" aria-hidden />
-                {opt.label}
-              </button>
-            ))}
-          </div>}
           <ProductForm
             key={saleCategory === 'PACKAGE' ? 'package' : newKind}
             kind={saleCategory === 'PACKAGE' ? 'package' : newKind}
@@ -675,20 +690,21 @@ export function RecordSalePage() {
               </div>
             ) : (
               <>
-              <div className="grid grid-cols-2 gap-3 pt-1 lg:grid-cols-3">
-                {packages.map((pkg, i) => (
-                  <PackageCard
-                    key={pkg.id}
-                    product={pkg}
-                    index={i}
-                    inCart={lineItems.find((l) => l.type === 'PRODUCT' && l.id === pkg.id)?.quantity ?? 0}
-                    onAdd={(p) =>
-                      addItem({ type: 'PRODUCT', id: p.id, name: p.name, unitPrice: p.selling_price, stock: null })
-                    }
-                  />
-                ))}
-              </div>
-              {saleCategory !== 'PACKAGE' && goods.length > 0 && (
+              {saleCategory === 'PACKAGE' ? (
+                <div className="grid grid-cols-2 gap-3 pt-1 lg:grid-cols-3">
+                  {packages.map((pkg, i) => (
+                    <PackageCard
+                      key={pkg.id}
+                      product={pkg}
+                      index={i}
+                      inCart={lineItems.find((l) => l.type === 'PRODUCT' && l.id === pkg.id)?.quantity ?? 0}
+                      onAdd={(p) =>
+                        addItem({ type: 'PRODUCT', id: p.id, name: p.name, unitPrice: p.selling_price, stock: null })
+                      }
+                    />
+                  ))}
+                </div>
+              ) : (
                 <div className="space-y-2 pt-3">
                   <SectionHeading>Products</SectionHeading>
                   <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -739,9 +755,9 @@ export function RecordSalePage() {
             {lineItems.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-1 py-12 text-center">
                 <ShoppingCart className="h-7 w-7 text-foreground-5" aria-hidden />
-                <p className="text-[13px] text-foreground-4">The cart is empty. Pick a WiFi package first.</p>
+                <p className="text-[13px] text-foreground-4">The cart is empty. Add a product, service, or package first.</p>
                 <Button type="button" className="mt-2 h-11 rounded-2xl bg-brand-600 px-6 text-white" onClick={() => setPageStep(1)}>
-                  Choose a package
+                  Choose items
                 </Button>
               </div>
             ) : (
@@ -857,9 +873,21 @@ export function RecordSalePage() {
                   </div>
                 )}
                 <div className="flex items-baseline justify-between bg-black/[0.03] px-4 py-3 [.dark_&]:bg-white/5">
-                  <span className="text-[13px] font-medium text-foreground-3">To pay</span>
-                  <span className="text-[24px] font-semibold tabular-nums tracking-tight text-foreground">{formatKES(total)}</span>
+                  <span className="text-[13px] font-medium text-foreground-3">Sale total</span>
+                  <span className="text-[20px] font-semibold tabular-nums tracking-tight text-foreground">{formatKES(total)}</span>
                 </div>
+                {advanceToApply > 0 && (
+                  <>
+                    <div className="flex items-center justify-between bg-black/[0.03] px-4 py-2 text-[13px] [.dark_&]:bg-white/5">
+                      <span className="text-foreground-4">Client advance applied</span>
+                      <span className="font-medium tabular-nums text-foreground">−{formatKES(advanceToApply)}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-black/[0.03] px-4 pb-3 text-[13px] [.dark_&]:bg-white/5">
+                      <span className="font-medium text-foreground-3">Remaining to collect</span>
+                      <span className="text-[18px] font-semibold tabular-nums text-foreground">{formatKES(amountDueAfterAdvance)}</span>
+                    </div>
+                  </>
+                )}
               </section>
 
               {/* Client */}
@@ -873,7 +901,7 @@ export function RecordSalePage() {
                     autoComplete="off"
                     placeholder="e.g. Grace Achieng"
                     value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
+                    onChange={(e) => { setClientName(e.target.value); setApplyClientAdvance(false); setCaptured(null); setValue('amountPaid', ''); }}
                   />
                   <datalist id="client-names">
                     {customerList.map((c) => (
@@ -888,23 +916,39 @@ export function RecordSalePage() {
                       : 'Pick an existing client or type a new name'}
                   </p>
                 </div>
+                {canApplyAdvance && availableAdvance > 0 && (
+                  <button type="button" aria-pressed={applyClientAdvance} onClick={() => {
+                    const next = !applyClientAdvance;
+                    setApplyClientAdvance(next);
+                    setCaptured(null);
+                    setValue('amountPaid', payMode === 'cash' ? (paymentMethod === 'CREDIT' ? 0 : Math.max(0, total - (next ? Math.min(total, availableAdvance) : 0))) : '');
+                  }} className={cn('flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left', applyClientAdvance ? 'border-accent bg-accent-soft' : 'border-edge bg-surface-2')}>
+                    <span><span className="block text-[13px] font-medium text-foreground">Apply client advance</span><span className="mt-0.5 block text-[11px] text-foreground-4">{formatKES(availableAdvance)} available · oldest advance is used first</span></span>
+                    <span className={cn('flex h-5 w-5 items-center justify-center rounded border text-xs', applyClientAdvance ? 'border-accent bg-accent text-white' : 'border-edge')}>{applyClientAdvance ? '✓' : ''}</span>
+                  </button>
+                )}
               </section>
 
               {/* How the client pays */}
               <section className="space-y-3">
                 <SectionHeading>How is the client paying?</SectionHeading>
-                <PaymentCapture
+                {advanceToApply > 0 && amountDueAfterAdvance === 0 ? (
+                  <div className="space-y-3 rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
+                    <p className="text-[13px] text-foreground-3">The client’s advance covers this sale. No new payment will be recorded.</p>
+                    <Button type="button" loading={mutation.isPending} disabled={needsClient} onClick={() => mutation.mutate(getValues())} className="h-12 w-full rounded-xl bg-brand-600 text-white hover:bg-brand-700">Apply advance · {formatKES(advanceToApply)}</Button>
+                  </div>
+                ) : <PaymentCapture
                   mode={payMode}
                   onModeChange={choosePayMode}
-                  total={total}
+                  total={amountDueAfterAdvance}
                   phone={clientPhone}
                   onPhoneChange={setClientPhone}
                   reference={lineItems[0]?.name.split(/\s+/)[0] ?? 'Optimas'}
                   captured={captured}
                   onCaptured={capturePayment}
-                />
+                />}
 
-                {payMode === 'cash' && (
+                {payMode === 'cash' && !(advanceToApply > 0 && amountDueAfterAdvance === 0) && (
                   <div className="space-y-3 rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
                     <div className="space-y-1.5">
                       <Label htmlFor="payment-method">Method</Label>
@@ -930,7 +974,7 @@ export function RecordSalePage() {
                         inputMode="numeric"
                         min={0}
                         disabled={paymentMethod === 'CREDIT'}
-                        placeholder={String(total || 0)}
+                        placeholder={String(amountDueAfterAdvance || 0)}
                         aria-invalid={errors.amountPaid ? true : undefined}
                         className="bg-white [.dark_&]:bg-surface-3"
                         {...register('amountPaid')}
@@ -942,7 +986,7 @@ export function RecordSalePage() {
                           {formatKES(balanceOwed)} short: the rest goes on the client's balance.
                         </p>
                       ) : (
-                        total > 0 && amountPaid >= total && <p className="text-[12px] font-medium text-success">Paid in full.</p>
+                        total > 0 && amountPaid + advanceToApply >= total && <p className="text-[12px] font-medium text-success">Paid in full.</p>
                       )}
                     </div>
                   </div>

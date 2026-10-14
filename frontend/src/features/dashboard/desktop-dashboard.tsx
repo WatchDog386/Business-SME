@@ -80,9 +80,9 @@ export function DesktopDashboard({ data }: { data: DashboardData }) {
         <KpiCard
           tone="green"
           icon={ShoppingCart}
-          value={formatKES(today.sales)}
-          label="Sales today"
-          note={`${today.salesCount} sale${today.salesCount === 1 ? '' : 's'}`}
+          value={formatKES(today.cashReceived)}
+          label="Revenue received today"
+          note={`${today.paymentCount} payment${today.paymentCount === 1 ? '' : 's'}`}
           to="/sales"
         />
         <KpiCard
@@ -294,6 +294,7 @@ function StatRow({ label, value, to }: { label: string; value: string; to?: stri
 /** Today's money: sales, gross profit, expenses and net, as comparable bars. */
 function TodayPanel({ today }: { today: DashboardData['today'] }) {
   const rows = [
+    { label: 'Cash received', value: today.cashReceived, bar: 'bg-blue-500', text: 'text-foreground' },
     { label: 'Sales', value: today.sales, bar: 'bg-emerald-500', text: 'text-foreground' },
     { label: 'Gross profit', value: today.grossProfit, bar: 'bg-accent', text: 'text-foreground' },
     { label: 'Expenses', value: today.expenses, bar: 'bg-red-500', text: 'text-foreground' },
