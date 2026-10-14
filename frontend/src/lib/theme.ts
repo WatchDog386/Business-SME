@@ -84,20 +84,17 @@ export function applyTheme(theme: Theme): void {
   if (theme === 'brand') {
     const docEl = document.documentElement;
     docEl.classList.add('page-white', 'dash-glow-body');
-    // Savanna backdrop + gradient overlay (same as client dashboard)
-    const img = docEl.querySelector<HTMLElement>('img[src="/images/splash-savanna.jpg"]');
-    if (!img) {
+    // Savanna backdrop + gradient overlay – use data‑attribute to avoid CSS‑class selector bugs
+    if (docEl.dataset?.brandBackdrop !== 'true') {
       const newImg = document.createElement('img');
       newImg.src = '/images/splash-savanna.jpg';
       newImg.setAttribute('aria-hidden', 'true');
       newImg.className = 'fixed inset-0 z-[-1] h-full w-full object-cover';
       docEl.appendChild(newImg);
-    }
-    const grad = docEl.querySelector<HTMLElement>('div.bg-gradient-to-b.from-black/70.via-black/45.to-black/75');
-    if (!grad) {
       const newGrad = document.createElement('div');
       newGrad.className = 'fixed inset-0 z-[-1] bg-gradient-to-b from-black/70 via-black/45 to-black/75';
       docEl.appendChild(newGrad);
+      docEl.dataset.brandBackdrop = 'true';
     }
   } else {
     // Remove brand background when switching away
@@ -105,8 +102,9 @@ export function applyTheme(theme: Theme): void {
     docEl.classList.remove('page-white', 'dash-glow-body');
     const img = docEl.querySelector<HTMLElement>('img[src="/images/splash-savanna.jpg"]');
     if (img) img.remove();
-    const grad = docEl.querySelector<HTMLElement>('div.bg-gradient-to-b.from-black/70.via-black/45.to-black/75');
+    const grad = docEl.querySelector<HTMLElement>('div.bg-gradient-to-b.from-black via-black to-black');
     if (grad) grad.remove();
+    delete docEl.dataset.brandBackdrop;
   }
 }
 

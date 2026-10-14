@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { setTheme } from '@/lib/theme';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -36,6 +37,11 @@ function AdminDashboard() {
     queryFn: dashboardApi.get,
   });
   const isDesktop = useIsDesktop();
+
+  // Apply brand theme (savanna background) like the client dashboard
+  useEffect(() => {
+    setTheme('brand');
+  }, []);
 
   // Phone dashboard sits on pure white (light theme); other pages keep the soft grey
   useEffect(() => {
