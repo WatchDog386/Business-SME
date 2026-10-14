@@ -14,13 +14,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InvalidDetailsArt } from '@/components/brand/invalid-details-art';
 import { notifyError } from '@/components/ui/popup-host';
-import { Lock, Mail } from 'lucide-react';
+import { Download, Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
 import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
 import { Brand } from '@/components/layout/brand';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { usePhotoStatusBar } from '@/hooks/use-photo-status-bar';
+import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { useTheme } from '@/lib/theme';
 import type { AuthResult, MfaChallenge } from '@/api/types';
 
@@ -45,6 +46,7 @@ export function LoginPage() {
   const [verifying, setVerifying] = useState(false);
   const isDesktop = useIsDesktop();
   const [theme] = useTheme();
+  const { canInstall, install } = useInstallPrompt();
 
   const {
     register,
@@ -201,6 +203,22 @@ export function LoginPage() {
       </form>
   );
 
+  const installAppButton = canInstall ? (
+    <button
+      type="button"
+      onClick={() => void install()}
+      className={
+        'mx-auto mt-4 inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-medium shadow-sm ' +
+        (!isDesktop && theme === 'dark'
+          ? 'border-white/45 bg-black/20 text-white'
+          : 'border-[#3A8F91]/45 bg-white/75 text-slate-700')
+      }
+    >
+      <Download className="h-4 w-4" aria-hidden />
+      Install Optimas app
+    </button>
+  ) : null;
+
   // Phones: photo header with the logo, and a sheet holding the form. The sheet
   // follows the chosen theme and its fields match the Statement / Deposit pills
   // on the subscriber dashboard.
@@ -239,6 +257,7 @@ export function LoginPage() {
               {form}
             </div>
           )}
+          {installAppButton}
         </main>
       </div>
     );
@@ -255,7 +274,10 @@ export function LoginPage() {
       centerTitle
       subtitle="Sign in with your Optimas staff account."
     >
-      {form}
+      <>
+        {form}
+        {installAppButton}
+      </>
     </AuthLayout>
   );
 }

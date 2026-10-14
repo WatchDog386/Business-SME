@@ -62,8 +62,23 @@ client.interceptors.request.use((config) => {
 
 client.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<ApiEnvelope<unknown>>) => {
+  async (error: AxiosError<ApiEnvelope<unknown>>) => {
     const status = error.response?.status ?? 0;
+    const request = error.config as (NonNullable<AxiosError['config']> & { _transientRetryCount?: number }) | undefined;
+    const method = request?.method?.toLowerCase();
+    const endpoint = request?.url?.replace(/\/+$/, '') ?? '';
+    const safeToRetry = method === 'get' || (method === 'post' && /(?:^|\/)auth\/login$/.test(endpoint));
+    const retryCount = request?._transientRetryCount ?? 0;
+    const retryDelay = [1000, 2000, 4000, 8000, 12000][retryCount];
+
+    // Render may briefly return 503 while its free web service wakes up.
+    // Retry reads and login only; never replay other writes automatically.
+    if (request && safeToRetry && [502, 503, 504].includes(status) && retryDelay !== undefined) {
+      request._transientRetryCount = retryCount + 1;
+      await new Promise((resolve) => window.setTimeout(resolve, retryDelay));
+      return client.request(request);
+    }
+
     const body = error.response?.data;
 
     if (status === 401) {
@@ -77,7 +92,9 @@ client.interceptors.response.use(
     const err = new ApiErrorShape(
       status,
       body?.error?.code ?? (status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED'),
-      body?.error?.message ?? 'Something went wrong. Please try again.',
+      body?.error?.message ?? (status === 503
+        ? 'The server is temporarily unavailable. Please try again shortly.'
+        : 'Something went wrong. Please try again.'),
       body?.error?.details,
     );
     return Promise.reject(err);

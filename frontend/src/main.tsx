@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import App from './App';
+import './hooks/use-install-prompt';
 import { initTheme } from './lib/theme';
 import '@fontsource-variable/figtree';
 import '@fontsource-variable/inter';

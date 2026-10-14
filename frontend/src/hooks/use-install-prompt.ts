@@ -33,11 +33,19 @@ export function useInstallPrompt() {
   }, []);
 
   const install = async () => {
-    if (!deferred) return;
-    await deferred.prompt();
-    await deferred.userChoice;
-    deferred = null;
-    setCanInstall(false);
+    const promptEvent = deferred;
+    if (!promptEvent) return;
+    try {
+      await promptEvent.prompt();
+      await promptEvent.userChoice;
+    } catch {
+      // Browsers can revoke install eligibility before the user taps the button.
+    } finally {
+      if (deferred === promptEvent) {
+        deferred = null;
+        listeners.forEach((fn) => fn());
+      }
+    }
   };
 
   return { canInstall, install };
