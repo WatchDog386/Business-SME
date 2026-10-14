@@ -484,14 +484,14 @@ export function ProfileHeader({
     ? (
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/dashboard')}
         className="flex min-w-0 items-center gap-3 text-left"
         aria-label="Go back"
       >
         <span className="text-[15px] font-semibold text-foreground">Back</span>
       </button>
     ) : (
-      <button type="button" onClick={() => navigate('/profile')} className="flex min-w-0 items-center gap-3 text-left">
+      <button type="button" onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/profile')} className="flex min-w-0 items-center gap-3 text-left">
         <span
           className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full text-[15px] font-semibold shadow-md ring-2 ring-white"
           style={{ backgroundColor: CHARCOAL, color: LIME }}
