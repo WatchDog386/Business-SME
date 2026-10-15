@@ -40,7 +40,7 @@ export function DesktopDashboard({ data }: { data: DashboardData }) {
   const callsDue = data.callsDue ?? 0;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 mt-8">
       <div className="flex items-end justify-between gap-4">
         <h1 className="text-[28px] font-normal tracking-tight text-foreground">Command Center</h1>
         <div className="flex items-center gap-2">
