@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import {
   DuoCalls,
   DuoCustomers,
-  DuoExpenses,
   DuoProducts,
   DuoReports,
   DuoSales,
@@ -19,14 +18,13 @@ export type QuickAction = { to: string; label: string; icon: (props: { className
 
 const actions: QuickAction[] = [
   { to: '/sales', label: 'Sales', icon: DuoSales },
-  { to: '/expenses', label: 'Expenses', icon: DuoExpenses },
+  { to: '/staff', label: 'Staff', icon: DuoStaff },
   { to: '/customers', label: 'Customers', icon: DuoCustomers },
   { to: '/products', label: 'Products', icon: DuoProducts },
   { to: '/services', label: 'Services', icon: DuoServices },
   { to: '/reports', label: 'Reports', icon: DuoReports },
   { to: '/subscribers', label: 'Subscribers', icon: DuoSubscribers },
   { to: '/calls', label: 'Calls', icon: DuoCalls },
-  { to: '/staff', label: 'Staff', icon: DuoStaff },
 ];
 
 /**
