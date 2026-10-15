@@ -204,8 +204,9 @@ export function RecordSalePage() {
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
       // Auto-resolve customer: if no customer selected but scanned name exists, find or create
-      let resolvedCustomerId: string | undefined = customerId ?? undefined;
-      const typedName = clientName.trim();
+      const isGeneralTotal = saleCategory === 'GENERAL';
+      let resolvedCustomerId: string | undefined = isGeneralTotal ? undefined : customerId ?? undefined;
+      const typedName = isGeneralTotal ? '' : clientName.trim();
       if (typedName) {
         const list: Customer[] = Array.isArray(customersQuery.data)
           ? (customersQuery.data as Customer[])
@@ -225,7 +226,7 @@ export function RecordSalePage() {
             : (await customersApi.create({ name: typedName, phone: clientPhone.trim() || undefined })).id;
         }
       }
-      if (!resolvedCustomerId && scanned?.name) {
+      if (!isGeneralTotal && !resolvedCustomerId && scanned?.name) {
         const list: Customer[] = Array.isArray(customersQuery.data)
           ? (customersQuery.data as Customer[])
           : ((customersQuery.data as { items?: Customer[] })?.items ?? []);
@@ -477,6 +478,8 @@ export function RecordSalePage() {
         <p className="max-w-xs text-[13px] leading-relaxed text-foreground-3">
           {successSale.sale_type === 'PACKAGE' && successSale.payment_status !== 'PAID' ? (
             <>Payment recorded. Package access will start when the balance is paid. The {formatKES(successSale.total)} sale is included in revenue as payments are received.</>
+          ) : successSale.sale_type === 'GENERAL' ? (
+            <>Today's combined sales total of {formatKES(successSale.total)} was recorded as received revenue.</>
           ) : successSale.sale_type === 'ADVANCE' ? (
             <>Advance payment of {formatKES(successSale.total)} recorded and included in received revenue.</>
           ) : (
@@ -502,9 +505,16 @@ export function RecordSalePage() {
   }
 
   return (
-    <div className="space-y-4 pb-28 font-sans text-[14px]">
+    <div className="dark relative isolate -mx-4 min-h-[calc(100dvh-3.5rem)] bg-[linear-gradient(180deg,#16202f_0%,#121212_360px)] px-4 pt-2 pb-28 font-sans text-[14px] text-white">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-[260px] bg-[linear-gradient(0deg,#16202f_0%,rgba(18,18,18,0)_100%)] lg:hidden"
+      />
       <AppBar
-        title="Record sale"
+        title={saleCategory === 'GENERAL' ? "Today's general sales" : 'Record sale'}
+        titleClassName="!text-white"
+        backClassName="!text-white"
+        className="text-white"
         onBack={() => {
           if (pageStep > 1) setPageStep((s) => (s - 1) as 1 | 2 | 3);
           else if (saleCategory === 'PACKAGE' && packageMode) setPackageMode(null);
@@ -537,17 +547,22 @@ export function RecordSalePage() {
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             {([
-              { id: 'GENERAL', label: "Today's general sales", hint: 'Enter one total for the day', icon: Banknote },
-              { id: 'PRODUCT', label: 'Product sale', hint: 'Existing or new product', icon: Package },
-              { id: 'SERVICE', label: 'Service sale', hint: 'Existing or new service', icon: BriefcaseBusiness },
-              { id: 'PACKAGE', label: 'Package subscription', hint: 'Lump sum or individual plan', icon: Wifi },
-              { id: 'ADVANCE', label: 'Advance payment', hint: 'Payment before delivery', icon: ArrowDownToLine },
-              { id: 'OTHER', label: 'Other revenue', hint: 'Record another income source', icon: Layers3 },
+              { id: 'GENERAL', label: "Today's general sales", hint: 'Enter one combined total for the day', icon: Banknote, from: '#00897B', to: '#26A69A' },
+              { id: 'PRODUCT', label: 'Product sale', hint: 'Sell something from your catalogue', icon: Package, from: '#0288D1', to: '#29B6F6' },
+              { id: 'SERVICE', label: 'Service sale', hint: 'Record a new or existing service', icon: BriefcaseBusiness, from: '#8E24AA', to: '#AB47BC' },
+              { id: 'PACKAGE', label: 'Package subscription', hint: 'Lump sum or individual plan', icon: Wifi, from: '#43A047', to: '#66BB6A' },
+              { id: 'ADVANCE', label: 'Advance payment', hint: 'Record payment before delivery', icon: ArrowDownToLine, from: '#FB8C00', to: '#FFA726' },
+              { id: 'OTHER', label: 'Other revenue', hint: 'Record another income source', icon: Layers3, from: '#E6007E', to: '#FF3399' },
             ] as const).map((choice) => (
-              <button key={choice.id} type="button" onClick={() => { setSaleCategory(choice.id); setPackageMode(null); setSaleSource('existing'); setLineItems([]); setAmountValue(''); setApplyClientAdvance(false); setValue('notes', ''); clearErrors(); setNewKind(choice.id === 'PACKAGE' ? 'package' : 'product'); }} className="flex min-h-28 flex-col items-start rounded-2xl border border-edge bg-surface p-4 text-left transition-colors hover:bg-surface-2">
-                <choice.icon className="h-5 w-5 text-accent" aria-hidden />
-                <span className="mt-3 text-[13px] font-semibold text-foreground">{choice.label}</span>
-                <span className="mt-0.5 text-[11.5px] text-foreground-4">{choice.hint}</span>
+              <button key={choice.id} type="button" onClick={() => { setSaleCategory(choice.id); setPackageMode(null); setSaleSource('existing'); setLineItems([]); setAmountValue(''); setApplyClientAdvance(false); setValue('notes', ''); clearErrors(); setNewKind(choice.id === 'PACKAGE' ? 'package' : 'product'); }} className="group relative flex min-h-[188px] flex-col items-start overflow-hidden rounded-2xl bg-[#F2F2F4] p-4 text-left transition-transform active:scale-[0.98] [.dark_&]:bg-[#1E1E1E]">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-sm" style={{ background: `linear-gradient(135deg, ${choice.from}, ${choice.to})` }}>
+                  <choice.icon className="h-5 w-5 text-white" aria-hidden />
+                </span>
+                <span className="mt-3 line-clamp-2 text-[15px] font-medium leading-snug text-foreground">{choice.label}</span>
+                <span className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-foreground-3">{choice.hint}</span>
+                <span className="relative mt-auto inline-flex h-9 items-center self-start rounded-xl border-[1.5px] px-3 text-[12px] font-medium text-foreground transition-colors group-hover:bg-white/40 [.dark_&]:group-hover:bg-white/5" style={{ borderColor: choice.from, color: choice.from }}>
+                  Select
+                </span>
               </button>
             ))}
           </div>
@@ -569,9 +584,71 @@ export function RecordSalePage() {
         </section>
       )}
 
-      {pageStep === 1 && saleCategory && isAmountCategory && (
+      {pageStep === 1 && saleCategory === 'GENERAL' && (
+        <form className="mx-auto w-full max-w-xl space-y-5 pb-8" onSubmit={handleSubmit(submitSale)} noValidate>
+          <div className="pt-1 text-center">
+            <p className="text-[13px] font-medium text-[#8BC53F]">Step 1/2</p>
+            <div className="mt-4 grid grid-cols-2 gap-2" aria-label="Step 1 of 2">
+              <span className="h-1.5 rounded-full bg-[#8BC53F]" />
+              <span className="h-1.5 rounded-full bg-white/35" />
+            </div>
+          </div>
+
+          <section className="space-y-5 border-b border-white/15 pb-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8BC53F]">Daily revenue</p>
+                <h2 className="mt-1 text-[22px] font-semibold leading-tight tracking-tight text-white">Enter today&apos;s total</h2>
+              </div>
+              <span className="shrink-0 rounded-full border border-white/25 px-3 py-1.5 text-[11px] font-medium text-white/85">
+                {new Intl.DateTimeFormat('en-KE', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Africa/Nairobi' }).format(new Date())}
+              </span>
+            </div>
+            <p className="text-[13px] leading-relaxed text-white/70">
+              Record your combined sales for the day in one entry. This amount will count as revenue received today.
+            </p>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="revenue-amount" className="text-[14px] font-medium text-white">Total received (KSh)</Label>
+              <div className="flex h-[58px] items-center gap-3 rounded-xl border-2 border-white/85 px-4 focus-within:border-[#8BC53F]">
+                <span className="shrink-0 text-[16px] font-semibold text-white">KES</span>
+                <Input
+                  id="revenue-amount"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  value={amountValue}
+                  onChange={(event) => setAmountValue(event.target.value)}
+                  placeholder="0"
+                  className="h-12 rounded-none border-0 !bg-transparent px-0 text-[23px] font-semibold tracking-tight !text-white shadow-none placeholder:!text-white/40 focus:border-0 focus:ring-0"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="revenue-method" className="text-[14px] font-medium text-white">Payment method</Label>
+              <Select id="revenue-method" className="h-[54px] rounded-xl border-2 border-white/85 bg-transparent px-4 text-white focus:border-[#8BC53F]" {...register('paymentMethod')}>
+                {DEFAULT_PAYMENT_METHODS.filter((method) => method !== 'CREDIT').map((method) => <option key={method} value={method}>{method}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="general-sale-note" className="text-[14px] font-medium text-white">Payment description (optional)</Label>
+              <Input id="general-sale-note" className="h-[54px] rounded-xl border-2 border-white/85 bg-transparent px-4 text-white placeholder:text-white/40 focus:border-[#8BC53F]" placeholder="Add a short note" {...register('notes')} />
+            </div>
+          </section>
+
+          {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
+          <Button type="submit" loading={mutation.isPending} className="h-[54px] w-full rounded-xl bg-[#8BC53F] text-[15px] font-semibold text-[#11180B] shadow-none hover:bg-[#7AAF35]">
+            Record today&apos;s total · {formatKES(Number(amountValue) || 0)}
+          </Button>
+        </form>
+      )}
+
+      {pageStep === 1 && saleCategory && saleCategory !== 'GENERAL' && isAmountCategory && (
         <form className="space-y-4 rounded-2xl border border-edge bg-surface p-4 lg:max-w-xl" onSubmit={handleSubmit(submitSale)} noValidate>
-          <h2 className="text-[15px] font-semibold text-foreground">{saleCategory === 'GENERAL' ? "Today's general sales total" : saleCategory === 'ADVANCE' ? 'Record an advance payment' : saleCategory === 'OTHER' ? 'Record other revenue' : 'Package sales lump sum'}</h2>
+          <h2 className="text-[15px] font-semibold text-foreground">{saleCategory === 'ADVANCE' ? 'Record an advance payment' : saleCategory === 'OTHER' ? 'Record other revenue' : 'Package sales lump sum'}</h2>
           <div className="space-y-1.5">
             <Label htmlFor="revenue-amount">Amount received (KSh)</Label>
             <Input id="revenue-amount" type="number" inputMode="numeric" min={1} value={amountValue} onChange={(event) => setAmountValue(event.target.value)} placeholder="0" />

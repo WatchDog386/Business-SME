@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { authApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { useAuthStore } from '@/stores/auth';
@@ -122,10 +122,10 @@ export function TwoFactorSetting({ tile = false }: { tile?: boolean }) {
                 <button
                   type="button"
                   onClick={close}
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-800 active:scale-90"
+                  className="flex h-11 w-auto items-center justify-start px-1 text-[14px] font-semibold text-foreground-2 active:opacity-60"
                   aria-label="Back"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  Back
                 </button>
               )}
 

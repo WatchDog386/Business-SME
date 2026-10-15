@@ -38,10 +38,9 @@ export function MobileHomePage() {
         className="absolute inset-0 h-full w-full object-cover"
       />
 
-      {/* Logo in its original navy and green, nudged up off the centre line. The soft drop shadow
-          keeps the navy wordmark off the dusk sky behind it. */}
+      {/* White logo and wordmark stay readable over the photo. */}
       <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pb-10 pt-[env(safe-area-inset-top)] [&_img]:drop-shadow-[0_2px_6px_rgba(255,255,255,0.35)]">
-        <Brand size="xl" />
+        <Brand size="xl" onDark />
       </div>
 
       {/* The sheet: the subscriber app's dark panel in dark mode, frosted white in light */}
@@ -49,7 +48,7 @@ export function MobileHomePage() {
         className={
           'relative flex max-h-[calc(100%-170px)] shrink-0 flex-col rounded-t-3xl px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 ' +
           (dark
-            ? 'border-t border-white/15 bg-black/55 text-white shadow-[0_-10px_24px_rgba(0,0,0,0.45)] backdrop-blur-md'
+            ? 'border-t border-white/15 bg-gradient-to-b from-black/70 via-black/45 to-black/75 text-white shadow-[0_-10px_24px_rgba(0,0,0,0.45)] backdrop-blur-md'
             : 'bg-white/80 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-md')
         }
       >

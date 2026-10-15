@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import {
   ArrowUpDown,
   ArrowUpRight,
-  ChevronLeft,
   History,
   Minus,
   Package,
@@ -151,10 +150,10 @@ function DarkHeader() {
         <button
           type="button"
           onClick={goBack}
-          className="-ml-3 flex h-12 w-12 items-center justify-center rounded-full bg-black pl-2 text-white active:scale-90 [.dark_&]:bg-white [.dark_&]:text-black"
+          className="-ml-3 flex h-12 w-12 items-center justify-center text-foreground-2 active:scale-90 active:opacity-60"
           aria-label="Back"
         >
-          <ChevronLeft className="h-5 w-5" />
+          Back
         </button>
       </div>
     </header>

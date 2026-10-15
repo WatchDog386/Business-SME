@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Mail, MessageCircle, Phone, Search, Wallet } from 'lucide-react';
+import { Mail, MessageCircle, Phone, Search, Wallet } from 'lucide-react';
 import { clientApi, type ClientHome } from '@/api/endpoints';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { PackageCard, planStyle } from '@/features/products/package-card';
@@ -51,10 +51,10 @@ export function ClientShell({ title, children }: { title: string; children: Reac
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black pl-2 text-white active:scale-90"
+          className="flex h-12 w-12 shrink-0 items-center justify-center text-white active:scale-90 active:opacity-60"
           aria-label="Back"
         >
-          <ChevronLeft className="h-5 w-5" aria-hidden />
+          Back
         </button>
         <h1 className="min-w-0 flex-1 truncate text-center text-[17px] font-semibold text-white">{title}</h1>
         <span className="h-12 w-12 shrink-0" aria-hidden />

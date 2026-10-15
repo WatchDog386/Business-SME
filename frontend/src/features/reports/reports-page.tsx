@@ -6,7 +6,6 @@ import {
   ArrowUpRight,
   Banknote,
   ChevronDown,
-  ChevronLeft,
   CreditCard,
   Download,
   Landmark,
@@ -138,10 +137,10 @@ function DailyReportPage() {
         <button
           type="button"
           onClick={() => navigate(isDesktop ? '/reports' : '/dashboard')}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black pl-2 text-white active:scale-90 [.dark_&]:bg-white [.dark_&]:text-black"
+          className="flex h-12 w-12 shrink-0 items-center justify-center text-foreground-2 active:scale-90 active:opacity-60"
           aria-label="Back"
         >
-          <ChevronLeft className="h-5 w-5" />
+          Back
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-foreground">Daily report</h1>

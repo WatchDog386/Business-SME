@@ -229,7 +229,7 @@ export function LoginPage() {
         {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
         <img src="/images/splash-savanna.jpg" alt="" aria-hidden className="fixed inset-0 h-full w-full object-cover" />
         <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[env(safe-area-inset-top)] [&_img]:drop-shadow-[0_2px_6px_rgba(255,255,255,0.35)]">
-          <Brand size="xl" />
+          <Brand size="xl" onDark />
         </div>
         <main
           className={
@@ -253,7 +253,7 @@ export function LoginPage() {
             </div>
           ) : (
             /* Muted, borderless fields as in the original sign-in page */
-            <div className="mt-6 [&_input]:!rounded-lg [&_input]:!border-transparent [&_input]:!bg-slate-100 [&_input]:!text-slate-600 [&_input]:!shadow-none [&_input]:placeholder:text-slate-400 [&_label]:sr-only">
+            <div className="mt-6 [&_input]:!rounded-xl [&_input]:!border-white/15 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70 [&_.auth-link]:!text-[#2F7F81] [&_label]:sr-only">
               {form}
             </div>
           )}

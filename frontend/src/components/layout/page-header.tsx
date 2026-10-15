@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppBarButton } from './app-bar';
 
@@ -30,11 +29,11 @@ export function PageHeader({
 
   return (
     <>
-      {/* Phones: round back button, centred title (Safaricom style). Larger screens: one row, actions on the right */}
+      {/* Phones: plain back icon and centred title. Larger screens: one row, actions on the right */}
       <div className={cn('page-head grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-2 sm:flex sm:justify-between sm:gap-3', className)}>
         <div className="justify-self-start sm:hidden">
           <AppBarButton onClick={goBack} aria-label="Back">
-            <ChevronLeft className="h-5 w-5" />
+            Back
           </AppBarButton>
         </div>
         <div className="min-w-0 space-y-1 text-center sm:text-left">

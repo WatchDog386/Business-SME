@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, LogOut, Moon, Sun } from 'lucide-react';
+import { LogOut, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { requestLogout } from './session-timeout';
 
@@ -36,10 +36,10 @@ export function HeaderAccountPage({ open, onOpenChange }: HeaderAccountPageProps
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 pl-1 text-foreground-2 transition-transform active:scale-90"
+            className="flex h-11 w-auto shrink-0 items-center justify-start px-1 text-[14px] font-semibold text-foreground-2 transition-opacity active:opacity-60"
             aria-label="Back to dashboard"
           >
-            <ChevronLeft className="h-5 w-5" aria-hidden />
+            Back
           </button>
           <h1 id="header-account-title" className="flex-1 text-center text-[17px] font-semibold tracking-tight text-foreground">
             Account

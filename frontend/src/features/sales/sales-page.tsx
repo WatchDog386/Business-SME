@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { ArrowUpDown, ChevronLeft, Search, ShoppingCart, Receipt } from 'lucide-react';
+import { ArrowUpDown, Search, ShoppingCart, Receipt } from 'lucide-react';
 import { dashboardApi, salesApi } from '@/api/endpoints';
 import { Chips } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
@@ -86,10 +86,10 @@ function SalesMobilePage() {
   <button
     type="button"
     onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}
-    className="-ml-3 flex h-12 w-12 items-center justify-center rounded-full bg-black pl-2 text-white active:scale-90 [.dark_&]:bg-white [.dark_&]:text-black"
+    className="-ml-3 flex h-12 w-12 items-center justify-center text-foreground-2 active:scale-90 active:opacity-60"
     aria-label="Back"
   >
-    <ChevronLeft className="h-5 w-5" />
+    Back
   </button>
 </div>
       </header>

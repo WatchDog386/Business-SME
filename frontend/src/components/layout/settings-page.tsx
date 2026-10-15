@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import {
   BarChart3,
-  ChevronLeft,
   Download,
   Wallet,
   Package,
@@ -88,10 +87,10 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
           <button
             type="button"
             onClick={close}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 pl-1 text-foreground-2 transition-transform active:scale-90"
+            className="flex h-11 w-auto shrink-0 items-center justify-start px-1 text-[14px] font-semibold text-foreground-2 transition-opacity active:opacity-60"
             aria-label="Back"
           >
-            <ChevronLeft className="h-5 w-5" aria-hidden />
+            Back
           </button>
           <h1 className="flex-1 text-center text-[17px] font-semibold tracking-tight text-foreground">Settings</h1>
           <button

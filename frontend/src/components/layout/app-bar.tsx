@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * Screen app bar in the Safaricom app style: round back button on the left,
+ * Screen app bar with a plain back icon on the left,
  * centred title, optional action on the right. Pinned on phones via `page-head`.
  */
 export function AppBar({
@@ -12,12 +11,16 @@ export function AppBar({
   onBack,
   right,
   className,
+  titleClassName,
+  backClassName,
 }: {
   title: string;
   /** Defaults to going back, or to the dashboard when there's no history. */
   onBack?: () => void;
   right?: React.ReactNode;
   className?: string;
+  titleClassName?: string;
+  backClassName?: string;
 }) {
   const navigate = useNavigate();
   const goBack = onBack ?? (() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard')));
@@ -25,11 +28,11 @@ export function AppBar({
   return (
     <div className={cn('page-head grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-2', className)}>
       <div className="justify-self-start">
-        <AppBarButton onClick={goBack} aria-label="Back">
-          <ChevronLeft className="h-5 w-5" />
+        <AppBarButton onClick={goBack} aria-label="Back" className={cn('!h-10 !w-auto min-w-12 justify-start px-1 text-[14px] font-semibold', backClassName)}>
+          Back
         </AppBarButton>
       </div>
-      <h1 className="max-w-[52vw] truncate text-center text-[17px] font-medium tracking-tight text-foreground lg:max-w-none">
+      <h1 className={cn('max-w-[52vw] truncate text-center text-[17px] font-medium tracking-tight text-foreground lg:max-w-none', titleClassName)}>
         {title}
       </h1>
       <div className="flex items-center justify-self-end">{right}</div>
@@ -37,13 +40,13 @@ export function AppBar({
   );
 }
 
-/** Round black button for the app bar, the same as the Sales page back button. */
+/** Unboxed, accessible hit area for page back navigation. */
 export function AppBarButton({ className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
       className={cn(
-        'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black pl-2 text-white transition-transform active:scale-90 [.dark_&]:bg-white [.dark_&]:text-black',
+        'flex h-12 w-12 shrink-0 items-center justify-center text-foreground-2 transition-transform active:scale-90 active:opacity-60',
         className,
       )}
       {...props}

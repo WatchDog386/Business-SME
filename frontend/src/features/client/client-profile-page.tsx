@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Camera, ChevronLeft, LogOut, Moon, Save, Sun } from 'lucide-react';
+import { Camera, LogOut, Moon, Save, Sun } from 'lucide-react';
 import { authApi, clientApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { ChangePasswordForm } from '@/features/auth/components/change-password-form';
@@ -150,10 +150,10 @@ export function ClientProfilePage() {
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black pl-2 text-white active:scale-90"
+          className="flex h-12 w-12 shrink-0 items-center justify-center text-white active:scale-90 active:opacity-60"
           aria-label="Back"
         >
-          <ChevronLeft className="h-5 w-5" aria-hidden />
+          Back
         </button>
         <h1 className="flex-1 text-center text-[17px] font-semibold text-white">My Account</h1>
         <span className="h-12 w-12 shrink-0" aria-hidden />

@@ -60,10 +60,12 @@ export function AuthLayout({
           </div>
         )}
 
-        {/* Muted, borderless fields as in the mobile mock-ups */}
+        {/* Login uses dark fields; the other auth screens keep their muted fields. */}
         <div
           className={cn(
-            'mt-6 [&_input]:!rounded-lg [&_input]:!border-transparent [&_input]:!bg-slate-100 [&_input]:!text-slate-600 [&_input]:!shadow-none [&_input]:placeholder:text-slate-400',
+            forceMobileLayout
+              ? 'mt-6 [&_input]:!rounded-xl [&_input]:!border-white/15 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70'
+              : 'mt-6 [&_input]:!rounded-lg [&_input]:!border-transparent [&_input]:!bg-slate-100 [&_input]:!text-slate-600 [&_input]:!shadow-none [&_input]:placeholder:text-slate-400',
             hideLabelsOnMobile && '[&_label]:sr-only',
           )}
         >
@@ -107,7 +109,7 @@ function DesktopAuthLayout({
         {title && <h1 className="mt-10 text-center text-3xl font-normal tracking-tight text-slate-800">{title}</h1>}
         {subtitle && <p className="mt-1 text-center text-sm text-slate-500">{subtitle}</p>}
 
-        {/* Same muted, borderless fields as the mobile mock-ups */}
+        {/* Muted, borderless fields as in the mobile mock-ups */}
         <div
           className={cn(
             'mt-6 [&_input]:!rounded-lg [&_input]:!border-transparent [&_input]:!bg-slate-100 [&_input]:!text-slate-600 [&_input]:!shadow-none [&_input]:placeholder:text-slate-400',

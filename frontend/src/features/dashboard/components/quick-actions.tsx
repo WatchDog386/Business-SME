@@ -28,12 +28,20 @@ const actions: QuickAction[] = [
 ];
 
 /**
- * Safaricom-app "Quick Actions", straight on the page background: title with a green
- * "View all" (opens every section), round grey tiles with green-and-red icons.
- *
- * `onSelect` turns the tiles into plain buttons (for the subscriber app, which has
- * one page and no routes to link to); the tile and icon design stays identical.
+ * Quick actions use a distinct Optimas colour for each icon while keeping the
+ * original neutral tiles. `onSelect` turns the tiles into buttons for the subscriber app.
  */
+const actionTones = [
+  'text-[#2F7F81] [.dark_&]:text-[#78C8C9]',
+  'text-[#B45309] [.dark_&]:text-[#FDBA74]',
+  'text-[#4F46E5] [.dark_&]:text-[#A5B4FC]',
+  'text-[#7C3AED] [.dark_&]:text-[#C4B5FD]',
+  'text-[#2563EB] [.dark_&]:text-[#93C5FD]',
+  'text-[#A16207] [.dark_&]:text-[#FCD34D]',
+  'text-[#0E7490] [.dark_&]:text-[#67E8F9]',
+  'text-[#BE185D] [.dark_&]:text-[#F9A8D4]',
+] as const;
+
 export function QuickActions({
   items = actions,
   viewAll = true,
@@ -72,25 +80,29 @@ export function QuickActions({
       </div>
 
       <div className="grid grid-cols-4 gap-x-1 gap-y-4">
-        {items.map((action, i) => (
-          <motion.button
-            key={action.to}
-            type="button"
-            onClick={() => (onSelect ? onSelect(action.to) : navigate(action.to))}
-            className="flex flex-col items-center gap-2"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 + i * 0.03, type: 'spring', stiffness: 420, damping: 30 }}
-            whileTap={{ scale: 0.88 }}
-          >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-3 text-brand-600 [.dark_&]:bg-[#333333] [.dark_&]:text-brand-400">
-              <action.icon className="h-7 w-7" />
-            </span>
-            <span className={cn('line-clamp-2 text-center text-[13px] leading-snug text-foreground', labelClassName)}>
-              {action.label}
-            </span>
-          </motion.button>
-        ))}
+        {items.map((action, i) => {
+          const iconTone = actionTones[i % actionTones.length];
+          return (
+            <motion.button
+              key={action.to}
+              type="button"
+              onClick={() => (onSelect ? onSelect(action.to) : navigate(action.to))}
+              className="flex flex-col items-center gap-2"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 + i * 0.03, type: 'spring', stiffness: 420, damping: 30 }}
+              whileTap={{ scale: 0.88 }}
+            >
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-3 [.dark_&]:bg-[#333333]">
+                {/* All paths inherit this action's colour, including the small icon details. */}
+                <action.icon className={cn('h-7 w-7', iconTone)} />
+              </span>
+              <span className={cn('line-clamp-2 text-center text-[13px] leading-snug text-foreground', labelClassName)}>
+                {action.label}
+              </span>
+            </motion.button>
+          );
+        })}
       </div>
 
       {viewAll && !onManage && <MoreMenu open={allOpen} onOpenChange={setAllOpen} />}

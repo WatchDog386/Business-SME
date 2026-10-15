@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft,
   Bike,
   BookOpen,
   Camera,
@@ -240,10 +239,10 @@ export function SearchDialog({
         <div className="relative flex h-14 shrink-0 items-center px-2">
           <button
             onClick={() => onOpenChange(false)}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-3 text-foreground transition-transform active:scale-90"
+            className="flex h-11 w-auto items-center justify-start px-1 text-[14px] font-semibold text-foreground-2 transition-opacity active:opacity-60"
             aria-label="Back"
           >
-            <ChevronLeft className="h-6 w-6" strokeWidth={2} />
+            Back
           </button>
           <h2 className="absolute left-1/2 -translate-x-1/2 text-[17px] font-medium tracking-tight text-foreground">
             Search
