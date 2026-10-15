@@ -32,15 +32,7 @@ const actions: QuickAction[] = [
  * original neutral tiles. `onSelect` turns the tiles into buttons for the subscriber app.
  */
 const actionTones = [
-  'text-[#2F7F81] [.dark_&]:text-[#78C8C9]',
-  'text-[#B45309] [.dark_&]:text-[#FDBA74]',
-  'text-[#4F46E5] [.dark_&]:text-[#A5B4FC]',
-  'text-[#7C3AED] [.dark_&]:text-[#C4B5FD]',
-  'text-[#2563EB] [.dark_&]:text-[#93C5FD]',
-  'text-[#A16207] [.dark_&]:text-[#FCD34D]',
-  'text-[#0E7490] [.dark_&]:text-[#67E8F9]',
-  'text-[#BE185D] [.dark_&]:text-[#F9A8D4]',
-  'text-[#0F766E] [.dark_&]:text-[#5EEAD4]',
+  'text-emerald-600 [.dark_&]:text-emerald-500',
 ] as const;
 
 export function QuickActions({
