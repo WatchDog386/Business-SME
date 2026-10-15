@@ -21,7 +21,7 @@ import { invoiceNo } from '@/features/isp/document-actions';
 import { useState } from 'react';
 import { SubscriberForm } from '@/features/isp/subscriber-form';
 import { ClientAppAccess } from './client-app-access';
-import { ContactButtons, LogCallSheet } from '@/features/isp/contact';
+import { ContactButtons, LogCallSheet, SendSmsSheet } from '@/features/isp/contact';
 import { CallHistory, SubscriptionCard } from '@/features/isp/subscription';
 
 export function CustomerDetailPage() {
@@ -29,6 +29,7 @@ export function CustomerDetailPage() {
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [smsOpen, setSmsOpen] = useState(false);
 
   const customerQuery = useQuery({
     queryKey: ['customers', id],
@@ -54,18 +55,7 @@ export function CustomerDetailPage() {
 
   return (
     <div className="space-y-4 pb-10">
-      <AppBar
-        title="Subscriber"
-        onBack={() => navigate(-1)}
-        right={
-          <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
-            <Button className="h-9 rounded-full bg-accent px-4 text-white hover:bg-accent-strong" onClick={() => navigate(`/sales/new?customer=${customer.id}`)}>
-              <Plus className="h-3.5 w-3.5" />
-              Record sale
-            </Button>
-          </div>
-        }
-      />
+      <AppBar title="Subscriber" onBack={() => navigate(-1)} />
 
       {/* Customer header — flat, polished */}
       <div className="space-y-4">
@@ -93,10 +83,6 @@ export function CustomerDetailPage() {
               )}
             </div>
           </div>
-          <Button variant="outline" className="ml-auto h-9 shrink-0 rounded-full px-4" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-3.5 w-3.5" />
-            Edit
-          </Button>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 px-1">
           <Stat label="Total spent" value={formatKES(customer.total_spent)} />
@@ -106,14 +92,39 @@ export function CustomerDetailPage() {
         </div>
       </div>
 
+      {/* Actions in the Sales page's outline pill style */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <button
+          type="button"
+          onClick={() => navigate(`/sales/new?customer=${customer.id}`)}
+          className="flex h-11 w-full items-center justify-center gap-1.5 rounded-full border-2 border-edge-2 text-[15px] font-semibold text-brand-600 transition-colors active:scale-[0.98] active:border-brand-600 [.dark_&]:text-brand-400"
+        >
+          <Plus className="h-4 w-4" aria-hidden />
+          Record sale
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          className="flex h-11 w-full items-center justify-center gap-1.5 rounded-full border-2 border-edge-2 text-[15px] font-semibold text-brand-600 transition-colors active:scale-[0.98] active:border-brand-600 [.dark_&]:text-brand-400"
+        >
+          <Pencil className="h-4 w-4" aria-hidden />
+          Edit
+        </button>
+      </div>
+
       {/* WiFi package + quick contact */}
-      <SubscriptionCard customerId={customer.id} />
+      <SubscriptionCard customerId={customer.id} name={customer.name} />
       <div className="flex items-center justify-between gap-3 px-1 py-2">
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-foreground">Contact {customer.name.split(' ')[0]}</p>
           <p className="truncate text-[12px] text-foreground-4">{customer.phone ?? 'No phone number saved'}</p>
         </div>
-        <ContactButtons phone={customer.phone} message={`Hello ${customer.name}, this is Optimas.`} onLog={() => setLogOpen(true)} />
+        <ContactButtons
+          phone={customer.phone}
+          message={`Hello ${customer.name}, this is Optimas.`}
+          onMessage={() => setSmsOpen(true)}
+          onLog={() => setLogOpen(true)}
+        />
       </div>
 
       {/* The client's own app login (admins only) */}
@@ -171,6 +182,14 @@ export function CustomerDetailPage() {
         <CallHistory customerId={customer.id} />
       </section>
       <LogCallSheet open={logOpen} onOpenChange={setLogOpen} customerId={customer.id} customerName={customer.name} />
+      <SendSmsSheet
+        open={smsOpen}
+        onOpenChange={setSmsOpen}
+        customerId={customer.id}
+        customerName={customer.name}
+        phone={customer.phone}
+        defaultMessage={`Hello ${customer.name}, this is Optimas. Your monthly subscription is due for renewal. Pay via M-Pesa to stay connected. Thank you.`}
+      />
 
       <Dialog
         open={editOpen}

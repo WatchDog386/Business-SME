@@ -56,6 +56,17 @@ export function DuoCustomers(props: IconProps) {
   );
 }
 
+/** One person with a plus, for the staff (team) tile. */
+export function DuoStaff(props: IconProps) {
+  return (
+    <Duo {...props}>
+      <circle cx="10" cy="8" r="3.5" />
+      <path d="M3.5 20a6.5 6.5 0 0 1 13 0" />
+      <path d="M18.5 13v6M15.5 16h6" />
+    </Duo>
+  );
+}
+
 /** Box with a ribbon tag. */
 export function DuoProducts(props: IconProps) {
   return (

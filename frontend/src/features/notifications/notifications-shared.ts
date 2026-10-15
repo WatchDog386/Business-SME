@@ -64,8 +64,8 @@ export function buildNotifications(data: DashboardData, options: { canApprove?: 
       category: 'subscribers',
       icon: AlarmClock,
       tone: 'warning',
-      title: `${subs.expiringSoon} package${subs.expiringSoon === 1 ? '' : 's'} expiring soon`,
-      text: 'Remind these clients to renew before they lose their connection.',
+      title: `${subs.expiringSoon} subscription${subs.expiringSoon === 1 ? '' : 's'} due for renewal`,
+      text: 'Message or call them before their connection lapses.',
       time: 'Today',
       link: '/subscribers',
     });

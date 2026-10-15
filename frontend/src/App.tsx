@@ -22,6 +22,7 @@ const SalesPage = lazy(() => import('@/features/sales/sales-page').then((m) => (
 const RecordSalePage = lazy(() => import('@/features/sales/record-sale-page').then((m) => ({ default: m.RecordSalePage })));
 const SaleDetailPage = lazy(() => import('@/features/sales/sale-detail-page').then((m) => ({ default: m.SaleDetailPage })));
 const ExpensesPage = lazy(() => import('@/features/expenses/expenses-page').then((m) => ({ default: m.ExpensesPage })));
+const ExpenseDetailPage = lazy(() => import('@/features/expenses/expense-detail-page').then((m) => ({ default: m.ExpenseDetailPage })));
 const RecurringExpensesPage = lazy(() => import('@/features/expenses/recurring-expenses-page').then((m) => ({ default: m.RecurringExpensesPage })));
 const BudgetsPage = lazy(() => import('@/features/budgets/budgets-page').then((m) => ({ default: m.BudgetsPage })));
 const AccountPage = lazy(() => import('@/features/account/account-page').then((m) => ({ default: m.AccountPage })));
@@ -111,6 +112,7 @@ export default function App() {
             <Route path="/sales/:id" element={<SaleDetailPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/expenses/recurring" element={<RecurringExpensesPage />} />
+    <Route path="/expenses/:id" element={<ExpenseDetailPage />} />
             <Route path="/budgets" element={<BudgetsPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/reports" element={<ReportsPage />} />

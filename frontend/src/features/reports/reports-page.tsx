@@ -8,6 +8,7 @@ import {
   ChevronDown,
   CreditCard,
   Download,
+  FileSpreadsheet,
   Landmark,
   Receipt,
   RefreshCw,
@@ -108,7 +109,7 @@ function DailyReportPage() {
     const wanted = searchParams.get('date');
     return wanted && /^\d{4}-\d{2}-\d{2}$/.test(wanted) && wanted <= today ? wanted : today;
   });
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<'pdf' | 'xlsx' | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const report = useQuery({ queryKey: ['daily-report', date], queryFn: () => reportsApi.day(date), refetchInterval: date === today ? 60_000 : false });
@@ -116,15 +117,15 @@ function DailyReportPage() {
   const r = report.data;
   const label = dayLabel(date, today);
 
-  const download = async () => {
-    setDownloading(true);
+  const download = async (format: 'pdf' | 'xlsx') => {
+    setDownloading(format);
     setDownloadError(null);
     try {
-      await reportsApi.download('day/export.pdf', { date }, `daily-report-${date}.pdf`);
+      await reportsApi.download(`day/export.${format}`, { date }, `daily-report-${date}.${format}`);
     } catch (err) {
       setDownloadError(apiErrorMessage(err));
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   };
 
@@ -132,29 +133,41 @@ function DailyReportPage() {
 
   return (
     <div className="space-y-5 pb-10">
-      {/* Header like the reference: greeting, then the selected day as a chip */}
-      <header className="page-head flex items-center justify-between gap-3">
+      {/* Title sits dead centre regardless of the buttons either side */}
+      <header className="page-head relative flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => navigate(isDesktop ? '/reports' : '/dashboard')}
-          className="flex h-12 w-12 shrink-0 items-center justify-center text-foreground-2 active:scale-90 active:opacity-60"
+          className="flex h-11 shrink-0 items-center justify-center rounded-full px-4 text-[15px] font-semibold text-foreground-2 transition-transform active:scale-95 active:opacity-60"
           aria-label="Back"
         >
           Back
         </button>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-foreground">Daily report</h1>
-          <p className="text-[12px] text-foreground-4">How the business did, day by day</p>
+        <h1 className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[22px] font-semibold leading-tight tracking-tight text-foreground">
+          Daily report
+        </h1>
+        <div className="ml-auto flex shrink-0 gap-1.5">
+          <button
+            type="button"
+            onClick={() => void download('pdf')}
+            disabled={Boolean(downloading) || !r}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90 disabled:opacity-50"
+            aria-label="Download daily report PDF"
+            title="Download PDF"
+          >
+            {downloading === 'pdf' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-5 w-5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => void download('xlsx')}
+            disabled={Boolean(downloading) || !r}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90 disabled:opacity-50"
+            aria-label="Download daily report Excel workbook"
+            title="Download Excel"
+          >
+            {downloading === 'xlsx' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-5 w-5" />}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={download}
-          disabled={downloading || !r}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90 disabled:opacity-50"
-          aria-label="Download PDF"
-        >
-          {downloading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-5 w-5" />}
-        </button>
       </header>
 
       {/* Day picker: last 7 days */}
@@ -353,11 +366,11 @@ function DailyReportPage() {
             </a>
             <button
               type="button"
-              onClick={download}
-              disabled={downloading}
+              onClick={() => void download('pdf')}
+              disabled={Boolean(downloading)}
               className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#1C1F1B] text-[14px] font-semibold text-white active:opacity-80 disabled:opacity-60 [.dark_&]:bg-white [.dark_&]:text-[#1C1F1B]"
             >
-              <Download className="h-4 w-4" /> {downloading ? 'Preparing…' : 'PDF report'}
+              <Download className="h-4 w-4" /> {downloading === 'pdf' ? 'Preparing…' : 'PDF report'}
             </button>
           </div>
           <p className="text-center text-[11px] text-foreground-4">

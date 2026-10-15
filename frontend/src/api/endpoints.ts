@@ -290,6 +290,8 @@ export const salesApi = {
     to?: string;
     customerId?: string;
     paymentStatus?: string;
+    paymentMethod?: string;
+    saleType?: string;
     search?: string;
   }) =>
     api<Paginated<Sale>>({ method: 'GET', url: '/sales', params }),
@@ -445,9 +447,19 @@ export const callsApi = {
   history: (customerId: string) => api<CallLog[]>({ method: 'GET', url: `/customers/${customerId}/calls` }),
   log: (
     customerId: string,
-    data: { outcome: CallOutcome; channel?: 'PHONE' | 'WHATSAPP'; notes?: string; followUpAt?: string },
+    data: { outcome: CallOutcome; channel?: 'PHONE' | 'WHATSAPP' | 'SMS'; notes?: string; followUpAt?: string },
   ) => api<CallLog>({ method: 'POST', url: `/customers/${customerId}/calls`, data }),
   done: (id: string) => api<{ success: boolean }>({ method: 'PATCH', url: `/calls/${id}/done` }),
+};
+
+export const smsApi = {
+  status: () => api<{ configured: boolean; missing: string[] }>({ method: 'GET', url: '/sms/status' }),
+  send: (customerId: string, message: string) =>
+    api<{ sent: boolean; statusCode: string; statusDesc: string; messageId: string | null; to: string | null }>({
+      method: 'POST',
+      url: `/customers/${customerId}/sms`,
+      data: { message },
+    }),
 };
 
 // ---- Expenses ----
@@ -461,6 +473,7 @@ export const expensesApi = {
     categoryId?: string;
     search?: string;
     status?: ExpenseStatus;
+    paymentMethod?: string;
   }) => api<Paginated<Expense>>({ method: 'GET', url: '/expenses', params }),
   get: (id: string) => api<Expense>({ method: 'GET', url: `/expenses/${id}` }),
   create: (data: {
@@ -575,14 +588,24 @@ export interface DailyReport {
     pendingCount: number;
     pendingTotal: number;
     byCategory: Array<{ category: string; amount: number }>;
-    items: Array<{ id: string; description: string; category: string; amount: number; status: string; method: string }>;
+    items: Array<{ id: string; date: string; description: string; category: string; amount: number; status: string; method: string }>;
   };
   profit: { cogs: number; gross: number; net: number; margin: number };
   cash: { moneyIn: number; moneyOut: number; net: number };
   subscribers: { active: number; expiring: number; expired: number; expiredThisDay: number };
   debts: { outstanding: number; debtors: number };
   previous: { revenue: number; salesCount: number; expenses: number; net: number };
-  sales: Array<{ id: string; number: number | null; at: string; customer: string; total: number; method: string; status: string }>;
+  sales: Array<{ id: string; number: number | null; at: string; customer: string; type: string; total: number; method: string; status: string }>;
+}
+
+export interface DailyReportDeliverySettings {
+  enabled: boolean;
+  email: string;
+  usingOwnerEmail: boolean;
+  emailConfigured: boolean;
+  sendTime: string;
+  timezone: string;
+  lastDelivery: { date: string; status: 'SENDING' | 'SENT' | 'FAILED'; sentAt: string | null } | null;
 }
 
 export interface DailyHistoryRow {
@@ -595,6 +618,9 @@ export interface DailyHistoryRow {
 
 export const reportsApi = {
   day: (date?: string) => api<DailyReport>({ method: 'GET', url: '/reports/day', params: date ? { date } : undefined }),
+  deliverySettings: () => api<DailyReportDeliverySettings>({ method: 'GET', url: '/reports/delivery' }),
+  updateDeliverySettings: (data: { email: string | null; enabled: boolean }) =>
+    api<DailyReportDeliverySettings>({ method: 'PATCH', url: '/reports/delivery', data }),
   dayHistory: (days: number, until?: string) =>
     api<DailyHistoryRow[]>({ method: 'GET', url: '/reports/day/history', params: { days, until } }),
   profitLoss: (params: { from?: string; to?: string }) =>

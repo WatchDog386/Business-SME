@@ -119,7 +119,7 @@ export function DesktopSubscribersPage() {
   const onExport = () => {
     downloadCsv(
       `subscribers-${csvDateStamp()}`,
-      ['Account number', 'Name', 'Username', 'Phone', 'Location', 'Package', 'Price', 'Expires', 'Days left', 'Wallet', 'Debt', 'Status'],
+      ['Account number', 'Name', 'Username', 'Phone', 'Location', 'Package', 'Price', 'Expires', 'Days left', 'Wallet', 'Status'],
       visible.map((s) => [
         s.accountNumber ?? '',
         s.name,
@@ -131,7 +131,6 @@ export function DesktopSubscribersPage() {
         s.expiresAt ? expiryDate(s.expiresAt) : '',
         s.daysLeft ?? '',
         s.wallet,
-        s.debt,
         STATUS_TONE[s.status].label,
       ]),
     );
@@ -209,13 +208,6 @@ export function DesktopSubscribersPage() {
       className: 'whitespace-nowrap tabular-nums',
       cell: (s) => formatKES(s.wallet),
     },
-    {
-      key: 'debt',
-      header: 'Debt',
-      align: 'right',
-      className: 'whitespace-nowrap tabular-nums',
-      cell: (s) => <span className={cn(s.debt > 0 && 'font-semibold text-red-600 [.dark_&]:text-red-400')}>{formatKES(s.debt)}</span>,
-    },
   ];
 
   return (
@@ -225,7 +217,7 @@ export function DesktopSubscribersPage() {
         <div>
           <h1 className="text-[26px] font-normal tracking-tight text-foreground">Subscribers</h1>
           <p className="mt-1 text-[15px] text-foreground-4">
-            Every client with their account, package, renewals, wallet and outstanding balance.
+            Every client with their account, package, renewals and wallet.
           </p>
         </div>
         <button

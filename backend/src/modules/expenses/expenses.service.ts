@@ -14,6 +14,7 @@ import {
 } from './dto/expense.dto';
 import { PaginatedResult } from '../../common/dto/pagination.dto';
 import { UserRole } from '../../common/types/auth-user.interface';
+import { DateTime } from 'luxon';
 
 /** Roles whose expenses are approved on entry and who review others' submissions. */
 export const EXPENSE_APPROVER_ROLES: UserRole[] = [
@@ -49,8 +50,10 @@ export class ExpensesService {
       categoryId?: string;
       search?: string;
       status?: ExpenseStatus;
+      paymentMethod?: string;
     },
     actor?: ExpenseActor,
+    timezone = 'Africa/Nairobi',
   ): Promise<PaginatedResult<Expense & { category_name: string | null }>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -67,12 +70,12 @@ export class ExpensesService {
     if (query.status) {
       qb.andWhere('expense.status = :status', { status: query.status });
     }
-    if (query.from) {
-      qb.andWhere('expense.expense_date >= :from', { from: query.from });
-    }
-    if (query.to) {
-      qb.andWhere('expense.expense_date < :to', { to: query.to });
-    }
+    const boundary = (value: string) => {
+      const parsed = DateTime.fromISO(value, { zone: timezone });
+      return parsed.isValid ? parsed.toJSDate() : new Date(value);
+    };
+    if (query.from) qb.andWhere('expense.expense_date >= :from', { from: boundary(query.from) });
+    if (query.to) qb.andWhere('expense.expense_date < :to', { to: boundary(query.to) });
     if (query.categoryId) {
       qb.andWhere('expense.categoryId = :categoryId', {
         categoryId: query.categoryId,
@@ -82,6 +85,9 @@ export class ExpensesService {
       qb.andWhere('expense.description LIKE :search', {
         search: `%${query.search}%`,
       });
+    }
+    if (query.paymentMethod) {
+      qb.andWhere('expense.payment_method = :paymentMethod', { paymentMethod: query.paymentMethod });
     }
 
     // Count before ordering: Postgres rejects ORDER BY on an aggregate-only query.
@@ -110,8 +116,17 @@ export class ExpensesService {
     businessId: string,
     id: string,
     actor?: ExpenseActor,
-  ): Promise<Expense> {
-    const expense = await this.repo.findOne({ where: { id, businessId } });
+  ): Promise<Expense & { category_name: string | null }> {
+    // Same category join as list(), so the detail page shows the category name.
+    const result = await this.repo
+      .createQueryBuilder('expense')
+      .leftJoin('categories', 'category', 'category.id = expense.categoryId')
+      .addSelect('category.name', 'category_name')
+      .where('expense.id = :id', { id })
+      .andWhere('expense.businessId = :businessId', { businessId })
+      .getRawAndEntities();
+
+    const expense = result.entities[0];
     if (
       !expense ||
       (actor && !isApprover(actor.role) && expense.submittedById !== actor.id)
@@ -121,7 +136,10 @@ export class ExpensesService {
         message: 'Expense not found.',
       });
     }
-    return expense;
+    return Object.assign(expense, {
+      category_name:
+        (result.raw[0] as { category_name?: string }).category_name ?? null,
+    });
   }
 
   async create(

@@ -99,7 +99,7 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
               onOpenChange(false);
               requestLogout();
             }}
-            className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-danger-soft pl-3 pr-4 text-[13px] font-semibold text-danger transition-transform active:scale-90"
+            className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-danger pl-3 pr-4 text-[13px] font-bold text-white transition-transform active:scale-90"
           >
             <LogOut className="h-4 w-4" aria-hidden />
             Log out
@@ -116,9 +116,9 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
             avatarUrl={user?.avatarUrl}
             initial={user?.fullName?.charAt(0).toUpperCase()}
             onEdit={() => go('/profile')}
+            size={96}
           />
-          <p className="mt-6 text-base font-semibold text-foreground">{user?.fullName ?? ''}</p>
-          <p className="text-[13px] text-foreground-3">{user?.email ?? ''}</p>
+          <p className="mt-4 text-base font-semibold text-foreground">{user?.fullName ?? ''}</p>
           {active?.subscription_plan && (
             <span className="mt-1.5 inline-block rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
               {active.subscription_plan}
@@ -126,7 +126,7 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
           )}
         </section>
 
-        <p className="mt-6 text-[15px] text-foreground-3">Manage your business and account</p>
+        <p className="mt-5 text-[15px] text-foreground-3">Manage your business and account</p>
 
         {/* Business group */}
         <section className="mt-6">

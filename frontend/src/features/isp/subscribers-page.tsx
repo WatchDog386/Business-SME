@@ -16,7 +16,7 @@ import { useRole } from '@/hooks/use-role';
 import { CHARCOAL, FiberHeroCard, LIME, ProfileHeader, RoundFilters } from '@/components/brand/fiber-card';
 import { SubscriberForm } from './subscriber-form';
 import { SubscriberRegister } from './subscriber-register';
-import { ContactButtons, LogCallSheet } from './contact';
+import { ContactButtons, LogCallSheet, SendSmsSheet } from './contact';
 import { StatusPill, daysText } from './subscription';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { DesktopSubscribersPage } from './desktop-subscribers-page';
@@ -62,6 +62,7 @@ function SubscribersMobilePage() {
   const [filter, setFilter] = useState<Filter>('ALL');
   const [search, setSearch] = useState('');
   const [logFor, setLogFor] = useState<{ id: string; name: string } | null>(null);
+  const [smsFor, setSmsFor] = useState<{ id: string; name: string; phone: string | null } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   // Desktop register's Edit opens the same sheet for that subscriber
   const [editId, setEditId] = useState<string | null>(null);
@@ -229,6 +230,9 @@ function SubscribersMobilePage() {
                       size="sm"
                       phone={s.customer?.phone}
                       message={`Hello ${s.customer?.name ?? ''}, this is Optimas. Your ${s.packageName} ${s.status === 'EXPIRED' ? 'has expired' : 'expires soon'}. Renew via M-Pesa to stay connected.`}
+                      onMessage={() =>
+                        s.customer && setSmsFor({ id: s.customer.id, name: s.customer.name, phone: s.customer.phone })
+                      }
                       onLog={() => s.customer && setLogFor({ id: s.customer.id, name: s.customer.name })}
                     />
                   </div>
@@ -268,6 +272,16 @@ function SubscribersMobilePage() {
 
       {logFor && (
         <LogCallSheet open={Boolean(logFor)} onOpenChange={(o) => !o && setLogFor(null)} customerId={logFor.id} customerName={logFor.name} />
+      )}
+      {smsFor && (
+        <SendSmsSheet
+          open
+          onOpenChange={(o) => !o && setSmsFor(null)}
+          customerId={smsFor.id}
+          customerName={smsFor.name}
+          phone={smsFor.phone}
+          defaultMessage={`Hello ${smsFor.name}, this is Optimas. Your monthly subscription is due for renewal. Pay via M-Pesa to stay connected. Thank you.`}
+        />
       )}
     </div>
   );

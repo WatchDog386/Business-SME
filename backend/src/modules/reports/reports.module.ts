@@ -10,12 +10,17 @@ import { Customer } from '../customers/entities/customer.entity';
 import { Payment } from '../sales/entities/payment.entity';
 import { Subscription } from '../subscriptions/entities/subscription.entity';
 import { DailyReportService } from './daily-report.service';
+import { DailyReportDelivery } from './entities/daily-report-delivery.entity';
+import { DailyReportSettings } from './entities/daily-report-settings.entity';
+import { DailyReportDeliveryService } from './daily-report-delivery.service';
+import { Business } from '../businesses/entities/business.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Sale, SaleItem, Expense, Customer, Payment, Subscription]),
+    TypeOrmModule.forFeature([Sale, SaleItem, Expense, Customer, Payment, Subscription, Business, User, DailyReportDelivery, DailyReportSettings]),
   ],
-  providers: [ReportsService, ReportExportService, DailyReportService],
+  providers: [ReportsService, ReportExportService, DailyReportService, DailyReportDeliveryService],
   controllers: [ReportsController],
 })
 export class ReportsModule {}

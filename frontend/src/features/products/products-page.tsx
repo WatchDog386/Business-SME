@@ -401,6 +401,10 @@ export function ProductsPage() {
           loading={loadingNode}
           errorNode={errorNode}
           onAdd={startAdd}
+          onAddPackage={() => {
+            setChooserOpen(false);
+            setAddKind('package');
+          }}
           onEdit={setEditProduct}
           onStockAction={handleStockAction}
           onHistory={setHistoryProduct}

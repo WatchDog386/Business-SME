@@ -1,29 +1,42 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { ArrowUpDown, Search, ShoppingCart, Receipt } from 'lucide-react';
+import { ArrowUpDown, ShoppingCart, Receipt } from 'lucide-react';
 import { dashboardApi, salesApi } from '@/api/endpoints';
 import { Chips } from '@/components/layout/app-bar';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { invoiceNo } from '@/features/isp/document-actions';
+import { CARD_THEMES, FiberHeroCard, ProfileHeader } from '@/components/brand/fiber-card';
 import { Alert } from '@/components/ui/alert';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Badge, statusVariant, statusLabel } from '@/components/ui/badge';
 import { PageLoader } from '@/components/ui/spinner';
 import { cn, formatKES, formatDateTime } from '@/lib/utils';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { useActiveBusiness } from '@/stores/business';
+import { transactionDateBounds, type TransactionDateRange } from '@/lib/business-date';
 import { DesktopSalesPage } from './desktop-sales-page';
 
 const PAGE_SIZE = 20;
-
-function shortKsh(amount: number): string {
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toLocaleString('en-KE', { maximumFractionDigits: 1 })}M`;
-  if (amount >= 1_000) return `${(amount / 1_000).toLocaleString('en-KE', { maximumFractionDigits: 1 })}K`;
-  return amount.toLocaleString('en-KE');
-}
+const MOBILE_SALE_TYPES = [
+  { value: '', label: 'All sale types' },
+  { value: 'GENERAL', label: 'General sales' },
+  { value: 'PRODUCT', label: 'Products' },
+  { value: 'SERVICE', label: 'Services' },
+  { value: 'PACKAGE', label: 'Packages' },
+  { value: 'ADVANCE', label: 'Advance payments' },
+  { value: 'OTHER', label: 'Other revenue' },
+  { value: 'MIXED', label: 'Mixed sales' },
+];
+const MOBILE_DATE_RANGES: Array<{ value: TransactionDateRange; label: string }> = [
+  { value: 'all', label: 'All dates' },
+  { value: 'today', label: 'Today' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: 'month', label: 'This month' },
+];
 
 /** Desktop gets its own table view; phones keep the card layout. Separate components so each keeps its own hooks. */
 export function SalesPage() {
@@ -36,17 +49,21 @@ function SalesMobilePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const customerId = searchParams.get('customer') ?? '';
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [saleTypeFilter, setSaleTypeFilter] = useState('');
+  const [dateRange, setDateRange] = useState<TransactionDateRange>('all');
+  const business = useActiveBusiness();
+  const bounds = transactionDateBounds(dateRange, business?.timezone ?? 'Africa/Nairobi');
 
   const { data, isLoading, error } = useQuery({
     queryKey: [
       'sales',
       {
         page,
-        search: debouncedSearch,
         paymentStatus: statusFilter,
+        saleType: saleTypeFilter,
+        from: bounds.from,
+        to: bounds.to,
         customerId,
       },
     ],
@@ -54,8 +71,10 @@ function SalesMobilePage() {
       salesApi.list({
         page,
         limit: PAGE_SIZE,
-        search: debouncedSearch || undefined,
         paymentStatus: statusFilter || undefined,
+        saleType: saleTypeFilter || undefined,
+        from: bounds.from,
+        to: bounds.to,
         customerId: customerId || undefined,
       }),
   });
@@ -74,25 +93,29 @@ function SalesMobilePage() {
     { id: 'UNPAID', label: 'Unpaid' },
   ];
 
+  const filtered = Boolean(statusFilter || saleTypeFilter || dateRange !== 'all' || customerId);
+
   return (
     <div className="space-y-4 pb-10 font-sans text-[14px]">
-      {/* Header, same as the Products page: greeting with avatar and back */}
-      <header className="page-head flex items-center justify-between gap-3 text-foreground">
-        <h1 className="text-[24px] leading-tight tracking-tight">
-          Let&apos;s track
-          <span className="block font-semibold">Your Sales! 🛒</span>
-        </h1>
-        <div className="flex shrink-0 items-center">
-  <button
-    type="button"
-    onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}
-    className="-ml-3 flex h-12 w-12 items-center justify-center text-foreground-2 active:scale-90 active:opacity-60"
-    aria-label="Back"
-  >
-    Back
-  </button>
-</div>
-      </header>
+      {/* Back button and notifications, same header as the Expenses page */}
+      <ProfileHeader showBackButton />
+
+      {/* Hero card, same design and teal as the Expenses page */}
+      <FiberHeroCard
+        theme={CARD_THEMES.sales}
+        label="Collected today"
+        value={dashboard.data ? formatKES(dashboard.data.today.cashReceived) : '—'}
+        note={
+          dashboard.data
+            ? `${dashboard.data.today.paymentCount} payment${dashboard.data.today.paymentCount === 1 ? '' : 's'}`
+            : undefined
+        }
+        maskedValue={data?.total ?? 0}
+        footerLeft={business?.name ?? 'Optimas'}
+        footerRight={data ? `${data.total} sales` : undefined}
+        icon={ShoppingCart}
+        action={{ label: 'Record sale', onClick: () => navigate('/sales/new') }}
+      />
 
       <Chips
         outline
@@ -105,19 +128,29 @@ function SalesMobilePage() {
       />
 
       <div className="flex items-center gap-2">
-        <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-5" aria-hidden />
-          <Input
-            value={search}
+        <div className="min-w-0 flex-1">
+          <Select
+            aria-label="Filter sales by type"
+            value={saleTypeFilter}
             onChange={(event) => {
-              setSearch(event.target.value);
+              setSaleTypeFilter(event.target.value);
               setPage(1);
-              window.setTimeout(() => setDebouncedSearch(event.target.value), 300);
             }}
-            placeholder="Search sales by customer or reference..."
-            className="h-11 rounded-full bg-field pl-9"
-            autoComplete="off"
-          />
+          >
+            {MOBILE_SALE_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+          </Select>
+        </div>
+        <div className="min-w-0 flex-1">
+          <Select
+            aria-label="Filter sales by date"
+            value={dateRange}
+            onChange={(event) => {
+              setDateRange(event.target.value as TransactionDateRange);
+              setPage(1);
+            }}
+          >
+            {MOBILE_DATE_RANGES.map((range) => <option key={range.value} value={range.value}>{range.label}</option>)}
+          </Select>
         </div>
         <button
           type="button"
@@ -130,44 +163,7 @@ function SalesMobilePage() {
         </button>
       </div>
 
-      {/* Three equal tiles, like Products */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          {
-            label: 'Today',
-            value: dashboard.data ? shortKsh(dashboard.data.today.cashReceived) : '—',
-            bg: 'bg-emerald-50 [.dark_&]:bg-surface',
-            text: 'text-emerald-700 [.dark_&]:text-emerald-400',
-          },
-          {
-            label: 'Sales',
-            value: data ? String(data.total) : '—',
-            bg: 'bg-blue-50 [.dark_&]:bg-surface',
-            text: 'text-blue-700 [.dark_&]:text-blue-400',
-          },
-          {
-            label: 'Owed',
-            value: dashboard.data ? shortKsh(dashboard.data.outstandingDebts) : '—',
-            bg: 'bg-red-50 [.dark_&]:bg-surface',
-            text: 'text-red-700 [.dark_&]:text-red-400',
-          },
-        ].map((tile) => (
-          <div key={tile.label} className={cn('flex h-[68px] flex-col items-center justify-center rounded-[22px] px-2', tile.bg)}>
-            <span className={cn('text-[11px] font-medium leading-4', tile.text)}>{tile.label}</span>
-            <span className={cn('mt-1 h-5 text-[14px] font-semibold leading-5 tabular-nums', tile.text)}>{tile.value}</span>
-          </div>
-        ))}
-      </div>
-
-      <motion.button
-        type="button"
-        onClick={() => navigate('/sales/new')}
-        whileTap={{ scale: 0.98 }}
-        className="flex h-11 w-full items-center justify-center rounded-full border-2 border-edge-2 text-[15px] font-semibold text-brand-600 [.dark_&]:text-brand-400"
-      >
-        Record sale
-      </motion.button>
-
+      {/* Hero card, same design and teal as the Expenses page */}
       {customerId && (
         <Alert variant="info" inline>
           Showing sales for this customer.{' '}
@@ -194,13 +190,13 @@ function SalesMobilePage() {
       {data && data.items.length === 0 && (
         <EmptyState
           icon={ShoppingCart}
-          title={debouncedSearch ? 'No sales found' : 'No sales yet'}
+          title={filtered ? 'No sales found' : 'No sales yet'}
           description={
-            debouncedSearch
-              ? 'Try a different search.'
+            filtered
+              ? 'Try a different status, type or date.'
               : 'Record your first sale — it takes under 10 seconds.'
           }
-          actionLabel={debouncedSearch ? undefined : 'Record a sale'}
+          actionLabel={filtered ? undefined : 'Record a sale'}
           onAction={() => window.location.assign('/sales/new')}
         />
       )}

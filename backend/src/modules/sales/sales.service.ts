@@ -19,6 +19,7 @@ import { roundKES } from '../../common/utils/money';
 import { PaginatedResult } from '../../common/dto/pagination.dto';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { EntityManager } from 'typeorm';
+import { DateTime } from 'luxon';
 
 interface ResolvedItem {
   type: 'PRODUCT' | 'SERVICE';
@@ -510,8 +511,11 @@ export class SalesService {
       to?: string;
       customerId?: string;
       paymentStatus?: string;
+      paymentMethod?: string;
+      saleType?: string;
       search?: string;
     },
+    timezone = 'Africa/Nairobi',
   ): Promise<PaginatedResult<Sale & { customer_name: string | null; item_count: number }>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -525,8 +529,12 @@ export class SalesService {
       )
       .where('sale.businessId = :businessId', { businessId });
 
-    if (query.from) qb.andWhere('sale.created_at >= :from', { from: query.from });
-    if (query.to) qb.andWhere('sale.created_at < :to', { to: query.to });
+    const boundary = (value: string) => {
+      const parsed = DateTime.fromISO(value, { zone: timezone });
+      return parsed.isValid ? parsed.toJSDate() : new Date(value);
+    };
+    if (query.from) qb.andWhere('sale.created_at >= :from', { from: boundary(query.from) });
+    if (query.to) qb.andWhere('sale.created_at < :to', { to: boundary(query.to) });
     if (query.customerId) {
       qb.andWhere('sale.customerId = :customerId', { customerId: query.customerId });
     }
@@ -535,6 +543,8 @@ export class SalesService {
         paymentStatus: query.paymentStatus,
       });
     }
+    if (query.paymentMethod) qb.andWhere('sale.payment_method = :paymentMethod', { paymentMethod: query.paymentMethod });
+    if (query.saleType) qb.andWhere('sale.sale_type = :saleType', { saleType: query.saleType });
     if (query.search) {
       qb.andWhere(
         new Brackets((sub) => {

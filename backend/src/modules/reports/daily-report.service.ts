@@ -204,8 +204,9 @@ export class DailyReportService {
         pendingCount: pending.length,
         pendingTotal: pending.reduce((sum, e) => sum + e.amount, 0),
         byCategory: [...byCategory.entries()].map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount),
-        items: expenses.entities.slice(0, 20).map((e, i) => ({
+        items: expenses.entities.map((e, i) => ({
           id: e.id,
+          date: e.expense_date,
           description: e.description,
           category: (expenses.raw[i] as { category_name?: string }).category_name ?? 'Uncategorised',
           amount: e.amount,
@@ -223,11 +224,12 @@ export class DailyReportService {
       subscribers: { active, expiring, expired, expiredThisDay },
       debts: { outstanding: Number(debts?.total ?? 0), debtors: Number(debts?.count ?? 0) },
       previous: prevTotals,
-      sales: sales.entities.slice(0, 100).map((s, i) => ({
+      sales: sales.entities.map((s, i) => ({
         id: s.id,
         number: s.number,
         at: s.created_at,
         customer: (sales.raw[i] as { customer_name?: string }).customer_name ?? 'Walk-in',
+        type: s.sale_type,
         total: s.total,
         method: s.payment_method,
         status: s.payment_status,

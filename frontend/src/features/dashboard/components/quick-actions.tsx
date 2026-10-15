@@ -10,6 +10,7 @@ import {
   DuoReports,
   DuoSales,
   DuoServices,
+  DuoStaff,
   DuoSubscribers,
 } from '@/components/brand/duo-icons';
 import { MoreMenu } from '@/components/layout/more-menu';
@@ -25,6 +26,7 @@ const actions: QuickAction[] = [
   { to: '/reports', label: 'Reports', icon: DuoReports },
   { to: '/subscribers', label: 'Subscribers', icon: DuoSubscribers },
   { to: '/calls', label: 'Calls', icon: DuoCalls },
+  { to: '/staff', label: 'Staff', icon: DuoStaff },
 ];
 
 /**
@@ -40,6 +42,7 @@ const actionTones = [
   'text-[#A16207] [.dark_&]:text-[#FCD34D]',
   'text-[#0E7490] [.dark_&]:text-[#67E8F9]',
   'text-[#BE185D] [.dark_&]:text-[#F9A8D4]',
+  'text-[#0F766E] [.dark_&]:text-[#5EEAD4]',
 ] as const;
 
 export function QuickActions({

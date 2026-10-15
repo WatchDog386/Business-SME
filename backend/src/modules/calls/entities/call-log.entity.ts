@@ -11,7 +11,7 @@ export const CALL_OUTCOMES = [
 ] as const;
 export type CallOutcome = (typeof CALL_OUTCOMES)[number];
 
-export const CALL_CHANNELS = ['PHONE', 'WHATSAPP'] as const;
+export const CALL_CHANNELS = ['PHONE', 'WHATSAPP', 'SMS'] as const;
 
 /** One call (or WhatsApp chat) with a client, logged by a staff member. */
 @Entity('call_logs')

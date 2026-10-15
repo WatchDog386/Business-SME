@@ -190,7 +190,6 @@ export class SubscriptionsService {
         serviceType: c.service_type,
         router: c.router,
         wallet: c.wallet_balance,
-        debt: c.outstanding_balance,
         createdAt: c.created_at,
         packageName: s?.package_name ?? null,
         price: s?.price ?? null,

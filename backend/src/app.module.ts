@@ -19,6 +19,7 @@ import { BudgetsModule } from './modules/budgets/budgets.module';
 import { RecurringExpensesModule } from './modules/recurring-expenses/recurring-expenses.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { CallsModule } from './modules/calls/calls.module';
+import { SmsModule } from './modules/sms/sms.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ClientPortalModule } from './modules/client-portal/client-portal.module';
@@ -46,6 +47,7 @@ import { ClientPortalModule } from './modules/client-portal/client-portal.module
     RecurringExpensesModule,
     SubscriptionsModule,
     CallsModule,
+  SmsModule,
     DocumentsModule,
     PaymentsModule,
     ClientPortalModule,

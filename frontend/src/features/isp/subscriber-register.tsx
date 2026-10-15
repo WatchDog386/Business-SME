@@ -57,7 +57,7 @@ function StatusPill({ status }: { status: SubscriberStatus }) {
   return <span className={cn('inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold', STATUS[status].pill)}>{STATUS[status].label}</span>;
 }
 
-/** Desktop subscriber register (phones keep the card layout): every client with account, package, router, wallet, debt and status. */
+/** Desktop subscriber register (phones keep the card layout): every client with account, package, router, wallet and status. */
 export function SubscriberRegister({ onAdd, onEdit }: { onAdd: () => void; onEdit: (id: string) => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -178,7 +178,7 @@ export function SubscriberRegister({ onAdd, onEdit }: { onAdd: () => void; onEdi
             <table className="w-full min-w-[1100px] text-left text-[13px]">
               <thead>
                 <tr className="border-b border-edge text-[11px] font-semibold uppercase tracking-wider text-foreground-4">
-                  {['Customer', 'Account', 'Phone', 'Location', 'Package', 'Service', 'Router / NAS', 'Due', 'Wallet', 'Debt', 'Status', 'Actions'].map((h) => (
+                  {['Customer', 'Account', 'Phone', 'Location', 'Package', 'Service', 'Router / NAS', 'Due', 'Wallet', 'Status', 'Actions'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-3 py-3 first:pl-5 last:pr-5">
                       {h}
                     </th>
@@ -209,7 +209,6 @@ export function SubscriberRegister({ onAdd, onEdit }: { onAdd: () => void; onEdi
                       {s.expiresAt ? new Date(s.expiresAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 tabular-nums">{formatKES(s.wallet)}</td>
-                    <td className={cn('whitespace-nowrap px-3 py-3 tabular-nums', s.debt > 0 && 'font-semibold text-red-600')}>{formatKES(s.debt)}</td>
                     <td className="px-3 py-3">
                       <StatusPill status={s.status} />
                     </td>

@@ -1,6 +1,8 @@
 import {
+  Body,
   Controller,
   Get,
+  Patch,
   Query,
   Res,
   UseGuards,
@@ -9,6 +11,8 @@ import { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
 import { DailyReportService } from './daily-report.service';
+import { DailyReportDeliveryService } from './daily-report-delivery.service';
+import { UpdateDailyReportDeliveryDto } from './dto/daily-report-delivery.dto';
 import {
   ExportContext,
   ExportFile,
@@ -56,6 +60,7 @@ export class ReportsController {
     private readonly reportsService: ReportsService,
     private readonly exportService: ReportExportService,
     private readonly dailyReports: DailyReportService,
+    private readonly delivery: DailyReportDeliveryService,
   ) {}
 
   @Get('day')
@@ -86,6 +91,32 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     sendFile(res, await this.exportService.dailyPdf(exportContext(business, {}), date));
+  }
+
+  @Get('day/export.xlsx')
+  @ApiOperation({ summary: 'Daily report as a detailed Excel workbook' })
+  async dayXlsx(
+    @CurrentBusiness() business: BusinessCtx,
+    @Query('date') date: string | undefined,
+    @Res() res: Response,
+  ) {
+    sendFile(res, await this.exportService.dailyXlsx(exportContext(business, {}), date));
+  }
+
+  @Get('delivery')
+  @ApiOperation({ summary: 'Daily report email settings and latest delivery status' })
+  deliverySettings(@CurrentBusiness() business: { id: string }) {
+    return this.delivery.settings(business.id);
+  }
+
+  @Patch('delivery')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Set the daily report email recipient or pause automatic delivery' })
+  updateDeliverySettings(
+    @CurrentBusiness() business: { id: string },
+    @Body() dto: UpdateDailyReportDeliveryDto,
+  ) {
+    return this.delivery.updateSettings(business.id, dto);
   }
 
   @Get('profit-loss')

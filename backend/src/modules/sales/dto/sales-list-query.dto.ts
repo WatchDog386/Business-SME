@@ -3,6 +3,7 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
@@ -10,7 +11,7 @@ import {
   Min,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { PAYMENT_STATUSES } from '../entities/sale.entity';
+import { PAYMENT_METHODS, PAYMENT_STATUSES, SALE_TYPES } from '../entities/sale.entity';
 
 export class SalesListQueryDto {
   @ApiPropertyOptional({ example: 1 })
@@ -47,6 +48,16 @@ export class SalesListQueryDto {
   @IsOptional()
   @IsEnum(PAYMENT_STATUSES)
   paymentStatus?: string;
+
+  @ApiPropertyOptional({ enum: PAYMENT_METHODS })
+  @IsOptional()
+  @IsIn(PAYMENT_METHODS)
+  paymentMethod?: string;
+
+  @ApiPropertyOptional({ enum: SALE_TYPES })
+  @IsOptional()
+  @IsIn(SALE_TYPES)
+  saleType?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

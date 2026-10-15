@@ -72,6 +72,8 @@ export type ChipItem<T extends string> = {
   id: T;
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
+  /** Small trailing badge, e.g. how many expenses are waiting for approval. */
+  count?: number;
 };
 
 /** Filled pill tabs that scroll sideways, edge to edge on phones. */
@@ -114,6 +116,18 @@ export function Chips<T extends string>({
           >
             {item.icon && <item.icon className="h-4 w-4" />}
             {item.label}
+            {!!item.count && (
+              <span
+                className={cn(
+                  'ml-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
+                  active
+                    ? 'bg-brand-600 text-white [.dark_&]:bg-brand-500'
+                    : 'bg-surface-3 text-foreground-2',
+                )}
+              >
+                {item.count}
+              </span>
+            )}
           </button>
         );
       })}

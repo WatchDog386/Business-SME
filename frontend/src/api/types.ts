@@ -168,7 +168,6 @@ export interface SubscriberRow {
   serviceType: ServiceType | null;
   router: string | null;
   wallet: number;
-  debt: number;
   createdAt: string;
   packageName: string | null;
   price: number | null;
@@ -421,7 +420,7 @@ export type CallOutcome = 'REACHED' | 'NO_ANSWER' | 'BUSY' | 'PROMISED_TO_PAY' |
 export interface CallLog {
   id: string;
   customerId: string;
-  channel: 'PHONE' | 'WHATSAPP';
+  channel: 'PHONE' | 'WHATSAPP' | 'SMS';
   outcome: CallOutcome;
   notes: string | null;
   followUpAt: string | null;

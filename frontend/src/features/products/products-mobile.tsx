@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowUpDown,
   ArrowUpRight,
+  Bell,
   History,
   Minus,
   Package,
@@ -11,11 +12,13 @@ import {
   Search,
   Target,
   Trash2,
+  Wifi,
 } from 'lucide-react';
 import type { Category, Product } from '@/api/types';
-import { useAuthStore } from '@/stores/auth';
+import { useActiveBusiness } from '@/stores/business';
 import { cn } from '@/lib/utils';
 import { Chips } from '@/components/layout/app-bar';
+import { PackageHeroCard } from '@/components/brand/package-hero-card';
 import { Input } from '@/components/ui/input';
 import type { StockActionType } from './stock-action-form';
 import { PackageCard } from './package-card';
@@ -119,43 +122,31 @@ function TicketShape({
 
 /* ---------------- Header ---------------- */
 
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-function DarkHeader() {
+/** Back on the left, title centred, notifications on the right. */
+function ProductsHeader() {
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
   const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'));
   return (
-    <header className="page-head flex items-center justify-between gap-3 text-foreground">
-      <h1 className="text-[24px] leading-tight tracking-tight">
-        Let&apos;s manage
-        <span className="block font-semibold">Your Stock! 📦</span>
+    <header className="page-head relative flex items-center justify-between gap-3">
+      <button
+        type="button"
+        onClick={goBack}
+        className="flex h-11 shrink-0 items-center justify-center rounded-full px-4 text-[15px] font-semibold text-foreground-2 transition-transform active:scale-95 active:opacity-60"
+        aria-label="Back"
+      >
+        Back
+      </button>
+      <h1 className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[22px] font-semibold leading-tight tracking-tight text-foreground">
+        Products
       </h1>
-      <div className="flex shrink-0 items-center">
-        <span className="relative z-10 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#2A2A2E] text-[14px] font-semibold text-white ring-2 ring-white [.dark_&]:ring-black">
-          {user?.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            initialsOf(user?.fullName ?? 'You')
-          )}
-        </span>
-        <button
-          type="button"
-          onClick={goBack}
-          className="-ml-3 flex h-12 w-12 items-center justify-center text-foreground-2 active:scale-90 active:opacity-60"
-          aria-label="Back"
-        >
-          Back
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => navigate('/notifications')}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge bg-surface text-foreground-2 active:scale-90"
+        aria-label="Notifications"
+      >
+        <Bell className="h-5 w-5" aria-hidden />
+      </button>
     </header>
   );
 }
@@ -261,6 +252,14 @@ function BoardingPass({
 
 /* ---------------- Page ---------------- */
 
+type Scope = 'ALL' | 'PACKAGES' | 'PRODUCTS';
+
+const SCOPE_ITEMS: Array<{ id: `scope:${Scope}`; label: string }> = [
+  { id: 'scope:ALL', label: 'All' },
+  { id: 'scope:PACKAGES', label: 'Packages' },
+  { id: 'scope:PRODUCTS', label: 'Products' },
+];
+
 export function ProductsMobile({
   items,
   total,
@@ -277,6 +276,7 @@ export function ProductsMobile({
   loading,
   errorNode,
   onAdd,
+  onAddPackage,
   onEdit,
   onStockAction,
   onHistory,
@@ -297,27 +297,64 @@ export function ProductsMobile({
   loading: React.ReactNode;
   errorNode: React.ReactNode;
   onAdd: () => void;
+  /** Opens the package form directly, skipping the chooser. */
+  onAddPackage: () => void;
   onEdit: (p: Product) => void;
   onStockAction: (p: Product, type: StockActionType) => void;
   onHistory: (p: Product) => void;
   onDelete: (p: Product) => void;
 }) {
   const [priceDesc, setPriceDesc] = useState(false);
+  const [scope, setScope] = useState<Scope>('ALL');
+  const business = useActiveBusiness();
   // Switched-off packages (like the retired Business Pro) are left out
-  const packages = (items ?? []).filter((p) => p.billing_days && p.active).sort((a, b) => a.selling_price - b.selling_price);
-  const products = (items ?? [])
+  const allPackages = (items ?? []).filter((p) => p.billing_days && p.active).sort((a, b) => a.selling_price - b.selling_price);
+  const allProducts = (items ?? [])
     .filter((p) => !p.billing_days)
     .sort((a, b) => (priceDesc ? b.selling_price - a.selling_price : 0));
 
+  const packages = scope === 'PRODUCTS' ? [] : allPackages;
+  const products = scope === 'PACKAGES' ? [] : allProducts;
+
+  const outOfStock = products.filter((p) => p.stock_status === 'OUT_OF_STOCK').length;
+  const lowStock = products.filter((p) => p.stock_status === 'LOW_STOCK').length;
+  const stockStatus = outOfStock > 0
+    ? { label: `${outOfStock} out of stock`, tone: 'bad' as const }
+    : lowStock > 0
+      ? { label: `${lowStock} low`, tone: 'warn' as const }
+      : { label: 'All in stock', tone: 'ok' as const };
+
   return (
     <div className="space-y-5 text-foreground">
-      <DarkHeader />
+      <ProductsHeader />
 
-      {/* Category tabs and search, same as the Sales page */}
+      {/* Same green card the client sees on their own dashboard home */}
+      <PackageHeroCard
+        label="Stock on hand"
+        name={business?.name ?? 'Optimas'}
+        headline={String(total)}
+        sub={total === 1 ? 'product' : 'products'}
+        actions={[
+          { label: 'Add product', icon: Plus, onClick: onAdd },
+          { label: 'WiFi package', icon: Wifi, onClick: onAddPackage },
+        ]}
+        footer={`${products.length} equipment · ${packages.length} packages`}
+        status={stockStatus}
+      />
+
+      {/* Scope tabs then the category chips, in one row, same pills as the Sales page */}
       <Chips
-        items={[{ id: '', label: 'All' }, ...(categories ?? []).map((c) => ({ id: c.id, label: c.name }))]}
-        value={categoryFilter}
-        onChange={onCategory}
+        outline
+        items={[...SCOPE_ITEMS, ...(categories ?? []).map((c) => ({ id: `cat:${c.id}`, label: c.name }))]}
+        value={categoryFilter ? `cat:${categoryFilter}` : `scope:${scope}`}
+        onChange={(id) => {
+          if (id.startsWith('cat:')) {
+            onCategory(id.slice(4));
+          } else {
+            onCategory('');
+            setScope(id.slice(6) as Scope);
+          }
+        }}
       />
 
       <div className="flex items-center gap-2">

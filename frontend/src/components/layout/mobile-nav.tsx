@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
-import { BarChart3, PhoneCall, Plus, ShoppingCart, UserPlus, Users, Wifi } from 'lucide-react';
+import { BarChart3, PhoneCall, Plus, ShoppingCart, Users, Wallet, Wifi } from 'lucide-react';
 import { useRole } from '@/hooks/use-role';
 import type { ElementType } from 'react';
 
@@ -9,7 +9,7 @@ type Tab = { to: string; label: string; icon: ElementType };
 
 const ADMIN_TABS: Tab[] = [
   { to: '/sales', label: 'Sales', icon: ShoppingCart },
-  { to: '/staff', label: 'Staff', icon: UserPlus },
+  { to: '/expenses', label: 'Expenses', icon: Wallet },
   { to: '/dashboard', label: 'Home', icon: Plus },
   { to: '/subscribers', label: 'Subscribers', icon: Wifi },
   { to: '/reports', label: 'Reports', icon: BarChart3 },

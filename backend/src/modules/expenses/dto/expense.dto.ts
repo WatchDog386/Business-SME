@@ -3,6 +3,7 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -141,6 +142,11 @@ export class ExpensesListQueryDto {
   @IsOptional()
   @IsEnum(EXPENSE_STATUSES)
   status?: (typeof EXPENSE_STATUSES)[number];
+
+  @ApiPropertyOptional({ enum: EXPENSE_PAYMENT_METHODS })
+  @IsOptional()
+  @IsIn(EXPENSE_PAYMENT_METHODS)
+  paymentMethod?: string;
 }
 
 export class RejectExpenseDto {

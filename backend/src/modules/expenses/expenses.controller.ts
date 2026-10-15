@@ -59,7 +59,7 @@ export class ExpensesController {
   ) {
     // Catch up on recurring expenses in case the daily job did not run.
     await this.recurringExpensesService.generateDue(business.id, business.timezone);
-    return this.expensesService.list(business.id, query, actorOf(user, membership));
+    return this.expensesService.list(business.id, query, actorOf(user, membership), business.timezone);
   }
 
   @Get(':id')

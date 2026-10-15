@@ -14,26 +14,34 @@ import { Alert } from '@/components/ui/alert';
 import { notifySuccess } from '@/components/ui/popup-host';
 import { Badge, statusLabel, statusVariant } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
-import { CARD_THEMES, FiberHeroCard, ProfileHeader, RoundFilters } from '@/components/brand/fiber-card';
+import { CARD_THEMES, FiberHeroCard, ProfileHeader } from '@/components/brand/fiber-card';
+import { Chips } from '@/components/layout/app-bar';
 import { useActiveBusiness } from '@/stores/business';
+import { transactionDateBounds, type TransactionDateRange } from '@/lib/business-date';
 import { Card } from '@/components/ui/card';
 import { PageLoader } from '@/components/ui/spinner';
 import { formatKES, formatDate } from '@/lib/utils';
 import { useRole } from '@/hooks/use-role';
 import { ExpenseForm } from './expense-form';
-import type { Expense, ExpenseStatus, UserRole } from '@/api/types';
+import type { Expense, ExpenseStatus } from '@/api/types';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { DesktopExpensesPage } from './desktop-expenses-page';
 
-const ROLE_LABEL: Record<UserRole, string> = {
-  OWNER: 'Admin',
-  MANAGER: 'Manager',
-  ACCOUNTANT: 'Accountant',
-  EMPLOYEE: 'Employee',
-  CLIENT: 'Client',
-};
-
 const PAGE_SIZE = 20;
+const MOBILE_EXPENSE_RANGES: Array<{ value: TransactionDateRange; label: string }> = [
+  { value: 'all', label: 'All dates' },
+  { value: 'today', label: 'Today' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: 'month', label: 'This month' },
+];
+const MOBILE_EXPENSE_METHODS = [
+  { value: '', label: 'All payment methods' },
+  { value: 'CASH', label: 'Cash' },
+  { value: 'M-PESA', label: 'M-Pesa' },
+  { value: 'BANK', label: 'Bank transfer' },
+  { value: 'CARD', label: 'Card' },
+];
 
 /** Browsers block opening data: URLs directly, so go through a blob URL. */
 async function openReceipt(url: string) {
@@ -55,7 +63,7 @@ export function ExpensesPage() {
 
 function ExpensesMobilePage() {
   const queryClient = useQueryClient();
-  const { canApprove, canManage, role } = useRole();
+  const { canApprove } = useRole();
   const business = useActiveBusiness();
   // Figures for the card and the "today" panel (shared caches with the dashboard and Reports)
   const dashboard = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.get });
@@ -70,6 +78,9 @@ function ExpensesMobilePage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [methodFilter, setMethodFilter] = useState('');
+  const [dateRange, setDateRange] = useState<TransactionDateRange>('all');
+  const bounds = transactionDateBounds(dateRange, business?.timezone ?? 'Africa/Nairobi');
   const [statusFilter, setStatusFilter] = useState<ExpenseStatus | ''>(
     searchParams.get('status') === 'PENDING' ? 'PENDING' : '',
   );
@@ -79,9 +90,6 @@ function ExpensesMobilePage() {
     if (searchParams.get('new') === '1') setFormOpen(true);
   }, [searchParams]);
 
-  const [editExpense, setEditExpense] = useState<Expense | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<Expense | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [rejectExpense, setRejectExpense] = useState<Expense | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -99,6 +107,9 @@ function ExpensesMobilePage() {
         search: debouncedSearch,
         categoryId: categoryFilter,
         status: statusFilter,
+        paymentMethod: methodFilter,
+        from: bounds.from,
+        to: bounds.to,
       },
     ],
     queryFn: () =>
@@ -108,6 +119,9 @@ function ExpensesMobilePage() {
         search: debouncedSearch || undefined,
         categoryId: categoryFilter || undefined,
         status: statusFilter || undefined,
+        paymentMethod: methodFilter || undefined,
+        from: bounds.from,
+        to: bounds.to,
       }),
   });
 
@@ -118,16 +132,6 @@ function ExpensesMobilePage() {
       ),
     );
   };
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => expensesApi.remove(id),
-    onSuccess: async () => {
-      setConfirmDelete(null);
-      setDeleteError(null);
-      await refreshAll();
-    },
-    onError: (err) => setDeleteError(apiErrorMessage(err)),
-  });
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => expensesApi.approve(id),
@@ -152,17 +156,16 @@ function ExpensesMobilePage() {
     onError: (err) => setReviewError(apiErrorMessage(err)),
   });
 
-  // Employees may only change their own submissions while pending.
-  const canEdit = (expense: Expense) => canApprove || expense.status === 'PENDING';
-  const canDelete = (expense: Expense) => canManage || (!canApprove && expense.status === 'PENDING');
+  // Approving and rejecting still happen from the list; editing and deleting
+  // live on the expense detail page.
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
-  const filtered = Boolean(debouncedSearch || statusFilter || categoryFilter);
+  const filtered = Boolean(debouncedSearch || statusFilter || categoryFilter || methodFilter || dateRange !== 'all');
 
   return (
     <div className="space-y-5">
-      {/* Same layout as the Staff page: profile header, bank card, round filters */}
-      <ProfileHeader roleLabel={role ? ROLE_LABEL[role] : undefined} />
+      {/* Same layout as the Staff page: back header, bank card, round filters */}
+      <ProfileHeader showBackButton />
 
       <FiberHeroCard
         theme={CARD_THEMES.expenses}
@@ -176,20 +179,44 @@ function ExpensesMobilePage() {
         action={{ label: canApprove ? 'Add expense' : 'Submit expense', onClick: () => setFormOpen(true) }}
       />
 
-      <RoundFilters<ExpenseStatus | 'ALL'>
-        hideIcons
+      {/* Status tabs, same outline pills the Sales page uses */}
+      <Chips<ExpenseStatus | 'ALL'>
+        outline
         value={statusFilter || 'ALL'}
         onChange={(id) => {
           setStatusFilter(id === 'ALL' ? '' : id);
           setPage(1);
         }}
         items={[
-          { id: 'ALL', label: 'All', icon: Wallet, iconClass: 'text-brand-600', hoverClass: 'hover:bg-brand-50', selectedClass: 'bg-brand-50 border-brand-500' },
-          { id: 'PENDING', label: 'Pending', icon: Wallet, count: dashboard.data?.pendingApprovals || undefined, iconClass: 'text-amber-500', hoverClass: 'hover:bg-amber-50', selectedClass: 'bg-amber-50 border-amber-500' },
-          { id: 'APPROVED', label: 'Approved', icon: Check, iconClass: 'text-emerald-600', hoverClass: 'hover:bg-emerald-50', selectedClass: 'bg-emerald-50 border-emerald-500' },
-          { id: 'REJECTED', label: 'Rejected', icon: X, iconClass: 'text-red-600', hoverClass: 'hover:bg-red-50', selectedClass: 'bg-red-50 border-red-500' },
+          { id: 'ALL', label: 'All' },
+          { id: 'PENDING', label: 'Pending', count: dashboard.data?.pendingApprovals || undefined },
+          { id: 'APPROVED', label: 'Approved' },
+          { id: 'REJECTED', label: 'Rejected' },
         ]}
       />
+
+      <div className="grid grid-cols-2 gap-2">
+        <Select
+          aria-label="Filter expenses by date"
+          value={dateRange}
+          onChange={(event) => {
+            setDateRange(event.target.value as TransactionDateRange);
+            setPage(1);
+          }}
+        >
+          {MOBILE_EXPENSE_RANGES.map((range) => <option key={range.value} value={range.value}>{range.label}</option>)}
+        </Select>
+        <Select
+          aria-label="Filter expenses by payment method"
+          value={methodFilter}
+          onChange={(event) => {
+            setMethodFilter(event.target.value);
+            setPage(1);
+          }}
+        >
+          {MOBILE_EXPENSE_METHODS.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
+        </Select>
+      </div>
 
       {/* Today at a glance, in the Reports page style */}
       {dayReport.data && (
@@ -307,10 +334,15 @@ function ExpensesMobilePage() {
             {data.items.map((expense) => (
               <li key={expense.id} className="px-1 py-3 lg:px-5">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  {/* Tapping the row opens the full expense, like the Sales list */}
+                  <Link
+                    to={`/expenses/${expense.id}`}
+                    className="flex min-w-0 flex-1 basis-40 items-center gap-3 rounded-lg transition-colors hover:bg-surface-2"
+                  >
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F7E3E6] text-[#9B2B3D] [.dark_&]:bg-[#9B2B3D]/20 [.dark_&]:text-[#F2B8C0]">
                     <Wallet className="h-5 w-5" aria-hidden />
                   </span>
-                  <div className="min-w-0 flex-1 basis-40">
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium text-foreground">
                         {expense.description}
@@ -335,9 +367,10 @@ function ExpensesMobilePage() {
                       </p>
                     )}
                   </div>
-                  <p className="text-sm font-medium text-danger">
+                  <p className="shrink-0 text-sm font-medium text-danger">
                     −{formatKES(expense.amount)}
                   </p>
+                  </Link>
                   <div className="flex flex-wrap items-center gap-1">
                     {expense.receipt_url && (
                       <Button
@@ -378,26 +411,7 @@ function ExpensesMobilePage() {
                         </Button>
                       </>
                     )}
-                    {canEdit(expense) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditExpense(expense)}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                    {canDelete(expense) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-danger hover:bg-danger-soft"
-                        onClick={() => setConfirmDelete(expense)}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                  </div>
+                    </div>
                 </div>
               </li>
             ))}
@@ -452,27 +466,6 @@ function ExpensesMobilePage() {
       </Dialog>
 
       <Dialog
-        open={Boolean(editExpense)}
-        onOpenChange={(open) => !open && setEditExpense(null)}
-        title="Edit expense"
-      >
-        {editExpense && (
-          <ExpenseForm
-            onClose={() => setEditExpense(null)}
-            defaultValues={{
-              id: editExpense.id,
-              description: editExpense.description,
-              amount: editExpense.amount,
-              categoryId: editExpense.categoryId,
-              payment_method: editExpense.payment_method,
-              expense_date: editExpense.expense_date,
-              receipt_url: editExpense.receipt_url,
-            }}
-          />
-        )}
-      </Dialog>
-
-      <Dialog
         open={Boolean(rejectExpense)}
         onOpenChange={(open) => !open && setRejectExpense(null)}
         title="Reject this expense?"
@@ -516,35 +509,6 @@ function ExpensesMobilePage() {
             </Button>
           </div>
         </form>
-      </Dialog>
-
-      <Dialog
-        open={Boolean(confirmDelete)}
-        onOpenChange={(open) => !open && setConfirmDelete(null)}
-        title="Delete this expense?"
-        description={`"${confirmDelete?.description}" of ${confirmDelete ? formatKES(confirmDelete.amount) : ''} will be removed.`}
-      >
-        <div className="space-y-4">
-          {deleteError && <Alert variant="error">{deleteError}</Alert>}
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDelete(null)}
-              disabled={deleteMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              loading={deleteMutation.isPending}
-              onClick={() =>
-                confirmDelete && deleteMutation.mutate(confirmDelete.id)
-              }
-            >
-              Delete expense
-            </Button>
-          </div>
-        </div>
       </Dialog>
     </div>
   );

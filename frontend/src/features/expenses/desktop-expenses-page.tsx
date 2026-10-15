@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Check,
   Paperclip,
-  Pencil,
   Repeat,
-  Trash2,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -36,12 +34,9 @@ import { useRole } from '@/hooks/use-role';
 import { ExpenseForm } from './expense-form';
 import { ExpensesOverview, ExpensesRail, type OverviewDays } from './expenses-overview';
 import { RailLayout } from '@/components/desktop/side-rail';
+import { transactionDateBounds } from '@/lib/business-date';
 
 const PAGE_SIZE = 20;
-
-/** Kenya is UTC+3 all year, so shifting the clock gives Nairobi wall time. */
-const NAIROBI_OFFSET_MS = 3 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 type RangeFilter = 'all' | 'today' | '7d' | '30d' | 'month';
 type StatusFilter = ExpenseStatus | '';
@@ -108,18 +103,13 @@ async function openReceipt(url: string) {
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 
-/** Start of the given period in Nairobi time, or null for "all time". */
-function rangeStart(range: RangeFilter): Date | null {
-  const nairobiNow = new Date(Date.now() + NAIROBI_OFFSET_MS);
-  const dayKey = (d: Date) => d.toISOString().slice(0, 10);
-  if (range === 'all') return null;
-  if (range === 'month') {
-    return new Date(`${dayKey(nairobiNow).slice(0, 8)}01T00:00:00.000Z`);
-  }
-  const days = range === 'today' ? 0 : range === '7d' ? 6 : 29;
-  const start = new Date(nairobiNow.getTime() - days * DAY_MS);
-  return new Date(`${dayKey(start)}T00:00:00.000Z`);
-}
+const PAYMENT_METHOD_OPTIONS = [
+  { value: '', label: 'All payment methods' },
+  { value: 'CASH', label: 'Cash' },
+  { value: 'M-PESA', label: 'M-Pesa' },
+  { value: 'BANK', label: 'Bank transfer' },
+  { value: 'CARD', label: 'Card' },
+];
 
 function statusTone(status: ExpenseStatus) {
   return STATUS_TONES[status] ?? 'grey';
@@ -178,6 +168,7 @@ export function DesktopExpensesPage() {
     searchParams.get('status') === 'PENDING' ? 'PENDING' : '',
   );
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('all');
+  const [methodFilter, setMethodFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editExpense, setEditExpense] = useState<Expense | null>(null);
   const [rejectExpense, setRejectExpense] = useState<Expense | null>(null);
@@ -186,6 +177,10 @@ export function DesktopExpensesPage() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [overviewDays, setOverviewDays] = useState<OverviewDays>('30');
+  const bounds = useMemo(
+    () => transactionDateBounds(rangeFilter, business?.timezone ?? 'Africa/Nairobi'),
+    [rangeFilter, business?.timezone],
+  );
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setFormOpen(true);
@@ -209,6 +204,9 @@ export function DesktopExpensesPage() {
         search: debouncedSearch,
         categoryId: categoryFilter,
         status: statusFilter,
+        paymentMethod: methodFilter,
+        from: bounds.from,
+        to: bounds.to,
       },
     ],
     queryFn: () =>
@@ -218,6 +216,9 @@ export function DesktopExpensesPage() {
         search: debouncedSearch || undefined,
         categoryId: categoryFilter || undefined,
         status: statusFilter || undefined,
+        paymentMethod: methodFilter || undefined,
+        from: bounds.from,
+        to: bounds.to,
       }),
   });
 
@@ -247,17 +248,7 @@ export function DesktopExpensesPage() {
     };
   }, [membersQuery.data, user?.id]);
 
-  // The date range narrows the loaded page, the same way the desktop sales list does it.
-  const cutoff = useMemo(() => rangeStart(rangeFilter), [rangeFilter]);
-  const items = useMemo(
-    () =>
-      cutoff
-        ? (data?.items ?? []).filter(
-            (expense) => new Date(expense.expense_date).getTime() >= cutoff.getTime(),
-          )
-        : (data?.items ?? []),
-    [data?.items, cutoff],
-  );
+  const items = data?.items ?? [];
 
   const refreshAll = async () => {
     await Promise.all(
@@ -300,12 +291,10 @@ export function DesktopExpensesPage() {
     onError: (err) => setDeleteError(apiErrorMessage(err)),
   });
 
-  // Employees may only change their own submissions while pending.
-  const canEdit = (expense: Expense) => canApprove || expense.status === 'PENDING';
-  const canDelete = (expense: Expense) => canManage || (!canApprove && expense.status === 'PENDING');
+  // Editing and deleting now happen on the expense detail page.
 
   const isFiltered =
-    Boolean(debouncedSearch) || Boolean(statusFilter) || Boolean(categoryFilter) || rangeFilter !== 'all';
+    Boolean(debouncedSearch) || Boolean(statusFilter) || Boolean(categoryFilter) || Boolean(methodFilter) || rangeFilter !== 'all';
   const noExpensesYet = !isFiltered && total === 0;
 
   const clearFilters = () => {
@@ -314,6 +303,7 @@ export function DesktopExpensesPage() {
     setStatusFilter('');
     setCategoryFilter('');
     setRangeFilter('all');
+    setMethodFilter('');
     setPage(1);
   };
 
@@ -338,7 +328,7 @@ export function DesktopExpensesPage() {
       header: 'Description',
       className: 'w-[28%]',
       cell: (expense) => (
-        <div className="min-w-0">
+        <Link to={`/expenses/${expense.id}`} className="block min-w-0 rounded-md transition-colors hover:text-accent">
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate font-medium text-foreground">{expense.description}</span>
             {expense.recurringExpenseId && (
@@ -354,7 +344,7 @@ export function DesktopExpensesPage() {
           {expense.status === 'REJECTED' && expense.rejection_reason && (
             <span className="block truncate text-[12px] text-danger">Rejected: {expense.rejection_reason}</span>
           )}
-        </div>
+        </Link>
       ),
     },
     {
@@ -381,10 +371,9 @@ export function DesktopExpensesPage() {
       align: 'right',
       className: 'w-px',
       cell: (expense) => {
+        // Editing and deleting now happen on the expense detail page.
         const showReview = canApprove && expense.status === 'PENDING';
-        const showEdit = canEdit(expense);
-        const showDelete = canDelete(expense);
-        if (!expense.receipt_url && !showReview && !showEdit && !showDelete) {
+        if (!expense.receipt_url && !showReview) {
           return <span className="text-[12.5px] text-foreground-5">—</span>;
         }
         return (
@@ -416,21 +405,6 @@ export function DesktopExpensesPage() {
                   }}
                 />
               </>
-            )}
-            {showEdit && (
-              <ActionButton
-                icon={Pencil}
-                label={`Edit ${expense.description}`}
-                onClick={() => setEditExpense(expense)}
-              />
-            )}
-            {showDelete && (
-              <ActionButton
-                icon={Trash2}
-                label={`Delete ${expense.description}`}
-                danger
-                onClick={() => setConfirmDelete(expense)}
-              />
             )}
           </div>
         );
@@ -524,6 +498,15 @@ export function DesktopExpensesPage() {
                 setPage(1);
               }}
               options={STATUS_OPTIONS}
+            />
+            <ToolbarSelect
+              label="Payment method"
+              value={methodFilter}
+              onChange={(value) => {
+                setMethodFilter(value);
+                setPage(1);
+              }}
+              options={PAYMENT_METHOD_OPTIONS}
             />
           </>
         }

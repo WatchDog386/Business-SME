@@ -18,13 +18,12 @@ import { usePageCount } from '@/stores/page-meta';
 import { csvDateStamp, downloadCsv } from '@/lib/csv';
 import { formatDateTime, formatKES } from '@/lib/utils';
 import { invoiceNo } from '@/features/isp/document-actions';
+import { transactionDateBounds } from '@/lib/business-date';
+import { useActiveBusiness } from '@/stores/business';
 
 const PAGE_SIZE = 20;
 
 /** Kenya is UTC+3 all year, so shifting the clock gives Nairobi wall time. */
-const NAIROBI_OFFSET_MS = 3 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 type RangeFilter = 'all' | 'today' | '7d' | '30d' | 'month';
 type MethodFilter = 'all' | PaymentMethod;
 
@@ -91,18 +90,16 @@ function statusDot(status: Sale['payment_status']) {
   return STATUS_DOTS[status] ?? DOT.grey;
 }
 
-/** Start of the given period in Nairobi time, or null for "all time". */
-function rangeStart(range: RangeFilter): Date | null {
-  const nairobiNow = new Date(Date.now() + NAIROBI_OFFSET_MS);
-  const dayKey = (d: Date) => d.toISOString().slice(0, 10);
-  if (range === 'all') return null;
-  if (range === 'month') {
-    return new Date(`${dayKey(nairobiNow).slice(0, 8)}01T00:00:00.000Z`);
-  }
-  const days = range === 'today' ? 0 : range === '7d' ? 7 : 30;
-  const start = new Date(nairobiNow.getTime() - days * DAY_MS);
-  return new Date(`${dayKey(start)}T00:00:00.000Z`);
-}
+const SALE_TYPE_OPTIONS = [
+  { value: '', label: 'All sale types' },
+  { value: 'GENERAL', label: 'General sales' },
+  { value: 'PRODUCT', label: 'Products' },
+  { value: 'SERVICE', label: 'Services' },
+  { value: 'PACKAGE', label: 'Packages' },
+  { value: 'ADVANCE', label: 'Advance payments' },
+  { value: 'OTHER', label: 'Other revenue' },
+  { value: 'MIXED', label: 'Mixed sales' },
+];
 
 /** Desktop-only sales list (lg and up). Phones use the stacked mobile page. */
 export function DesktopSalesPage() {
@@ -116,6 +113,12 @@ export function DesktopSalesPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [methodFilter, setMethodFilter] = useState<MethodFilter>('all');
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('all');
+  const [saleTypeFilter, setSaleTypeFilter] = useState('');
+  const business = useActiveBusiness();
+  const bounds = useMemo(
+    () => transactionDateBounds(rangeFilter, business?.timezone ?? 'Africa/Nairobi'),
+    [rangeFilter, business?.timezone],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -130,6 +133,10 @@ export function DesktopSalesPage() {
         page,
         search: debouncedSearch,
         paymentStatus: statusFilter,
+        paymentMethod: methodFilter,
+        saleType: saleTypeFilter,
+        from: bounds.from,
+        to: bounds.to,
         customerId,
       },
     ],
@@ -139,6 +146,10 @@ export function DesktopSalesPage() {
         limit: PAGE_SIZE,
         search: debouncedSearch || undefined,
         paymentStatus: statusFilter || undefined,
+        paymentMethod: methodFilter === 'all' ? undefined : methodFilter,
+        saleType: saleTypeFilter || undefined,
+        from: bounds.from,
+        to: bounds.to,
         customerId: customerId || undefined,
       }),
   });
@@ -149,23 +160,14 @@ export function DesktopSalesPage() {
 
   usePageCount(total);
 
-  const cutoff = useMemo(() => rangeStart(rangeFilter), [rangeFilter]);
-
-  const rows = useMemo(
-    () =>
-      cutoff
-        ? items.filter((sale) => new Date(sale.created_at).getTime() >= cutoff.getTime())
-        : methodFilter === 'all'
-          ? items
-          : items.filter((sale) => sale.payment_method === methodFilter),
-    [items, cutoff, methodFilter],
-  );
+  const rows = items;
 
   const clearFilters = () => {
     setSearch('');
     setStatusFilter('');
     setMethodFilter('all');
     setRangeFilter('all');
+    setSaleTypeFilter('');
     setPage(1);
   };
 
@@ -174,6 +176,7 @@ export function DesktopSalesPage() {
     Boolean(statusFilter) ||
     methodFilter !== 'all' ||
     rangeFilter !== 'all' ||
+    Boolean(saleTypeFilter) ||
     Boolean(customerId);
   const noSalesYet = total === 0 && !hasQuery;
 
@@ -324,6 +327,15 @@ export function DesktopSalesPage() {
                 setPage(1);
               }}
               options={STATUS_OPTIONS}
+            />
+            <ToolbarSelect
+              label="Sale type"
+              value={saleTypeFilter}
+              onChange={(value) => {
+                setSaleTypeFilter(value);
+                setPage(1);
+              }}
+              options={SALE_TYPE_OPTIONS}
             />
           </>
         }

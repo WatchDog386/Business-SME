@@ -28,6 +28,7 @@ const BRAND = '#0B2545';
 const MUTED = '#6B7280';
 
 type Row = [string, string];
+type DailyReportData = Awaited<ReturnType<DailyReportService['report']>>;
 
 @Injectable()
 export class ReportExportService {
@@ -190,8 +191,8 @@ export class ReportExportService {
   }
 
   /** The daily report for one day, as a PDF to keep or send to the owner. */
-  async dailyPdf(ctx: ExportContext, date?: string): Promise<ExportFile> {
-    const r = await this.dailyReports.report(ctx.businessId, date, ctx.timezone);
+  async dailyPdf(ctx: ExportContext, date?: string, data?: DailyReportData): Promise<ExportFile> {
+    const r = data ?? await this.dailyReports.report(ctx.businessId, date, ctx.timezone);
     const m = (v: number) => formatMoney(v, ctx.currency);
     const change = (now: number, before: number) =>
       before ? `${now >= before ? '+' : ''}${Math.round(((now - before) / before) * 100)}% vs the day before` : '';
@@ -233,6 +234,122 @@ export class ReportExportService {
       ]);
     });
     return { buffer, filename: `daily-report-${r.date}.pdf`, contentType: PDF_TYPE };
+  }
+
+  /** Full daily workbook with summary and transaction detail for reconciliation. */
+  async dailyXlsx(ctx: ExportContext, date?: string, data?: DailyReportData): Promise<ExportFile> {
+    const r = data ?? await this.dailyReports.report(ctx.businessId, date, ctx.timezone);
+    const workbook = this.newWorkbook();
+    const money = this.moneyFormat(ctx.currency);
+    const summary = workbook.addWorksheet('Daily summary');
+    this.writeSheetHeader(summary, ctx, 'Daily report', r.from, r.to);
+    summary.addRow([]);
+    summary.addRow(['Metric', 'Value']).font = { bold: true };
+    const summaryRows: Array<[string, string | number]> = [
+      ['Revenue', r.revenue.total],
+      ['Money collected', r.revenue.collected],
+      ['Approved expenses', r.expenses.total],
+      ['Cost of goods sold', r.profit.cogs],
+      ['Gross profit', r.profit.gross],
+      ['Net profit', r.profit.net],
+      ['Cash in (collected less approved expenses)', r.cash.net],
+      ['Sales count', r.revenue.salesCount],
+      ['Average sale', r.revenue.averageSale],
+      ['Sales not fully paid', r.revenue.unpaid],
+      ['Pending expenses', r.expenses.pendingCount],
+      ['Pending expense amount', r.expenses.pendingTotal],
+      ['Outstanding customer balances', r.debts.outstanding],
+    ];
+    for (const [label, value] of summaryRows) {
+      const row = summary.addRow([label, value]);
+      if (typeof value === 'number' && !['Sales count', 'Sales not fully paid', 'Pending expenses'].includes(label)) {
+        row.getCell(2).numFmt = money;
+      }
+      if (label === 'Net profit') row.font = { bold: true };
+    }
+    summary.addRow([]);
+    summary.addRow(['Money collected by method']).font = { bold: true };
+    summary.addRow(['Method', 'Amount', 'Payments']).font = { bold: true };
+    for (const payment of r.revenue.collectedByMethod) {
+      const row = summary.addRow([payment.method, payment.total, payment.count]);
+      row.getCell(2).numFmt = money;
+    }
+    summary.getColumn(1).width = 42;
+    summary.getColumn(2).width = 20;
+    summary.getColumn(3).width = 14;
+
+    const sales = workbook.addWorksheet('Sales');
+    sales.columns = [
+      { header: 'Time', key: 'time', width: 22 },
+      { header: 'Invoice', key: 'invoice', width: 14 },
+      { header: 'Customer', key: 'customer', width: 28 },
+      { header: 'Sale type', key: 'type', width: 20 },
+      { header: 'Payment method', key: 'method', width: 18 },
+      { header: 'Payment status', key: 'status', width: 16 },
+      { header: `Total (${ctx.currency})`, key: 'total', width: 18 },
+    ];
+    sales.getRow(1).font = { bold: true };
+    for (const sale of r.sales) {
+      sales.addRow({
+        time: DateTime.fromJSDate(new Date(sale.at), { zone: ctx.timezone }).toFormat('yyyy-LL-dd HH:mm'),
+        invoice: sale.number ? `INV-${String(sale.number).padStart(6, '0')}` : sale.id.slice(0, 8).toUpperCase(),
+        customer: sale.customer,
+        type: sale.type,
+        method: sale.method,
+        status: sale.status,
+        total: sale.total,
+      });
+    }
+    sales.getColumn('total').numFmt = money;
+    sales.views = [{ state: 'frozen', ySplit: 1 }];
+    sales.autoFilter = { from: 'A1', to: 'G1' };
+
+    const expenses = workbook.addWorksheet('Expenses');
+    expenses.columns = [
+      { header: 'Date', key: 'date', width: 14 },
+      { header: 'Description', key: 'description', width: 36 },
+      { header: 'Category', key: 'category', width: 22 },
+      { header: 'Payment method', key: 'method', width: 18 },
+      { header: 'Status', key: 'status', width: 14 },
+      { header: `Amount (${ctx.currency})`, key: 'amount', width: 18 },
+    ];
+    expenses.getRow(1).font = { bold: true };
+    for (const expense of r.expenses.items) {
+      expenses.addRow({
+        date: DateTime.fromJSDate(new Date(expense.date), { zone: ctx.timezone }).toFormat('yyyy-LL-dd'),
+        description: expense.description,
+        category: expense.category,
+        method: expense.method,
+        status: expense.status,
+        amount: expense.amount,
+      });
+    }
+    expenses.getColumn('amount').numFmt = money;
+    expenses.views = [{ state: 'frozen', ySplit: 1 }];
+    expenses.autoFilter = { from: 'A1', to: 'F1' };
+
+    const items = workbook.addWorksheet('Products and packages');
+    items.columns = [
+      { header: 'Item', key: 'name', width: 32 },
+      { header: 'Quantity', key: 'quantity', width: 14 },
+      { header: `Revenue (${ctx.currency})`, key: 'revenue', width: 18 },
+      { header: `Profit (${ctx.currency})`, key: 'profit', width: 18 },
+      { header: 'Type', key: 'type', width: 18 },
+    ];
+    items.getRow(1).font = { bold: true };
+    for (const item of r.products) items.addRow({ ...item, type: 'Product / service' });
+    for (const item of r.packages.lines) items.addRow({ ...item, profit: null, type: 'Package' });
+    items.getColumn('revenue').numFmt = money;
+    items.getColumn('profit').numFmt = money;
+    items.views = [{ state: 'frozen', ySplit: 1 }];
+    items.autoFilter = { from: 'A1', to: 'E1' };
+
+    const file = await workbook.xlsx.writeBuffer();
+    return {
+      buffer: Buffer.from(file as ArrayBuffer),
+      filename: `daily-report-${r.date}.xlsx`,
+      contentType: XLSX_TYPE,
+    };
   }
 
   // ---- helpers -------------------------------------------------------------

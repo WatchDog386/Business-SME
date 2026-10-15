@@ -36,12 +36,14 @@ export class SalesController {
   @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({ name: 'paymentStatus', required: false })
+  @ApiQuery({ name: 'paymentMethod', required: false })
+  @ApiQuery({ name: 'saleType', required: false })
   @ApiQuery({ name: 'search', required: false })
   list(
-    @CurrentBusiness() business: { id: string },
+    @CurrentBusiness() business: { id: string; timezone: string },
     @Query() query: SalesListQueryDto,
   ) {
-    return this.salesService.list(business.id, query);
+    return this.salesService.list(business.id, query, business.timezone);
   }
 
   @Post('preview')

@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Phone, PhoneCall } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MessageSquare, Phone, PhoneCall } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
-import { callsApi } from '@/api/endpoints';
+import { callsApi, smsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import type { CallOutcome } from '@/api/types';
 import { Alert } from '@/components/ui/alert';
@@ -37,15 +37,18 @@ export const OUTCOMES: Array<{ value: CallOutcome; label: string; tone: string }
 ];
 export const outcomeInfo = (o: CallOutcome) => OUTCOMES.find((x) => x.value === o) ?? OUTCOMES[0];
 
-/** Round Call / WhatsApp / Log buttons for a client. */
+/** Round Call / WhatsApp / Message / Log buttons for a client. */
 export function ContactButtons({
   phone,
   onLog,
+  onMessage,
   message,
   size = 'md',
 }: {
   phone: string | null | undefined;
   onLog?: () => void;
+  /** Opens the SMS sheet. Omit to hide the button. */
+  onMessage?: () => void;
   message?: string;
   size?: 'sm' | 'md';
 }) {
@@ -63,6 +66,11 @@ export function ContactButtons({
         <a href={wa} target="_blank" rel="noreferrer" className={cn(box, 'flex items-center justify-center rounded-full bg-[#25D366] text-white active:scale-90')} aria-label="WhatsApp">
           <WhatsAppIcon className={icon} />
         </a>
+      ) : null}
+      {onMessage ? (
+        <button type="button" onClick={onMessage} className={cn(box, 'flex items-center justify-center rounded-full bg-brand-600 text-white active:scale-90')} aria-label="Send SMS">
+          <MessageSquare className={icon} aria-hidden />
+        </button>
       ) : null}
       {onLog && (
         <button type="button" onClick={onLog} className={cn(box, 'flex items-center justify-center rounded-full bg-surface-3 text-foreground-2 active:scale-90')} aria-label="Log a call">
@@ -184,6 +192,99 @@ export function LogCallSheet({
           </Button>
           <Button loading={mutation.isPending} onClick={() => mutation.mutate()}>
             Save call
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * Compose and send an SMS. A delivered message is written to the client's call
+ * history by the backend, so staff can see what has already been prompted.
+ */
+export function SendSmsSheet({
+  open,
+  onOpenChange,
+  customerId,
+  customerName,
+  phone,
+  defaultMessage = '',
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  customerId: string;
+  customerName: string;
+  phone: string | null | undefined;
+  defaultMessage?: string;
+}) {
+  const queryClient = useQueryClient();
+  const [text, setText] = useState(defaultMessage);
+
+  // Re-seed the draft each time the sheet opens, so the suggested renewal
+  // prompt is fresh but anything typed is not lost to a re-render.
+  useEffect(() => {
+    if (open) setText(defaultMessage);
+  }, [open, defaultMessage]);
+
+  const status = useQuery({ queryKey: ['sms', 'status'], queryFn: smsApi.status });
+  const configured = status.data?.configured ?? false;
+
+  const mutation = useMutation({
+    mutationFn: () => smsApi.send(customerId, text),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ['calls'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      void queryClient.invalidateQueries({ queryKey: ['customers', customerId] });
+      if (result.sent) onOpenChange(false);
+    },
+  });
+
+  const noPhone = !phone;
+  const notConfigured = !status.isLoading && !configured;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title="Send SMS" description={`${customerName} · ${phone ?? 'no number on file'}`}>
+      <div className="space-y-4">
+        {!status.isLoading && notConfigured && (
+          <Alert variant="error">
+            SMS is not set up on the server yet. Add{' '}
+            <span className="font-medium">{status.data?.missing.join(', ')}</span> to the backend .env.
+          </Alert>
+        )}
+        {noPhone && <Alert variant="error">This client has no mobile number saved.</Alert>}
+        {mutation.error && <Alert variant="error">{apiErrorMessage(mutation.error)}</Alert>}
+        {mutation.data && !mutation.data.sent && (
+          <Alert variant="error">
+            The provider did not send it ({mutation.data.statusCode} · {mutation.data.statusDesc}).
+          </Alert>
+        )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="sms-body">Message</Label>
+          <Textarea
+            id="sms-body"
+            rows={5}
+            value={text}
+            maxLength={900}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="e.g. Hello John, your 10 Mbps package expires in 3 days. Renew via M-Pesa to stay connected."
+            autoFocus
+          />
+          <p className="text-[12px] text-foreground-4">{text.length}/900 characters</p>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            loading={mutation.isPending}
+            disabled={noPhone || notConfigured || !text.trim()}
+            onClick={() => mutation.mutate()}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Send
           </Button>
         </div>
       </div>
