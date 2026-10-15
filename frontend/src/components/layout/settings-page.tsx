@@ -16,10 +16,8 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useActiveBusiness } from '@/stores/business';
-import { useAuthStore } from '@/stores/auth';
 import { TwoFactorSetting } from './two-factor-setting';
-import { BubbleTile, ProfileRing, profileCompletion } from './profile-visuals';
+import { BubbleTile } from './profile-visuals';
 import { requestLogout } from './session-timeout';
 
 interface Item {
@@ -58,10 +56,7 @@ interface SettingsPageProps {
 
 export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
   const { canInstall, install } = useInstallPrompt();
-  const active = useActiveBusiness();
-  const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
-  const completion = profileCompletion(user);
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
@@ -108,26 +103,6 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
       </header>
 
       <div className="mx-auto max-w-md px-4 pb-10 pt-6">
-        {/* Identity, centred: ring avatar with profile completion */}
-        <section className="flex flex-col items-center text-center">
-          <ProfileRing
-            percent={completion}
-            label={`${completion}%`}
-            avatarUrl={user?.avatarUrl}
-            initial={user?.fullName?.charAt(0).toUpperCase()}
-            onEdit={() => go('/profile')}
-            size={96}
-          />
-          <p className="mt-4 text-base font-semibold text-foreground">{user?.fullName ?? ''}</p>
-          {active?.subscription_plan && (
-            <span className="mt-1.5 inline-block rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-              {active.subscription_plan}
-            </span>
-          )}
-        </section>
-
-        <p className="mt-5 text-[15px] text-foreground-3">Manage your business and account</p>
-
         {/* Business group */}
         <section className="mt-6">
           <SectionLabel>Business</SectionLabel>
