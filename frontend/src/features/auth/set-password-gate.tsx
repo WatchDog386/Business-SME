@@ -23,10 +23,12 @@ export function SetPasswordGate() {
             {first ? `${first}, set your password` : 'Set your password'}
           </h1>
           <p className="mt-1 text-sm leading-relaxed text-foreground-4">
-            The office gave you a temporary password to get in. Change it now so only you know it.
+            The office gave you a temporary password to get in. Set your own now; this is your one self-service password change. Contact your administrator for another reset.
           </p>
         </div>
-        <ChangePasswordForm onDone={() => user && setUser({ ...user, mustChangePassword: false })} />
+        <ChangePasswordForm
+          onDone={() => user && setUser({ ...user, mustChangePassword: false, selfServicePasswordChangeUsed: true })}
+        />
         <p className="text-center text-[11px] text-foreground-4">
           The temporary password stops working the moment you set this one.
         </p>

@@ -323,6 +323,7 @@ export class ClientPortalService {
       await this.users.update(user.id, {
         password_hash: await bcrypt.hash(password, 10),
         must_change_password: true,
+        self_service_password_change_used: false,
       });
     } else {
       user = await this.users.create({

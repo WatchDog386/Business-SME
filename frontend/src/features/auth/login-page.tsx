@@ -228,15 +228,15 @@ export function LoginPage() {
       <div className="relative flex min-h-[100dvh] flex-col bg-white">
         {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
         <img src="/images/splash-savanna.jpg" alt="" aria-hidden className="fixed inset-0 h-full w-full object-cover" />
-        <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[env(safe-area-inset-top)] [&_img]:drop-shadow-[0_2px_6px_rgba(255,255,255,0.35)]">
-          <Brand size="xl" onDark />
+        <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[env(safe-area-inset-top)]">
+          <Brand size="lg" />
         </div>
         <main
           className={
             'relative flex shrink-0 flex-col rounded-t-3xl px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 ' +
             (dark
-              ? 'border-t border-white/15 bg-black/55 text-white shadow-[0_-10px_24px_rgba(0,0,0,0.45)] backdrop-blur-md'
-              : 'bg-white/80 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-md')
+              ? 'border-t border-white/15 bg-gradient-to-b from-black/70 via-black/45 to-black/75 text-white shadow-[0_-10px_24px_rgba(0,0,0,0.45)]'
+              : 'bg-white/55 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)]')
           }
         >
           <div className={dark ? 'mx-auto h-1 w-12 rounded-full bg-white/40' : 'mx-auto h-1 w-12 rounded-full bg-slate-400'} aria-hidden />
@@ -247,13 +247,11 @@ export function LoginPage() {
             Sign in with your Optimas staff account.
           </p>
           {dark ? (
-            /* Outlined pills, as on the subscriber dashboard's Statement and Deposit buttons */
-            <div className="mt-6 [&_input]:!h-12 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-transparent [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:text-white/60 [&_button]:!text-white/70 [&_.auth-link]:!text-[#7BCFD2] [&_.text-danger]:!text-red-300 [&_label]:sr-only">
+            <div className="login-dark-fields mt-6 [&_input]:!h-12 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70 [&_.auth-link]:!text-[#7BCFD2] [&_.text-danger]:!text-red-300 [&_label]:sr-only">
               {form}
             </div>
           ) : (
-            /* Muted, borderless fields as in the original sign-in page */
-            <div className="mt-6 [&_input]:!rounded-xl [&_input]:!border-white/15 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70 [&_.auth-link]:!text-[#2F7F81] [&_label]:sr-only">
+            <div className="login-dark-fields mt-6 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70 [&_.auth-link]:!text-[#2F7F81] [&_.text-danger]:!text-red-700 [&_label]:sr-only">
               {form}
             </div>
           )}

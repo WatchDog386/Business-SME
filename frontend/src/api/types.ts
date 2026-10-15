@@ -18,6 +18,8 @@ export interface User {
    * asks them for their own before showing anything else.
    */
   mustChangePassword?: boolean;
+  /** Client's one permitted self-service password change has been used. */
+  selfServicePasswordChangeUsed?: boolean;
   /** True for the app-owner platform-admin accounts. */
 }
 

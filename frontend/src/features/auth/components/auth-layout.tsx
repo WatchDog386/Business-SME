@@ -48,7 +48,7 @@ export function AuthLayout({
     <div className="min-h-screen bg-white px-6 pb-10 pt-[max(9rem,env(safe-area-inset-top))]">
       <div className="mx-auto w-full max-w-sm">
         <Link to="/" className="flex justify-center" aria-label="Optimas home">
-          <img src={logo} alt="Optima logo" width={1200} height={288} className="w-36 object-contain" />
+          <img src={logo} alt="Optima logo" width={1200} height={288} className="w-28 object-contain" />
         </Link>
 
         {(title || mobileTitle || subtitle) && (
@@ -64,7 +64,7 @@ export function AuthLayout({
         <div
           className={cn(
             forceMobileLayout
-              ? 'mt-6 [&_input]:!rounded-xl [&_input]:!border-white/15 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70'
+              ? 'login-dark-fields mt-6 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70'
               : 'mt-6 [&_input]:!rounded-lg [&_input]:!border-transparent [&_input]:!bg-slate-100 [&_input]:!text-slate-600 [&_input]:!shadow-none [&_input]:placeholder:text-slate-400',
             hideLabelsOnMobile && '[&_label]:sr-only',
           )}
@@ -103,7 +103,7 @@ function DesktopAuthLayout({
     <div className="flex min-h-screen flex-col justify-center bg-white px-6 py-16">
       <div className="mx-auto w-full max-w-sm">
         <Link to="/" className="flex justify-center" aria-label="Optimas home">
-          <img src={logo} alt="Optima logo" width={1200} height={288} className="w-36 object-contain" />
+          <img src={logo} alt="Optima logo" width={1200} height={288} className="w-28 object-contain" />
         </Link>
 
         {title && <h1 className="mt-10 text-center text-3xl font-normal tracking-tight text-slate-800">{title}</h1>}

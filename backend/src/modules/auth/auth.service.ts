@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -15,6 +16,7 @@ import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../../common/types/auth-user.interface';
+import { BusinessMember } from '../businesses/entities/business-member.entity';
 import { ChangePasswordDto } from './dto/auth.dto';
 import { JwtPayload } from './auth.strategy';
 import {
@@ -57,6 +59,7 @@ export interface AuthResult {
     emailVerified: boolean;
     /** True while the person is still on a password the office chose for them. */
     mustChangePassword: boolean;
+    selfServicePasswordChangeUsed: boolean;
   };
 }
 
@@ -70,6 +73,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(BusinessMember)
+    private readonly businessMemberRepo: Repository<BusinessMember>,
   ) {}
 
   /**
@@ -345,6 +350,7 @@ export class AuthService {
       emailVerified: user.email_verified,
       twoFactorEnabled: user.totp_enabled,
       mustChangePassword: user.must_change_password,
+      selfServicePasswordChangeUsed: user.self_service_password_change_used,
     };
   }
 
@@ -366,6 +372,7 @@ export class AuthService {
       avatarUrl: user.avatar_url,
       emailVerified: user.email_verified,
       mustChangePassword: user.must_change_password,
+      selfServicePasswordChangeUsed: user.self_service_password_change_used,
     };
   }
 
@@ -379,6 +386,10 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Invalid session.' });
     }
+    const isClient = await this.isClientUser(user.id);
+    if (isClient && user.self_service_password_change_used) {
+      throw this.passwordChangeUsedException();
+    }
     const valid = await bcrypt.compare(dto.currentPassword, user.password_hash);
     if (!valid) {
       throw new BadRequestException({
@@ -387,14 +398,36 @@ export class AuthService {
       });
     }
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
-    // They have chosen a password themselves, so the office's temporary one is done
-    await this.usersService.update(user.id, { password_hash: passwordHash, must_change_password: false });
+    if (isClient) {
+      // Claim the one allowed change atomically so parallel requests cannot both pass.
+      const result = await this.userRepo
+        .createQueryBuilder()
+        .update(User)
+        .set({
+          password_hash: passwordHash,
+          must_change_password: false,
+          self_service_password_change_used: true,
+        })
+        .where('id = :id AND self_service_password_change_used = :unused', {
+          id: user.id,
+          unused: false,
+        })
+        .execute();
+      if (!result.affected) throw this.passwordChangeUsedException();
+    } else {
+      // Staff password policies stay unchanged; this rule is for client accounts.
+      await this.usersService.update(user.id, { password_hash: passwordHash, must_change_password: false });
+    }
   }
 
   async forgotPassword(email: string): Promise<{ resetToken?: string }> {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       // Do not reveal whether an account exists.
+      return {};
+    }
+    if (user.self_service_password_change_used && await this.isClientUser(user.id)) {
+      // Keep the public forgot-password response indistinguishable for privacy.
       return {};
     }
     const token = randomBytes(32).toString('hex');
@@ -428,9 +461,45 @@ export class AuthService {
         message: 'This reset link has expired. Request a new one.',
       });
     }
+    const isClient = await this.isClientUser(user.id);
+    if (user.self_service_password_change_used && isClient) {
+      throw this.passwordChangeUsedException();
+    }
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await this.usersService.update(user.id, { password_hash: passwordHash, must_change_password: false });
+    if (isClient) {
+      // A reset link also consumes the client's one self-service password change.
+      const result = await this.userRepo
+        .createQueryBuilder()
+        .update(User)
+        .set({
+          password_hash: passwordHash,
+          must_change_password: false,
+          self_service_password_change_used: true,
+        })
+        .where('id = :id AND self_service_password_change_used = :unused', {
+          id: user.id,
+          unused: false,
+        })
+        .execute();
+      if (!result.affected) throw this.passwordChangeUsedException();
+    } else {
+      await this.usersService.update(user.id, { password_hash: passwordHash, must_change_password: false });
+    }
     await this.usersService.clearResetToken(user.id);
+  }
+
+  private async isClientUser(userId: string): Promise<boolean> {
+    const member = await this.businessMemberRepo.findOne({
+      where: { userId, role: UserRole.CLIENT },
+    });
+    return Boolean(member);
+  }
+
+  private passwordChangeUsedException(): ForbiddenException {
+    return new ForbiddenException({
+      code: 'PASSWORD_CHANGE_LIMIT_REACHED',
+      message: 'You have used your one password change. Contact your administrator for another reset.',
+    });
   }
 
   private buildAuthResult(user: User): AuthResult {
@@ -451,6 +520,7 @@ export class AuthService {
         avatarUrl: user.avatar_url,
         emailVerified: user.email_verified,
         mustChangePassword: user.must_change_password,
+        selfServicePasswordChangeUsed: user.self_service_password_change_used,
       },
     };
   }

@@ -379,6 +379,25 @@
     caret-color: rgb(var(--foreground));
     transition: background-color 9999s ease-out 0s;
   }
+
+  /* Login inputs stay legible on their dark surface, including autofill. */
+  .login-dark-fields input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    caret-color: #fff;
+    background-color: #1e1e1e !important;
+  }
+
+  .login-dark-fields input::placeholder {
+    color: rgb(255 255 255 / 60%) !important;
+    opacity: 1;
+  }
+
+  .login-dark-fields input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #1e1e1e inset !important;
+    -webkit-text-fill-color: #fff !important;
+    caret-color: #fff;
+  }
 }
 
 @layer utilities {

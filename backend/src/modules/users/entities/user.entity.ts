@@ -36,6 +36,10 @@ export class User extends BaseEntity {
   @Column({ type: 'boolean', default: false })
   must_change_password: boolean;
 
+  /** A client may change a password once between office-issued resets. */
+  @Column({ type: 'boolean', default: false })
+  self_service_password_change_used: boolean;
+
   // ---- Two-factor authentication (authenticator app, required for everyone) ----
 
   /** On once the user has scanned the secret and confirmed a code. */

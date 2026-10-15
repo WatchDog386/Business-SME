@@ -39,8 +39,8 @@ export function MobileHomePage() {
       />
 
       {/* White logo and wordmark stay readable over the photo. */}
-      <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pb-10 pt-[env(safe-area-inset-top)] [&_img]:drop-shadow-[0_2px_6px_rgba(255,255,255,0.35)]">
-        <Brand size="xl" onDark />
+      <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pb-10 pt-[env(safe-area-inset-top)]">
+        <Brand size="lg" />
       </div>
 
       {/* The sheet: the subscriber app's dark panel in dark mode, frosted white in light */}
@@ -48,8 +48,8 @@ export function MobileHomePage() {
         className={
           'relative flex max-h-[calc(100%-170px)] shrink-0 flex-col rounded-t-3xl px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 ' +
           (dark
-            ? 'border-t border-white/15 bg-gradient-to-b from-black/70 via-black/45 to-black/75 text-white shadow-[0_-10px_24px_rgba(0,0,0,0.45)] backdrop-blur-md'
-            : 'bg-white/80 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-md')
+            ? 'border-t border-white/15 bg-gradient-to-b from-black/70 via-black/45 to-black/75 text-white shadow-[0_-10px_24px_rgba(0,0,0,0.45)]'
+            : 'bg-white/55 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)]')
         }
       >
         <div className={dark ? 'mx-auto h-1 w-12 shrink-0 rounded-full bg-white/40' : 'mx-auto h-1 w-12 shrink-0 rounded-full bg-slate-300'} aria-hidden />
@@ -90,7 +90,7 @@ export function MobileHomePage() {
               className={
                 'relative flex min-h-[148px] flex-col overflow-hidden rounded-2xl p-4 ' +
                 (dark
-                  ? 'border border-white/15 bg-black/45 backdrop-blur-md'
+                  ? 'border border-white/15 bg-[#1E1E1E] shadow-sm'
                   : 'border border-slate-200 bg-white shadow-sm')
               }
             >
@@ -114,10 +114,12 @@ export function MobileHomePage() {
         </div>
 
         {/* Help strip */}
-        <div
+        <Link
+          to="/help"
+          aria-label="Open help and support"
           className={
-            'mt-3 flex items-center gap-3 rounded-2xl p-4 ' +
-            (dark ? 'border border-white/15 bg-black/45 backdrop-blur-md' : 'border border-slate-200 bg-white shadow-sm')
+            'mt-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.99] ' +
+            (dark ? 'border border-white/15 bg-[#1E1E1E] shadow-sm' : 'border border-slate-200 bg-white shadow-sm')
           }
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white">
@@ -128,7 +130,7 @@ export function MobileHomePage() {
             <p className={dark ? 'text-xs text-white/70' : 'text-xs text-slate-500'}>Our support team is here for you.</p>
           </div>
           <ArrowRight className={dark ? 'h-4 w-4 text-white/60' : 'h-4 w-4 text-slate-400'} aria-hidden />
-        </div>
+        </Link>
         </div>
 
         {/* Login button, always in full view at the bottom of the sheet */}

@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from '../users/users.module';
 import { User } from '../users/entities/user.entity';
+import { BusinessMember } from '../businesses/entities/business-member.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './auth.strategy';
@@ -15,7 +16,7 @@ import { AuditModule } from '../audit/audit.module';
     UsersModule,
     PassportModule,
     AuditModule,
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, BusinessMember]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

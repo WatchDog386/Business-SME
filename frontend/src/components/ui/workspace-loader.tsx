@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { overrideStatusBarColor } from '@/lib/theme';
+import { Brand } from '@/components/layout/brand';
 
 /** Status lines shown in turn while signing in and loading the dashboard. */
 const STEPS = [
@@ -61,7 +62,7 @@ export function SpeedWheel({ light = false }: { light?: boolean }) {
 
 /**
  * Full-screen loader from "Verify and continue" until the dashboard is ready.
- * Always white, even in dark mode, like the opening splash and sign-in pages.
+ * Dark dashboard surface with the Optimas mark while workspace data loads.
  */
 export function WorkspaceLoader() {
   const [now, setNow] = useState(() => {
@@ -78,8 +79,8 @@ export function WorkspaceLoader() {
     };
   }, []);
 
-  // The status bar is white all the way up while this loader is on screen
-  useEffect(() => overrideStatusBarColor('#FFFFFF'), []);
+  // Match the dashboard surface while the loader is on screen.
+  useEffect(() => overrideStatusBarColor('#121212'), []);
 
   const step = Math.min(STEPS.length - 1, Math.floor(now / STEP_MS));
 
@@ -87,14 +88,14 @@ export function WorkspaceLoader() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-[99] flex flex-col items-center justify-center bg-white"
+      className="fixed inset-0 z-[99] flex flex-col items-center justify-center bg-[#121212] text-white"
     >
-      <SpeedWheel light />
+      <Brand size="md" compact onDark />
       <div className="mt-6 flex h-7 items-center justify-center">
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
             key={step}
-            className="text-[17px] font-medium text-[#5E6B65]"
+            className="text-[17px] font-medium text-white"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}

@@ -32,6 +32,7 @@ const StaffPage = lazy(() => import('@/features/business/staff-page').then((m) =
 const SubscribersPage = lazy(() => import('@/features/isp/subscribers-page').then((m) => ({ default: m.SubscribersPage })));
 const CallsPage = lazy(() => import('@/features/isp/calls-page').then((m) => ({ default: m.CallsPage })));
 const MobileHomePage = lazy(() => import('@/features/home/mobile-home-page').then((m) => ({ default: m.MobileHomePage })));
+const HelpPage = lazy(() => import('@/features/home/help-page').then((m) => ({ default: m.HelpPage })));
 const ClientProfilePage = lazy(() => import('@/features/client/client-profile-page').then((m) => ({ default: m.ClientProfilePage })));
 const ClientContactPage = lazy(() => import('@/features/client/client-pages').then((m) => ({ default: m.ClientContactPage })));
 const ClientPackagesPage = lazy(() => import('@/features/client/client-pages').then((m) => ({ default: m.ClientPackagesPage })));
@@ -77,6 +78,7 @@ export default function App() {
         <Routes>
           <Route path="/splash" element={<Navigate to="/" replace />} />
           <Route path="/" element={<HomeRoute />} />
+          <Route path="/help" element={<HelpPage />} />
           <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/login" element={<LoginPage />} />
           {/* Accounts are created by the company admin — no public sign-up */}

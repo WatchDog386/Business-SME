@@ -36,7 +36,7 @@ export function ForgotPasswordPage() {
       setSent(
         result.resetToken
           ? `In development, your reset token is: ${result.resetToken}`
-          : 'If an account exists for this email, a reset link has been sent.',
+          : 'If self-service reset is available, a reset link will be sent. If you have already used your password change, contact your administrator.',
       );
       setError(null);
     },

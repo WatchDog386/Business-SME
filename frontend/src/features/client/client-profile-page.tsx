@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Camera, LogOut, Moon, Save, Sun } from 'lucide-react';
+import { LogOut, Moon, Pencil, Save, Sun } from 'lucide-react';
 import { authApi, clientApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { ChangePasswordForm } from '@/features/auth/components/change-password-form';
@@ -13,6 +13,7 @@ import { useAuthStore } from '@/stores/auth';
 import { requestLogout } from '@/components/layout/session-timeout';
 import { notifySuccess } from '@/components/ui/popup-host';
 import { cn } from '@/lib/utils';
+import { ProfileRing, profileCompletion } from '@/components/layout/profile-visuals';
 
 const detailsSchema = z.object({
   fullName: z.string().trim().min(1, 'Enter your name.'),
@@ -67,6 +68,14 @@ export function ClientProfilePage() {
   const email = user?.email ?? data?.customer.email ?? null;
   /** The photo just picked, or the one already saved on the account. */
   const avatarUrl = pickedAvatar ?? user?.avatarUrl ?? null;
+  const completion = profileCompletion(user ? {
+    ...user,
+    fullName: name,
+    phone: phone ?? '',
+    email: email ?? '',
+    avatarUrl,
+  } : user);
+  const completedCount = Math.round((completion / 100) * 6);
 
   // The server holds the real name/phone, so seed the form once it arrives
   useEffect(() => {
@@ -133,69 +142,52 @@ export function ClientProfilePage() {
   };
 
   return (
-    <div className="relative isolate -mx-4 -mt-2 min-h-[100dvh] pb-10">
-      <img
-        src="/images/splash-savanna.jpg"
-        alt=""
-        aria-hidden
-        className="fixed inset-0 -z-20 h-full w-full object-cover"
-      />
-      <div
-        aria-hidden
-        className="fixed inset-0 -z-10 bg-gradient-to-b from-black/70 via-black/45 to-black/75"
-      />
+    <div className="relative isolate -mx-4 -mt-2 min-h-[100dvh] bg-black pb-10 text-white">
 
       {/* Back to the dashboard */}
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 bg-black/55 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 border-b border-white/15 bg-black px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="flex h-12 w-12 shrink-0 items-center justify-center text-white active:scale-90 active:opacity-60"
+          className="flex h-12 w-12 shrink-0 items-center justify-start text-[14px] font-medium text-white active:opacity-60"
           aria-label="Back"
         >
           Back
         </button>
-        <h1 className="flex-1 text-center text-[17px] font-semibold text-white">My Account</h1>
-        <span className="h-12 w-12 shrink-0" aria-hidden />
+        <h1 className="flex-1 text-center text-[17px] font-semibold text-white">Personal Details</h1>
+        <button
+          type="button"
+          onClick={() => document.getElementById('client-fullName')?.focus()}
+          className="flex h-12 w-12 shrink-0 items-center justify-end text-white active:scale-90 active:opacity-60"
+          aria-label="Edit personal details"
+        >
+          <Pencil className="h-5 w-5" aria-hidden />
+        </button>
       </header>
 
       <div className="px-4 pt-5">
         {/* Identity */}
         <section className="flex flex-col items-center text-center">
-          <div className="relative">
-            <span className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-white/85 bg-[radial-gradient(circle_at_30%_24%,#A9E06D_0%,#57A81E_38%,#2F7A0C_70%,#17540A_100%)] shadow-[0_4px_10px_rgba(0,0,0,0.45),inset_0_-3px_6px_rgba(0,0,0,0.35)]">
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-x-2 top-0.5 h-1/2 rounded-full bg-gradient-to-b from-white/45 to-white/0"
-              />
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="relative h-full w-full object-cover" />
-              ) : (
-                <span className="relative -skew-x-12 text-[30px] font-black leading-none text-white [text-shadow:0_2px_3px_rgba(0,0,0,0.45)]">
-                  {initials(name).slice(0, 1)}
-                </span>
-              )}
-            </span>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white ring-2 ring-white/80 transition-transform active:scale-90"
-              aria-label="Change photo"
-            >
-              <Camera className="h-4 w-4" aria-hidden />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageChange}
-            />
-          </div>
-          <h2 className="mt-4 text-[18px] font-semibold text-white">{name}</h2>
-          {phone && <p className="text-[13px] text-white/75">{phone}</p>}
-          {email && <p className="text-[13px] text-white/75">{email}</p>}
-          <p className="mt-1 text-[11px] text-white/50">
+          <ProfileRing
+            size={132}
+            percent={completion}
+            label={`${completedCount} of 6`}
+            avatarUrl={avatarUrl}
+            initial={initials(name).slice(0, 1)}
+            onEdit={() => fileInputRef.current?.click()}
+            editLabel="Change profile photo"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageChange}
+          />
+          <p className="mt-12 text-[14px] text-white/85">
+            Fill out the details to complete your profile.
+          </p>
+          <p className="mt-1 text-[11px] text-white/60">
             {saveAvatar.isPending ? 'Saving photo…' : 'PNG, JPG or WEBP · up to 2MB'}
           </p>
           {avatarError && <p className="mt-1 text-xs text-red-300">{avatarError}</p>}
@@ -205,20 +197,20 @@ export function ClientProfilePage() {
         </section>
 
         {/* Editable details */}
-        <section className="mt-6 rounded-lg border border-white/15 bg-black/55 p-4 backdrop-blur-md">
-          <h3 className="text-[15px] font-semibold text-white">My details</h3>
+        <section className="mt-8">
+          <h3 className="sr-only">Personal details</h3>
           <form
-            className="mt-3 space-y-3"
+            className="space-y-5"
             onSubmit={handleSubmit((values) => saveDetails.mutate(values))}
             noValidate
           >
             <div>
-              <label htmlFor="client-fullName" className="mb-1 block text-[12px] font-medium text-white/80">
+              <label htmlFor="client-fullName" className="mb-1 block text-[14px] font-medium text-white/85">
                 Full name
               </label>
               <input
                 id="client-fullName"
-                className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-white/40"
+                className="w-full border-0 border-b border-white/25 !bg-[#121212] px-3 py-2 text-[16px] font-semibold text-[#8BC53F] outline-none focus:border-white/80 focus:ring-0 placeholder:text-white/45"
                 {...register('fullName')}
               />
               {detailsErrors.fullName && (
@@ -227,7 +219,7 @@ export function ClientProfilePage() {
             </div>
 
             <div>
-              <label htmlFor="client-phone" className="mb-1 block text-[12px] font-medium text-white/80">
+              <label htmlFor="client-phone" className="mb-1 block text-[14px] font-medium text-white/85">
                 Phone number
               </label>
               <input
@@ -235,10 +227,16 @@ export function ClientProfilePage() {
                 type="tel"
                 inputMode="tel"
                 placeholder="0712 345 678"
-                className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-white/40"
+                className="w-full border-0 border-b border-white/25 !bg-[#121212] px-3 py-2 text-[16px] font-semibold text-[#8BC53F] outline-none focus:border-white/80 focus:ring-0 placeholder:text-white/45"
                 {...register('phone')}
               />
               {detailsErrors.phone && <p className="mt-1 text-xs text-red-300">{detailsErrors.phone.message}</p>}
+            </div>
+
+            <div className="border-b border-white/25 bg-[#121212] pb-2">
+              <span className="mb-1 block text-[14px] font-medium text-white/85">Email address</span>
+              <span className="block px-3 py-2 text-[16px] font-semibold text-[#8BC53F]">{email || 'Not provided'}</span>
+              <span className="block px-3 text-[11px] text-white/55">Email cannot be changed here.</span>
             </div>
 
             {saveDetails.isError && (
@@ -262,15 +260,27 @@ export function ClientProfilePage() {
         </section>
 
         {/* Change password */}
-        <section className="mt-4 rounded-[26px] border border-white/15 bg-black/55 p-4 backdrop-blur-md">
-          <h3 className="text-[15px] font-semibold text-white">Change password</h3>
-          <div className="mt-3">
-            <ChangePasswordForm dark />
-          </div>
-        </section>
+        {user?.selfServicePasswordChangeUsed ? (
+          <section className="mt-4 rounded-2xl border border-white/10 bg-[#1E1E1E] p-4">
+            <h3 className="text-[15px] font-semibold text-white">Password</h3>
+            <p className="mt-2 text-[13px] leading-relaxed text-white/75">
+              You’ve used your one password change. Contact your administrator if you need another reset.
+            </p>
+          </section>
+        ) : (
+          <section className="mt-4 rounded-2xl border border-white/10 bg-[#1E1E1E] p-4">
+            <h3 className="text-[15px] font-semibold text-white">Change password</h3>
+            <div className="mt-3">
+              <ChangePasswordForm
+                dark
+                onDone={() => user && setUser({ ...user, selfServicePasswordChangeUsed: true })}
+              />
+            </div>
+          </section>
+        )}
 
         {/* Appearance */}
-        <section className="mt-4 rounded-[26px] border border-white/15 bg-black/55 p-2 backdrop-blur-md">
+        <section className="mt-4 rounded-[26px] border border-white/10 bg-[#1E1E1E] p-2">
           <button
             type="button"
             role="switch"
