@@ -15,7 +15,7 @@ export default () => ({
     password: process.env.DB_PASSWORD || 'postgres',
     name: process.env.DB_NAME || 'kenya_sme',
     url: process.env.DATABASE_URL,
-    // Hosted databases (Supabase, Neon) only accept SSL connections
+    // Set DB_SSL=true only for a remote database that requires SSL; the local server database does not
     ssl: process.env.DB_SSL === 'true',
     synchronize: process.env.DB_SYNCHRONIZE
       ? process.env.DB_SYNCHRONIZE === 'true'

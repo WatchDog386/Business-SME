@@ -4,10 +4,10 @@ const config: CapacitorConfig = {
   appId: 'com.kenyasme.platform',
   appName: 'OmniTrack',
   webDir: 'dist',
-  // The app opens the live site, so it always talks to the current backend
-  // (through Vercel's /api rewrite) and picks up every update without a new APK
+  // The app opens the live site on the company server (Nginx serves the web
+  // app and the /api backend), so it picks up every update without a new APK
   server: {
-    url: 'https://business-sme.vercel.app',
+    url: 'https://sme.optimaswifi.co.ke',
     androidScheme: 'https',
   },
   plugins: {
