@@ -26,6 +26,7 @@ import { Alert } from '@/components/ui/alert';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
 import { useAuthStore } from '@/stores/auth';
+import { AdvertBanner } from '@/components/brand/advert-banner';
 import { cn, formatKES } from '@/lib/utils';
 
 type Pkg = ClientHome['packages'][number];
@@ -340,6 +341,9 @@ export function ClientDashboard() {
             labelClassName="!text-white"
           />
         </Panel>
+
+        {/* Paybill advert: how to pay and who to call */}
+        <AdvertBanner className="mt-4" />
 
         {/* My payments, straight on the photo with no card around it */}
         <div ref={paymentsRef} className="mt-5">

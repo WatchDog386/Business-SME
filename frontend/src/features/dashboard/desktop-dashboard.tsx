@@ -6,6 +6,7 @@ import type { DashboardData } from '@/api/types';
 import { budgetsApi } from '@/api/endpoints';
 import { KpiCard } from '@/components/desktop/kpi-card';
 import { useRole } from '@/hooks/use-role';
+import { AdvertBanner } from '@/components/brand/advert-banner';
 import { cn, formatKES, formatTime } from '@/lib/utils';
 
 function pct(part: number, whole: number): number {
@@ -270,6 +271,8 @@ function SubscriberPanel({
         <StatRow label="Package revenue today" value={formatKES(packages.revenue)} />
         <StatRow label="Calls due today" value={String(callsDue)} to="/calls" />
       </div>
+      {/* Paybill advert, below Calls due today */}
+      <AdvertBanner className="mt-4 rounded-md" />
     </Panel>
   );
 }

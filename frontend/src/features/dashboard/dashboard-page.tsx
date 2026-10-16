@@ -13,6 +13,7 @@ import { QuickActions } from './components/quick-actions';
 import { Alerts } from './components/alerts';
 import { RecentTransactions } from './components/recent-transactions';
 import { IspOverview } from './components/isp-overview';
+import { AdvertBanner } from '@/components/brand/advert-banner';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { DesktopDashboard } from './desktop-dashboard';
 import { useRole } from '@/hooks/use-role';
@@ -103,6 +104,10 @@ function AdminDashboard() {
       </motion.div>
       <motion.div {...rise(3)}>
         <IspOverview data={data} />
+      </motion.div>
+      {/* Paybill advert, below Calls due today */}
+      <motion.div {...rise(3)}>
+        <AdvertBanner />
       </motion.div>
       <motion.div {...rise(3)}>
         <Alerts data={data} />
