@@ -12,6 +12,8 @@ export interface JwtPayload {
   mfa?: boolean;
   /** Present on short-lived 2FA tickets, which are never sessions. */
   purpose?: string;
+  /** Issued-at, in seconds; set by the JWT library. */
+  iat?: number;
 }
 
 @Injectable()
@@ -36,10 +38,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       });
     }
     const user = await this.usersService.findById(payload.sub);
-    if (!user) {
+    // Sessions from before the last password change are over (iat is whole seconds)
+    const cutoff = user?.sessions_valid_after ? Math.floor(user.sessions_valid_after.getTime() / 1000) : 0;
+    if (!user || (payload.iat ?? 0) < cutoff) {
       throw new UnauthorizedException({
         code: 'UNAUTHENTICATED',
-        message: 'Your session is no longer valid.',
+        message: 'Your session is no longer valid. Sign in again.',
       });
     }
     return { id: user.id, email: user.email, fullName: user.full_name };

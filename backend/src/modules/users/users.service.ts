@@ -42,6 +42,8 @@ export class UsersService {
   }
 
   async update(id: string, patch: Partial<User>): Promise<User> {
+    // A new password signs the account out everywhere else
+    if (patch.password_hash !== undefined) patch = { ...patch, sessions_valid_after: new Date() };
     await this.repo.update(id, patch);
     const user = await this.findById(id);
     if (!user) {

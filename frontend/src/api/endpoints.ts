@@ -73,8 +73,9 @@ export const authApi = {
       url: '/auth/reset-password',
       data: { token, newPassword },
     }),
+  // Signs out every other device; the fresh session returned keeps this one in
   changePassword: (currentPassword: string, newPassword: string) =>
-    api<{ success: boolean }>({
+    api<AuthResult>({
       method: 'POST',
       url: '/auth/change-password',
       data: { currentPassword, newPassword },

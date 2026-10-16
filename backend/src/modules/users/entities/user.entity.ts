@@ -36,6 +36,13 @@ export class User extends BaseEntity {
   @Column({ type: 'boolean', default: false })
   must_change_password: boolean;
 
+  /**
+   * Sign-ins issued before this moment no longer work. Moved forward on every
+   * password change, so a stolen or forgotten session dies with the old password.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  sessions_valid_after: Date | null;
+
   /** A client may change a password once between office-issued resets. */
   @Column({ type: 'boolean', default: false })
   self_service_password_change_used: boolean;

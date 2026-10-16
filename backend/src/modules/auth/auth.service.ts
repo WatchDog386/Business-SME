@@ -402,10 +402,11 @@ export class AuthService {
     };
   }
 
+  /** Changes the password, signs out every other device, and returns a fresh session for this one. */
   async changePassword(
     userId: string,
     dto: ChangePasswordDto,
-  ): Promise<void> {
+  ): Promise<AuthResult> {
     const user = await this.usersService.findByEmail(
       (await this.usersService.findById(userId))?.email ?? '',
     );
@@ -433,6 +434,7 @@ export class AuthService {
           password_hash: passwordHash,
           must_change_password: false,
           self_service_password_change_used: true,
+          sessions_valid_after: new Date(),
         })
         .where('id = :id AND self_service_password_change_used = :unused', {
           id: user.id,
@@ -444,6 +446,9 @@ export class AuthService {
       // Staff password policies stay unchanged; this rule is for client accounts.
       await this.usersService.update(user.id, { password_hash: passwordHash, must_change_password: false });
     }
+    const updated = await this.usersService.findById(user.id);
+    if (!updated) throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Invalid session.' });
+    return this.buildAuthResult(updated);
   }
 
   async forgotPassword(email: string): Promise<{ resetToken?: string }> {
@@ -529,6 +534,7 @@ export class AuthService {
           password_hash: passwordHash,
           must_change_password: false,
           self_service_password_change_used: true,
+          sessions_valid_after: new Date(),
         })
         .where('id = :id AND self_service_password_change_used = :unused', {
           id: user.id,

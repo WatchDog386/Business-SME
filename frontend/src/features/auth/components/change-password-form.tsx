@@ -9,6 +9,7 @@ import { PasswordInput } from './password-input';
 import { Label } from '@/components/ui/label';
 import { notifySuccess } from '@/components/ui/popup-host';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth';
 
 const schema = z
   .object({
@@ -36,6 +37,7 @@ type FormValues = z.infer<typeof schema>;
  * staff profile. `dark` is for sitting on the subscriber's dark panels.
  */
 export function ChangePasswordForm({ dark = false, onDone }: { dark?: boolean; onDone?: () => void }) {
+  const setAuth = useAuthStore((s) => s.setAuth);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
@@ -51,7 +53,9 @@ export function ChangePasswordForm({ dark = false, onDone }: { dark?: boolean; o
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => authApi.changePassword(values.currentPassword, values.newPassword),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // The old session stops working with the old password: switch to the new one
+      setAuth(result.accessToken, result.user);
       setError(null);
       setDone(true);
       reset();
