@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://optimas-api.onrender.com/api/$1"
+      "destination": "https://sme.optimaswifi.co.ke/api/$1"
     },
     {
       "source": "/(.*)",
