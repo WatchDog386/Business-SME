@@ -28,6 +28,8 @@ function runningAsApp(): boolean {
   return (
     Capacitor.isNativePlatform() ||
     window.matchMedia('(display-mode: standalone)').matches ||
+    // Android home-screen installs open full screen (no status bar strip)
+    window.matchMedia('(display-mode: fullscreen)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   );
 }
