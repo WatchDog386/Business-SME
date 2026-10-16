@@ -24,6 +24,11 @@ const STEP_MS = 1300;
 let startedAt = 0;
 let hiddenAt = 0;
 
+/** How long the sign-in loader has been on screen, in milliseconds. */
+export function loaderElapsed(): number {
+  return startedAt ? Date.now() - startedAt : 0;
+}
+
 /**
  * Advanced version of the KUCCPS speeding wheel: the original ring (top and
  * bottom arcs in Optimas blue, sides clear, spinning fast) with a green outer

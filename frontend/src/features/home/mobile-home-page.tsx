@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
+import mainLogo from '@/assets/optima-logo-main.png';
 import { HomePhoto } from '@/components/brand/home-photo';
 import { useId } from 'react';
 import { ArrowRight, MessageCircle } from 'lucide-react';
-import { Brand } from '@/components/layout/brand';
 import { CARD_THEMES, CardPatternLayer } from '@/components/brand/fiber-card';
 import { usePhotoStatusBar } from '@/hooks/use-photo-status-bar';
 import { useTheme } from '@/lib/theme';
@@ -32,11 +32,11 @@ export function MobileHomePage() {
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-white">
       {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
-      <HomePhoto className="absolute inset-0 h-full w-full object-cover" />
+      <HomePhoto featured className="absolute inset-0 h-full w-full object-cover" />
 
       {/* White logo and wordmark stay readable over the photo. */}
       <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
-        <Brand size="lg" />
+        <img src={mainLogo} alt="Optima" width={720} height={181} className="w-56 max-w-[70%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
       </div>
 
       {/* The sheet: the subscriber app's dark panel in dark mode, frosted white in light */}

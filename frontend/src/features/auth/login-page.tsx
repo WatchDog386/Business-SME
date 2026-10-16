@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import mainLogo from '@/assets/optima-logo-main.png';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -21,7 +22,6 @@ import { HomePhoto } from '@/components/brand/home-photo';
 import { clearPinDevice, lastLogin, readPinDevice, rememberLastLogin } from '@/lib/pin-device';
 import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
-import { Brand } from '@/components/layout/brand';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { usePhotoStatusBar } from '@/hooks/use-photo-status-bar';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
@@ -355,9 +355,9 @@ export function LoginPage() {
     return (
       <div className="relative flex min-h-[100dvh] flex-col bg-white">
         {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
-        <HomePhoto className="fixed inset-0 h-full w-full object-cover" />
+        <HomePhoto featured className="fixed inset-0 h-full w-full object-cover" />
         <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
-          <Brand size="lg" />
+          <img src={mainLogo} alt="Optima" width={720} height={181} className="w-56 max-w-[70%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
         </div>
         <main
           className={
