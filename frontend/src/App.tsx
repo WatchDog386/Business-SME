@@ -8,6 +8,7 @@ import { OfflineBanner } from '@/components/layout/offline-banner';
 import { SessionTimeout } from '@/components/layout/session-timeout';
 import { PopupHost } from '@/components/ui/popup-host';
 import { InstallAppPrompt } from '@/components/layout/install-app-prompt';
+import { SignInReveal } from '@/components/ui/workspace-loader';
 
 const LoginPage = lazy(() => import('@/features/auth/login-page').then((m) => ({ default: m.LoginPage })));
 const ForgotPasswordPage = lazy(() => import('@/features/auth/forgot-password-page').then((m) => ({ default: m.ForgotPasswordPage })));
@@ -77,6 +78,7 @@ export default function App() {
       <SessionTimeout />
       <PopupHost />
       <InstallAppPrompt />
+      <SignInReveal />
       <Suspense fallback={<RouteLoading />}>
         <Routes>
           <Route path="/splash" element={<Navigate to="/" replace />} />

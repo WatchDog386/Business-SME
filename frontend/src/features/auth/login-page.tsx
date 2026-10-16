@@ -357,7 +357,7 @@ export function LoginPage() {
         {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
         <HomePhoto featured className="fixed inset-0 h-full w-full object-cover" />
         <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
-          <img src={mainLogo} alt="Optima" width={720} height={181} className="w-56 max-w-[70%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
+          <img src={mainLogo} alt="Optimas Networks" width={900} height={332} className="w-80 max-w-[85%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
         </div>
         <main
           className={

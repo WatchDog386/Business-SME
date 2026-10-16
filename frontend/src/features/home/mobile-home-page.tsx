@@ -36,7 +36,7 @@ export function MobileHomePage() {
 
       {/* White logo and wordmark stay readable over the photo. */}
       <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
-        <img src={mainLogo} alt="Optima" width={720} height={181} className="w-56 max-w-[70%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
+        <img src={mainLogo} alt="Optimas Networks" width={900} height={332} className="w-60 max-w-[75%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
       </div>
 
       {/* The sheet: the subscriber app's dark panel in dark mode, frosted white in light */}

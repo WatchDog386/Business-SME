@@ -67,7 +67,7 @@ export function SpeedWheel({ light = false }: { light?: boolean }) {
 
 /**
  * Full-screen loader from "Verify and continue" until the dashboard is ready.
- * Dark dashboard surface with the Optimas mark while workspace data loads.
+ * White screen with the Optimas mark while signing in and loading the workspace.
  */
 export function WorkspaceLoader() {
   const [now, setNow] = useState(() => {
@@ -110,6 +110,73 @@ export function WorkspaceLoader() {
           </motion.p>
         </AnimatePresence>
       </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** Set by the sign-in page just before it opens the dashboard. */
+let revealPending = false;
+
+/** Asks for the sign-in loader to fade away over the next page instead of vanishing. */
+export function markSignInReveal() {
+  revealPending = true;
+}
+
+/**
+ * Mounted once at the app root. Right after sign-in it draws the same white
+ * loading screen over the freshly opened dashboard and fades it out, so the
+ * dashboard appears smoothly rather than snapping into place.
+ */
+export function SignInReveal() {
+  const [phase, setPhase] = useState<'idle' | 'showing' | 'fading'>('idle');
+
+  useEffect(() => {
+    const check = window.setInterval(() => {
+      if (!revealPending) return;
+      revealPending = false;
+      setPhase('showing');
+    }, 50);
+    return () => window.clearInterval(check);
+  }, []);
+
+  useEffect(() => {
+    if (phase === 'idle') return;
+    const restore = overrideStatusBarColor('#FFFFFF');
+    if (phase === 'showing') {
+      // Fade only once nothing underneath is still loading, so it uncovers a
+      // finished dashboard (never longer than 4 s, whatever happens)
+      const startedShowing = Date.now();
+      let settledSince = 0;
+      const t = window.setInterval(() => {
+        const loading = document.querySelector('[role="status"][aria-live="polite"].fixed');
+        const now = Date.now();
+        settledSince = loading ? 0 : settledSince || now;
+        if ((settledSince && now - settledSince >= 150) || now - startedShowing > 4000) setPhase('fading');
+      }, 50);
+      return () => {
+        window.clearInterval(t);
+        restore();
+      };
+    }
+    const t = window.setTimeout(() => setPhase('idle'), 650);
+    return () => {
+      window.clearTimeout(t);
+      restore();
+    };
+  }, [phase]);
+
+  if (phase === 'idle') return null;
+  return createPortal(
+    <div
+      aria-hidden
+      className={
+        'pointer-events-none fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white transition-opacity duration-500 ease-out ' +
+        (phase === 'fading' ? 'opacity-0' : 'opacity-100')
+      }
+    >
+      <Brand size="md" compact />
+      <p className="mt-6 h-7 text-[17px] font-medium text-slate-700">{STEPS[STEPS.length - 1]}</p>
     </div>,
     document.body,
   );
