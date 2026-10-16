@@ -20,6 +20,8 @@ import { PaginatedResult } from '../../common/dto/pagination.dto';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { EntityManager } from 'typeorm';
 import { DateTime } from 'luxon';
+import { Category } from '../categories/entities/category.entity';
+import { recordDateUtc } from '../../common/utils/dates';
 
 interface ResolvedItem {
   type: 'PRODUCT' | 'SERVICE';
@@ -249,12 +251,24 @@ export class SalesService {
     businessId: string,
     dto: CreateSaleDto,
     actor: { userId: string; role: string },
+    timezone?: string,
   ): Promise<Sale & { items: SaleItem[]; payments: Payment[]; customer: { name: string } | null }> {
     const existing = await this.saleRepo.findOne({
       where: { businessId, idempotency_key: dto.idempotencyKey },
     });
     if (existing) {
       return this.get(businessId, existing.id);
+    }
+
+    // The day it was sold: today, or an earlier day picked by the person recording it
+    const soldAt = recordDateUtc(dto.saleDate, timezone);
+    if (dto.categoryId) {
+      const category = await this.saleRepo.manager
+        .getRepository(Category)
+        .findOne({ where: { id: dto.categoryId, businessId, type: 'SALE' } });
+      if (!category) {
+        throw new BadRequestException({ code: 'CATEGORY_NOT_FOUND', message: 'That sales category was not found.' });
+      }
     }
 
     const isAmountOnly = this.isAmountOnly(dto);
@@ -396,6 +410,8 @@ export class SalesService {
         payment_method: dto.paymentMethod,
         notes: dto.notes ?? null,
         idempotency_key: dto.idempotencyKey,
+        categoryId: dto.categoryId ?? null,
+        created_at: soldAt,
       });
       await manager.save(saleEntity);
 
@@ -443,7 +459,7 @@ export class SalesService {
           method: dto.paymentMethod,
           reference: dto.reference ?? null,
           status: 'SUCCESS',
-          transaction_date: new Date(),
+          transaction_date: soldAt,
         });
         await manager.save(payment);
       }
@@ -513,6 +529,7 @@ export class SalesService {
       paymentStatus?: string;
       paymentMethod?: string;
       saleType?: string;
+      categoryId?: string;
       search?: string;
     },
     timezone = 'Africa/Nairobi',
@@ -523,6 +540,8 @@ export class SalesService {
       .createQueryBuilder('sale')
       .leftJoin('customers', 'customer', 'customer.id = sale.customerId')
       .addSelect('customer.name', 'customer_name')
+      .leftJoin('categories', 'category', 'category.id = sale.categoryId')
+      .addSelect('category.name', 'category_name')
       .addSelect(
         '(SELECT COUNT(*) FROM sale_items si WHERE si."saleId" = sale.id)',
         'item_count',
@@ -545,6 +564,7 @@ export class SalesService {
     }
     if (query.paymentMethod) qb.andWhere('sale.payment_method = :paymentMethod', { paymentMethod: query.paymentMethod });
     if (query.saleType) qb.andWhere('sale.sale_type = :saleType', { saleType: query.saleType });
+    if (query.categoryId) qb.andWhere('sale.categoryId = :categoryId', { categoryId: query.categoryId });
     if (query.search) {
       qb.andWhere(
         new Brackets((sub) => {
@@ -572,6 +592,8 @@ export class SalesService {
       Object.assign(sale, {
         customer_name:
           (result.raw[idx] as { customer_name?: string }).customer_name ?? null,
+        category_name:
+          (result.raw[idx] as { category_name?: string }).category_name ?? null,
         item_count: Number(
           (result.raw[idx] as { item_count?: string }).item_count ?? 0,
         ),

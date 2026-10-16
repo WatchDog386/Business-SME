@@ -83,7 +83,7 @@ export class ExpensesController {
     @CurrentMembership() membership: MembershipCtx,
     @Body() dto: CreateExpenseDto,
   ) {
-    return this.expensesService.create(business.id, dto, actorOf(user, membership));
+    return this.expensesService.create(business.id, dto, actorOf(user, membership), business.timezone);
   }
 
   @Patch(':id')
@@ -100,6 +100,7 @@ export class ExpensesController {
       id,
       dto,
       actorOf(user, membership),
+      business.timezone,
     );
   }
 

@@ -6,7 +6,7 @@ import {
 } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 
-export const CATEGORY_TYPES = ['PRODUCT', 'SERVICE', 'EXPENSE'] as const;
+export const CATEGORY_TYPES = ['PRODUCT', 'SERVICE', 'EXPENSE', 'SALE'] as const;
 
 @Entity('categories')
 @Unique(['businessId', 'type', 'name'])

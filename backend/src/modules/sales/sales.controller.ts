@@ -58,15 +58,17 @@ export class SalesController {
   @Post()
   @ApiOperation({ summary: 'Record a sale' })
   create(
-    @CurrentBusiness() business: { id: string },
+    @CurrentBusiness() business: { id: string; timezone: string },
     @CurrentUser() user: AuthUser,
     @CurrentMembership() membership: { role: UserRole },
     @Body() dto: CreateSaleDto,
   ) {
-    return this.salesService.create(business.id, dto, {
-      userId: user.id,
-      role: membership.role,
-    });
+    return this.salesService.create(
+      business.id,
+      dto,
+      { userId: user.id, role: membership.role },
+      business.timezone,
+    );
   }
 
   @Get('customer/:customerId/advances')

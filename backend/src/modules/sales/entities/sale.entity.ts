@@ -29,6 +29,10 @@ export class Sale extends BaseEntity {
   @Column({ type: 'varchar', length: 20, default: 'PRODUCT' })
   sale_type: string;
 
+  /** Sales category the business chose for this sale (categories of type SALE). */
+  @Column({ type: 'uuid', nullable: true })
+  categoryId: string | null;
+
   @Column({ type: 'int', default: 0 })
   subtotal: number;
 

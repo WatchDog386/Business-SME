@@ -191,7 +191,10 @@ export function DesktopSalesPage() {
       header: 'Customer',
       className: 'w-[24%]',
       cell: (sale) => (
-        <span className="block truncate">{sale.customer_name ?? 'Walk-in customer'}</span>
+        <span className="block min-w-0">
+          <span className="block truncate">{sale.customer_name ?? 'Walk-in customer'}</span>
+          {sale.category_name && <span className="block truncate text-[11px] text-foreground-5">{sale.category_name}</span>}
+        </span>
       ),
     },
     {

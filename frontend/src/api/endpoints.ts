@@ -1,6 +1,7 @@
 import { api, client, API_BASE_URL, type Paginated } from './client';
 import type {
   AuthResult,
+  CategoryType,
   PinDeviceResult,
   CallDue,
   CallLog,
@@ -142,13 +143,13 @@ export const businessesApi = {
 // ---- Categories ----
 
 export const categoriesApi = {
-  list: (type?: 'PRODUCT' | 'SERVICE' | 'EXPENSE') =>
+  list: (type?: CategoryType) =>
     api<Category[]>({
       method: 'GET',
       url: '/categories',
       params: type ? { type } : {},
     }),
-  create: (data: { name: string; type: 'PRODUCT' | 'SERVICE' | 'EXPENSE' }) =>
+  create: (data: { name: string; type: CategoryType }) =>
     api<Category>({ method: 'POST', url: '/categories', data }),
 };
 
@@ -280,6 +281,9 @@ export interface CreateSaleInput {
   reference?: string;
   notes?: string;
   idempotencyKey: string;
+  /** Day the sale happened (YYYY-MM-DD); today or earlier. */
+  saleDate?: string;
+  categoryId?: string;
   /** Amount-only express sale (e.g. recorded from a scanned M-Pesa SMS). */
   total?: number;
 }
@@ -309,6 +313,7 @@ export const salesApi = {
     paymentStatus?: string;
     paymentMethod?: string;
     saleType?: string;
+    categoryId?: string;
     search?: string;
   }) =>
     api<Paginated<Sale>>({ method: 'GET', url: '/sales', params }),

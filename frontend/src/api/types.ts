@@ -98,10 +98,12 @@ export interface BusinessMember {
 export interface Category {
   id: string;
   businessId: string;
-  type: 'PRODUCT' | 'SERVICE' | 'EXPENSE';
+  type: CategoryType;
   name: string;
   created_at: string;
 }
+
+export type CategoryType = 'PRODUCT' | 'SERVICE' | 'EXPENSE' | 'SALE';
 
 export interface Customer {
   id: string;
@@ -239,6 +241,9 @@ export type PaymentStatus =
 export interface Sale {
   id: string;
   businessId: string;
+  /** Sales category chosen when it was recorded. */
+  categoryId?: string | null;
+  category_name?: string | null;
   customerId: string | null;
   employeeId: string | null;
   sale_type?: 'GENERAL' | 'PRODUCT' | 'SERVICE' | 'PACKAGE' | 'ADVANCE' | 'OTHER' | 'MIXED';

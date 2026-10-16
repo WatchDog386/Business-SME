@@ -63,4 +63,9 @@ export class SalesListQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Only sales in this sales category' })
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
 }

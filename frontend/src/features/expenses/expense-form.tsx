@@ -2,8 +2,12 @@ import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { categoriesApi, expensesApi } from '@/api/endpoints';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { expensesApi } from '@/api/endpoints';
+import { CategoryPicker } from '@/components/forms/category-picker';
+import { RecordDateField, recordDateError, useBusinessToday } from '@/components/forms/record-date-field';
+import { businessToday } from '@/lib/business-date';
+import { useActiveBusiness } from '@/stores/business';
 import { apiErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +27,7 @@ const schema = z.object({
     .min(1, 'Enter a valid amount.'),
   categoryId: z.string().optional().or(z.literal('')),
   paymentMethod: z.string().optional(),
-  expenseDate: z.string().optional(),
+  expenseDate: z.string().min(1, 'Pick the date.'),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -75,14 +79,14 @@ export function ExpenseForm({
     reader.readAsDataURL(file);
   };
 
-  const categoriesQuery = useQuery({
-    queryKey: ['categories', 'EXPENSE'],
-    queryFn: () => categoriesApi.list('EXPENSE'),
-  });
+  const today = useBusinessToday();
+  const timezone = useActiveBusiness()?.timezone;
 
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
     setError: setFormError,
   } = useForm<FormValues>({
@@ -92,7 +96,8 @@ export function ExpenseForm({
       amount: defaultValues?.amount ?? 0,
       categoryId: defaultValues?.categoryId ?? '',
       paymentMethod: defaultValues?.payment_method ?? 'CASH',
-      expenseDate: defaultValues?.expense_date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+      // The day it happened in the business's timezone (an existing expense keeps its day)
+      expenseDate: defaultValues?.expense_date ? businessToday(timezone, new Date(defaultValues.expense_date)) : today,
     },
   });
 
@@ -103,7 +108,7 @@ export function ExpenseForm({
         amount: values.amount,
         categoryId: values.categoryId || undefined,
         paymentMethod: values.paymentMethod || 'CASH',
-        expenseDate: values.expenseDate || new Date().toISOString(),
+        expenseDate: values.expenseDate,
         // An empty string clears an existing receipt on edit.
         ...(receiptUrl !== (defaultValues?.receipt_url ?? null)
           ? { receiptUrl: receiptUrl ?? '' }
@@ -127,7 +132,14 @@ export function ExpenseForm({
   return (
     <form
       className="space-y-4"
-      onSubmit={handleSubmit((values) => mutation.mutate(values))}
+      onSubmit={handleSubmit((values) => {
+        const dateError = recordDateError(values.expenseDate, today);
+        if (dateError) {
+          setFormError('expenseDate', { message: dateError });
+          return;
+        }
+        mutation.mutate(values);
+      })}
       noValidate
     >
       {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
@@ -161,31 +173,15 @@ export function ExpenseForm({
             <p className="mt-1 text-xs text-danger">{errors.amount.message}</p>
           )}
         </div>
-        <div>
-          <Label htmlFor="expense-date">Date</Label>
-          <Input
-            id="expense-date"
-            type="date"
-            aria-invalid={errors.expenseDate ? true : undefined}
-            {...register('expenseDate')}
-          />
-        </div>
+        <RecordDateField id="expense-date" error={errors.expenseDate?.message} {...register('expenseDate')} />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="expense-category">Category</Label>
-          <Select
-            id="expense-category"
-            placeholder="Uncategorized"
-            {...register('categoryId')}
-          >
-            {categoriesQuery.data?.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </Select>
-        </div>
+        <CategoryPicker
+          type="EXPENSE"
+          id="expense-category"
+          value={watch('categoryId') ?? ''}
+          onChange={(id) => setValue('categoryId', id)}
+        />
         <div>
           <Label htmlFor="expense-method">Payment method</Label>
           <Select

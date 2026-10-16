@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CategoryPicker } from '@/components/forms/category-picker';
+import { RecordDateField, recordDateError, useBusinessToday } from '@/components/forms/record-date-field';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -44,6 +46,8 @@ const schema = z.object({
   paymentMethod: z.string().min(1, 'Select a payment method.'),
   amountPaid: z.coerce.number().min(0).optional().or(z.literal('')),
   notes: z.string().optional().or(z.literal('')),
+  saleDate: z.string().min(1, 'Pick the date.'),
+  categoryId: z.string().optional().or(z.literal('')),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -70,6 +74,8 @@ function saleCategoryName(type?: string) {
 }
 
 export function RecordSalePage() {
+  // Sales can be dated today or any earlier day, in the business's timezone
+  const today = useBusinessToday();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -128,6 +134,8 @@ export function RecordSalePage() {
       paymentMethod: 'M-PESA',
       amountPaid: '',
       notes: '',
+      saleDate: today,
+      categoryId: '',
     },
   });
 
@@ -268,6 +276,8 @@ export function RecordSalePage() {
         reference: captured?.reference ?? undefined,
         notes: values.notes || undefined,
         idempotencyKey: idempotencyKey.current,
+        saleDate: values.saleDate,
+        categoryId: values.categoryId || undefined,
       });
     },
     onSuccess: async (sale) => {
@@ -426,6 +436,8 @@ export function RecordSalePage() {
       paymentMethod: 'M-PESA',
       amountPaid: '',
       notes: '',
+      saleDate: today,
+      categoryId: '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -438,6 +450,12 @@ export function RecordSalePage() {
   }
 
   function submitSale(values: FormValues) {
+    const dateError = recordDateError(values.saleDate, today);
+    if (dateError) {
+      setFormError('saleDate', { message: dateError });
+      setFormError('root', { message: dateError });
+      return;
+    }
     if (isAmountCategory) {
       const amount = Number(amountValue);
       if (!Number.isFinite(amount) || amount < 1) {
@@ -605,7 +623,7 @@ export function RecordSalePage() {
               </span>
             </div>
             <p className="text-[13px] leading-relaxed text-white/70">
-              Record your combined sales for the day in one entry. This amount will count as revenue received today.
+              Record your combined sales for a day in one entry. Pick the day it was received: today or any earlier day.
             </p>
 
             <div className="space-y-1.5">
@@ -627,6 +645,25 @@ export function RecordSalePage() {
           </section>
 
           <section className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <RecordDateField
+                id="general-sale-date"
+                label="Date received"
+                labelClassName="text-[14px] font-medium text-white"
+                className="h-[54px] rounded-xl border-2 border-white/85 bg-transparent px-4 text-white [color-scheme:dark] focus:border-[#8BC53F]"
+                error={errors.saleDate?.message}
+                {...register('saleDate')}
+              />
+              <CategoryPicker
+                type="SALE"
+                id="general-sale-category"
+                dark
+                labelClassName="text-[14px] font-medium text-white"
+                selectClassName="h-[54px] rounded-xl border-2 border-white/85 bg-transparent px-4 text-white focus:border-[#8BC53F]"
+                value={watch('categoryId') ?? ''}
+                onChange={(id) => setValue('categoryId', id)}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="revenue-method" className="text-[14px] font-medium text-white">Payment method</Label>
               <Select id="revenue-method" className="h-[54px] rounded-xl border-2 border-white/85 bg-transparent px-4 text-white focus:border-[#8BC53F]" {...register('paymentMethod')}>
@@ -641,7 +678,7 @@ export function RecordSalePage() {
 
           {errors.root && <Alert variant="error" inline>{errors.root.message}</Alert>}
           <Button type="submit" loading={mutation.isPending} className="h-[54px] w-full rounded-xl bg-[#8BC53F] text-[15px] font-semibold text-[#11180B] shadow-none hover:bg-[#7AAF35]">
-            Record today&apos;s total · {formatKES(Number(amountValue) || 0)}
+            {watch('saleDate') === today ? 'Record today\u2019s total' : 'Record the total'} · {formatKES(Number(amountValue) || 0)}
           </Button>
         </form>
       )}
@@ -652,6 +689,15 @@ export function RecordSalePage() {
           <div className="space-y-1.5">
             <Label htmlFor="revenue-amount">Amount received (KSh)</Label>
             <Input id="revenue-amount" type="number" inputMode="numeric" min={1} value={amountValue} onChange={(event) => setAmountValue(event.target.value)} placeholder="0" />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <RecordDateField id="amount-sale-date" label="Date received" error={errors.saleDate?.message} {...register('saleDate')} />
+            <CategoryPicker
+              type="SALE"
+              id="amount-sale-category"
+              value={watch('categoryId') ?? ''}
+              onChange={(id) => setValue('categoryId', id)}
+            />
           </div>
           {(saleCategory === 'ADVANCE' || saleCategory === 'OTHER') && (
             <div className="space-y-1.5">
@@ -965,6 +1011,27 @@ export function RecordSalePage() {
                     </div>
                   </>
                 )}
+              </section>
+
+              {/* When it was sold and what kind of sale */}
+              <section className="space-y-3">
+                <SectionHeading>Date &amp; category</SectionHeading>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <RecordDateField
+                    id="sale-date"
+                    label="Date of sale"
+                    className="bg-white [.dark_&]:bg-surface-3"
+                    error={errors.saleDate?.message}
+                    {...register('saleDate')}
+                  />
+                  <CategoryPicker
+                    type="SALE"
+                    id="sale-category"
+                    selectClassName="bg-white [.dark_&]:bg-surface-3"
+                    value={watch('categoryId') ?? ''}
+                    onChange={(id) => setValue('categoryId', id)}
+                  />
+                </div>
               </section>
 
               {/* Client */}

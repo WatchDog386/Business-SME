@@ -19,6 +19,11 @@ function dayKey(date: Date, timezone: string): string {
   }
 }
 
+/** Today's date (YYYY-MM-DD) in the business's timezone, the latest day a record may have. */
+export function businessToday(timezone?: string, now = new Date()): string {
+  return dayKey(now, timezone || 'Africa/Nairobi');
+}
+
 function shiftDay(key: string, amount: number): string {
   const [year, month, day] = key.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day + amount)).toISOString().slice(0, 10);

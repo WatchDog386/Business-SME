@@ -220,7 +220,10 @@ function SalesMobilePage() {
                     </span>
                     <span className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">{sale.customer_name ?? 'Walk-in customer'}</p>
-                      <p className="truncate text-[11px] text-foreground-5">{saleCategoryLabel(sale.sale_type)}</p>
+                      <p className="truncate text-[11px] text-foreground-5">
+                        {saleCategoryLabel(sale.sale_type)}
+                        {sale.category_name ? ` · ${sale.category_name}` : ''}
+                      </p>
                       <p className="sm:hidden truncate text-xs text-foreground-5">
                         {sale.number ? invoiceNo(sale.number) : `#${sale.id.slice(0, 8).toUpperCase()}`} · {formatKES(sale.total)}
                       </p>

@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -123,6 +124,19 @@ export class CreateSaleDto {
   @IsNotEmpty({ message: 'Idempotency key is required.' })
   @MaxLength(64)
   idempotencyKey: string;
+
+  @ApiPropertyOptional({
+    example: '2026-10-14',
+    description: 'Day the sale happened (YYYY-MM-DD): today or any earlier day. Defaults to today.',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'Pick a valid date.' })
+  saleDate?: string;
+
+  @ApiPropertyOptional({ example: 'uuid-of-sale-category' })
+  @IsOptional()
+  @IsUUID('4', { message: 'Pick a valid category.' })
+  categoryId?: string;
 }
 
 export class RecordPaymentDto {

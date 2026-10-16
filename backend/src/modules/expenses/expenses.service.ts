@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { recordDateUtc } from '../../common/utils/dates';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Expense, ExpenseStatus } from './entities/expense.entity';
@@ -146,6 +147,7 @@ export class ExpensesService {
     businessId: string,
     dto: CreateExpenseDto,
     actor: ExpenseActor,
+    timezone?: string,
   ): Promise<Expense> {
     const autoApprove = isApprover(actor.role);
     const expense = this.repo.create({
@@ -156,7 +158,8 @@ export class ExpensesService {
       payment_method: dto.paymentMethod ?? 'CASH',
       receipt_url: dto.receiptUrl ?? null,
       employeeId: dto.employeeId ?? null,
-      expense_date: dto.expenseDate ? new Date(dto.expenseDate) : new Date(),
+      // Today, or an earlier day picked by the person recording it (never a future day)
+      expense_date: recordDateUtc(dto.expenseDate, timezone),
       status: autoApprove ? 'APPROVED' : 'PENDING',
       submittedById: actor.id,
       reviewedById: autoApprove ? actor.id : null,
@@ -184,6 +187,7 @@ export class ExpensesService {
     id: string,
     dto: UpdateExpenseDto,
     actor: ExpenseActor,
+    timezone?: string,
   ): Promise<Expense> {
     const expense = await this.get(businessId, id, actor);
     this.assertCanModify(expense, actor);
@@ -198,7 +202,7 @@ export class ExpensesService {
       ...(dto.receiptUrl !== undefined ? { receipt_url: dto.receiptUrl || null } : {}),
       ...(dto.employeeId !== undefined ? { employeeId: dto.employeeId } : {}),
       ...(dto.expenseDate !== undefined
-        ? { expense_date: new Date(dto.expenseDate) }
+        ? { expense_date: recordDateUtc(dto.expenseDate, timezone) }
         : {}),
     });
     await this.repo.save(expense);
