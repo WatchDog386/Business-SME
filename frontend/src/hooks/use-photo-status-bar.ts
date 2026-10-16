@@ -1,18 +1,14 @@
 import { useEffect } from 'react';
-import { overrideStatusBarColor } from '@/lib/theme';
-
-/** Colour of the top edge of /images/splash-savanna.jpg. */
-const PHOTO_TOP = '#6583C2';
+import { scheduleSample } from '@/lib/theme';
 
 /**
- * Full-screen photo pages (home, login, help). The Android app already draws
- * every page edge to edge, so the photo runs up behind the status bar and the
- * icons turn light to match. Browsers can't draw under the bar, so it is
- * painted the photo's top colour to look continuous.
+ * Full-screen photo pages (home, login, help). The Android app draws the
+ * photo right up behind the status bar. In a browser the bar can't show the
+ * photo, so lib/theme.ts colours it from the photo's top edge, the same way
+ * every page's bar follows its header; this just asks for a fresh reading.
  */
 export function usePhotoStatusBar(enabled = true): void {
   useEffect(() => {
-    if (!enabled) return;
-    return overrideStatusBarColor(PHOTO_TOP);
+    if (enabled) scheduleSample();
   }, [enabled]);
 }
