@@ -1,5 +1,4 @@
 import { useForm } from 'react-hook-form';
-import mainLogo from '@/assets/optima-logo-main.png';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -364,7 +363,6 @@ export function LoginPage() {
         {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
         <HomePhoto featured className="fixed inset-0 h-full w-full object-cover" />
         <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
-          <img src={mainLogo} alt="Optimas Networks" width={900} height={332} className="w-80 max-w-[85%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
           {/* Back to the home page, sitting on the photo just above the sheet (while home is shown) */}
           {SHOW_MOBILE_HOME && <Link
             to="/"
