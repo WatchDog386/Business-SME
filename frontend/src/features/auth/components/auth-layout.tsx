@@ -45,7 +45,7 @@ export function AuthLayout({
   }
 
   return (
-    <div className="min-h-screen bg-white px-6 pb-10 pt-[max(9rem,env(safe-area-inset-top))]">
+    <div className="min-h-screen bg-white px-6 pb-10 pt-[max(9rem,var(--sat))]">
       <div className="mx-auto w-full max-w-sm">
         <Link to="/" className="flex justify-center" aria-label="Optimas home">
           <img src={logo} alt="Optima logo" width={1200} height={288} className="w-28 object-contain" />

@@ -105,7 +105,7 @@ export function AppShell() {
       return <Navigate to="/dashboard" replace />;
     }
     return (
-      <main className="mx-auto w-full max-w-xl px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-2 lg:pt-8">
+      <main className="mx-auto w-full max-w-xl px-4 pb-[calc(2rem+var(--sab))] pt-2 lg:pt-8">
         <AnimatedOutlet />
       </main>
     );
@@ -121,7 +121,7 @@ export function AppShell() {
             // Bottom room so the last item scrolls clear of the floating nav bar
             // overflow-x-clip: pages slide in from the side; without it the page is briefly
             // wider than the screen and the fixed footer bar shifts with it
-            'min-w-0 flex-1 overflow-x-clip px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] lg:px-6 lg:pb-10',
+            'min-w-0 flex-1 overflow-x-clip px-4 pb-[calc(9rem+var(--sab))] lg:px-6 lg:pb-10',
             isDashboard ? 'pt-2 lg:pt-6' : 'pt-6 lg:pt-6',
           )}
         >

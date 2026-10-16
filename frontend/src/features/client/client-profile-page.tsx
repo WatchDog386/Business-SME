@@ -146,7 +146,7 @@ export function ClientProfilePage() {
     <div className="relative isolate -mx-4 -mt-2 min-h-[100dvh] bg-black pb-10 text-white">
 
       {/* Back to the dashboard */}
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 border-b border-white/15 bg-black px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 border-b border-white/15 bg-black px-4 pb-3 pt-[max(0.75rem,var(--sat))]">
         <button
           type="button"
           onClick={() => navigate('/dashboard')}

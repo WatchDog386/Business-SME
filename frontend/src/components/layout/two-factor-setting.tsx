@@ -117,7 +117,7 @@ export function TwoFactorSetting({ tile = false }: { tile?: boolean }) {
         createPortal(
           // White page like the sign-in screen, above the Settings layer
           <div className="fixed inset-0 z-[80] overflow-y-auto bg-white text-slate-800 animate-fade-in">
-            <div className="mx-auto w-full max-w-sm px-6 pb-10 pt-[max(1.25rem,env(safe-area-inset-top))]">
+            <div className="mx-auto w-full max-w-sm px-6 pb-10 pt-[max(1.25rem,var(--sat))]">
               {flow !== 'codes' && (
                 <button
                   type="button"

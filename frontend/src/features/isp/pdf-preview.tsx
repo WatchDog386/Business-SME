@@ -99,7 +99,7 @@ export function PdfPreview({
           aria-label={title}
         >
           {/* Top bar */}
-          <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-[max(0.9rem,env(safe-area-inset-top))] text-white">
+          <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-[max(0.9rem,var(--sat))] text-white">
             <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 active:scale-90" aria-label="Close preview">
               <X className="h-5 w-5" />
             </button>
@@ -134,7 +134,7 @@ export function PdfPreview({
           </motion.div>
 
           {/* Actions */}
-          <div className="grid grid-cols-2 gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+          <div className="grid grid-cols-2 gap-3 px-4 pb-[max(1rem,var(--sab))] pt-2">
             {onWhatsApp ? (
               <button
                 type="button"

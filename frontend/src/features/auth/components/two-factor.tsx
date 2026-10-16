@@ -37,7 +37,7 @@ async function copyText(text: string): Promise<boolean> {
 
 /** Same as the phone "Sign in" button (teal, 20px), and the charcoal pill on desktop. */
 const signInButton =
-  'h-14 w-full rounded-2xl bg-[#3A8F91] text-[20px] font-medium text-white shadow-none transition-colors hover:bg-[#2F7F81] active:bg-[#2F7F81] max-lg:fixed max-lg:inset-x-6 max-lg:bottom-[calc(4rem+env(safe-area-inset-bottom))] max-lg:z-10 max-lg:mx-auto max-lg:w-auto max-lg:max-w-sm lg:h-12 lg:rounded-full lg:bg-[#4a4a4a] lg:text-base lg:font-bold lg:uppercase lg:tracking-wide lg:shadow-lg lg:shadow-neutral-900/20 lg:hover:bg-[#3a3a3a]';
+  'h-14 w-full rounded-2xl bg-[#3A8F91] text-[20px] font-medium text-white shadow-none transition-colors hover:bg-[#2F7F81] active:bg-[#2F7F81] max-lg:fixed max-lg:inset-x-6 max-lg:bottom-[calc(4rem+var(--sab))] max-lg:z-10 max-lg:mx-auto max-lg:w-auto max-lg:max-w-sm lg:h-12 lg:rounded-full lg:bg-[#4a4a4a] lg:text-base lg:font-bold lg:uppercase lg:tracking-wide lg:shadow-lg lg:shadow-neutral-900/20 lg:hover:bg-[#3a3a3a]';
 
 /** One wave across the boxes once all six digits are in, before checking the code. */
 const WAVE_STAGGER = 0.07;

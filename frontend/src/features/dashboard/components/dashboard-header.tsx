@@ -63,7 +63,7 @@ export function DashboardHeader() {
             </motion.span>
           </h1>
 
-          <div className="flex shrink-0 items-center gap-3 pr-1">
+          <div className="dashboard-header-actions flex shrink-0 items-center gap-3 pr-1">
             <button type="button" onClick={() => setScanOpen(true)} className="flex h-9 w-9 items-center justify-center text-white transition-transform active:scale-90" aria-label="Scan to record a sale">
               <DuoScan mono className="h-7 w-7" />
             </button>

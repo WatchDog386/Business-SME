@@ -212,7 +212,7 @@ export function ClientAmountPage() {
         <OutstandingBalances home={home} navigate={navigate} onCustom={beginBalanceTopUp} />
 
         {/* Pinned to the bottom, like the reference */}
-        <div className="mt-auto bg-gradient-to-t from-black/85 to-transparent px-1 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6">
+        <div className="mt-auto bg-gradient-to-t from-black/85 to-transparent px-1 pb-[max(1rem,var(--sab))] pt-6">
           <button
             type="button"
             onClick={continueTo}
@@ -440,7 +440,7 @@ export function ClientMethodPage() {
               <p className="mt-1 px-1 text-[11px] text-white/55">The prompt goes to this number.</p>
             </section>
 
-            <div className="mt-auto space-y-3 bg-gradient-to-t from-black/85 to-transparent px-1 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6">
+            <div className="mt-auto space-y-3 bg-gradient-to-t from-black/85 to-transparent px-1 pb-[max(1rem,var(--sab))] pt-6">
               <button
                 type="button"
                 onClick={send}

@@ -244,7 +244,7 @@ export function EmployeeDashboard() {
           transition={{ delay: 0.5 }}
           whileTap={{ scale: 0.96 }}
           className="fixed right-4 z-30 flex h-14 items-center gap-3 rounded-2xl bg-[#2F2F33] pl-4 pr-5 text-white shadow-[0_10px_24px_rgba(0,0,0,0.35)] lg:hidden"
-          style={{ bottom: 'calc(1.25rem + 64px + 14px + env(safe-area-inset-bottom))' }}
+          style={{ bottom: 'calc(1.25rem + 64px + 14px + var(--sab))' }}
           aria-label="Scan to record a sale"
         >
           <DuoScan className="h-7 w-7 text-brand-400" />

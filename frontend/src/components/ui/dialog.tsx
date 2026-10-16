@@ -130,7 +130,7 @@ export function Dialog({
                 </Button>
               </div>
             )}
-            <div className="overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+            <div className="overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,var(--sab))]">
               {shown.current.children}
             </div>
           </motion.div>

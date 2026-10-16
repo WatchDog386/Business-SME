@@ -77,7 +77,7 @@ export function SettingsPage({ open, onOpenChange }: SettingsPageProps) {
   return createPortal(
     <div className="fixed inset-0 z-[70] overflow-y-auto bg-surface-2 scrollbar-none animate-fade-in">
       {/* Header: plain bar on the page — Back on the left, Log Out on the right */}
-      <header className="sticky top-0 z-10 bg-surface-2 px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
+      <header className="sticky top-0 z-10 bg-surface-2 px-4 pb-2 pt-[calc(var(--sat)+0.5rem)]">
         <div className="mx-auto flex h-14 max-w-md items-center justify-between">
           <button
             type="button"

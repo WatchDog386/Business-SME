@@ -100,7 +100,7 @@ export function WelcomePage() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-white px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] text-[#1A1A1A] [.dark_&]:bg-[#121212] [.dark_&]:text-white">
+    <div className="flex min-h-[100dvh] flex-col bg-white px-5 pb-[max(1.25rem,var(--sab))] pt-[max(0.75rem,var(--sat))] text-[#1A1A1A] [.dark_&]:bg-[#121212] [.dark_&]:text-white">
       {/* ••• | ✕ pill, top right */}
       <div className="flex justify-end">
         <div ref={menuRef} className="relative">

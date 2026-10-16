@@ -36,7 +36,7 @@ export function NotFoundPage() {
           The link may be old or mistyped. Head back and carry on where you left off.
         </p>
 
-        <div className="mt-8 flex w-full max-w-xs flex-col gap-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="mt-8 flex w-full max-w-xs flex-col gap-3 pb-[max(1.5rem,var(--sab))]">
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}

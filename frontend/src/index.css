@@ -4,6 +4,14 @@
 
 @layer base {
   :root {
+    /*
+     * Height of the phone's status bar (top) and gesture/nav bar (bottom).
+     * Browsers fill env(); the Android app draws edge to edge and also sets
+     * --safe-area-inset-* itself, because older Android WebViews report 0.
+     * Use these instead of env(safe-area-inset-*) everywhere.
+     */
+    --sat: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+    --sab: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
     color-scheme: light;
 
     /* Figtree (bundled), close to the Safaricom app's open, rounded lettering */
@@ -117,7 +125,7 @@
       min-height: 3rem;
       margin-left: -1rem;
       margin-right: -1rem;
-      padding: calc(env(safe-area-inset-top) + 0.5rem) 1rem 0.5rem !important;
+      padding: calc(var(--sat) + 0.5rem) 1rem 0.5rem !important;
       background: #1F1F22;
       transition: box-shadow 0.2s ease;
     }
@@ -134,8 +142,9 @@
       inset: 0 0 auto;
       z-index: 35;
       box-sizing: border-box;
-      height: calc(env(safe-area-inset-top) + 4rem);
-      padding: calc(env(safe-area-inset-top) + 0.5rem) 1rem 0.5rem;
+      /* A little clear of the status bar so the logo and icons don't crowd it */
+      height: calc(var(--sat) + 4.75rem);
+      padding: calc(var(--sat) + 1.25rem) 1rem 0.5rem;
       border-radius: 0;
       background: transparent;
       box-shadow: none;
@@ -147,7 +156,12 @@
       backdrop-filter: blur(14px);
     }
     .dashboard-header-spacer {
-      height: calc(env(safe-area-inset-top) + 4rem);
+      height: calc(var(--sat) + 4.75rem);
+    }
+    /* Light theme: the bar is see-through over the pale sky until the page scrolls, so its text goes dark */
+    html:not(.dark):not(.page-scrolled) .dashboard-header h1,
+    html:not(.dark):not(.page-scrolled) .dashboard-header-actions button {
+      color: #0f172a;
     }
   }
 

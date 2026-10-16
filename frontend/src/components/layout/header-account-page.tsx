@@ -31,7 +31,7 @@ export function HeaderAccountPage({ open, onOpenChange }: HeaderAccountPageProps
       aria-modal="true"
       aria-labelledby="header-account-title"
     >
-      <header className="sticky top-0 z-10 bg-surface-2 px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
+      <header className="sticky top-0 z-10 bg-surface-2 px-4 pb-2 pt-[calc(var(--sat)+0.5rem)]">
         <div className="mx-auto flex h-14 max-w-md items-center gap-3">
           <button
             type="button"

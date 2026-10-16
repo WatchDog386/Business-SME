@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 export type Theme = 'dark' | 'brand';
 
@@ -40,11 +42,29 @@ function splashShowing(): boolean {
   return Boolean(splash) && !splash?.classList.contains('hidden');
 }
 
+/** True when a #RRGGBB colour is dark enough to need light status bar icons. */
+function isDarkColor(hex: string): boolean {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(hex);
+  if (!m) return true;
+  const [r, g, b] = m.slice(1).map((c) => parseInt(c, 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.5;
+}
+
+let nativeIconsLight: boolean | null = null;
+
 function paintStatusBar(): void {
+  const color = splashShowing() ? SPLASH_BLUE : (overrideStatusBar ?? pageStatusBar);
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  if (!meta) return;
-  if (splashShowing()) meta.content = SPLASH_BLUE;
-  else meta.content = overrideStatusBar ?? pageStatusBar;
+  if (meta) meta.content = color;
+  // The Android app draws the page behind the status bar: keep its clock and
+  // battery icons readable against whatever colour is at the top
+  if (Capacitor.isNativePlatform()) {
+    const light = isDarkColor(color);
+    if (light !== nativeIconsLight) {
+      nativeIconsLight = light;
+      void StatusBar.setStyle({ style: light ? Style.Dark : Style.Light }).catch(() => undefined);
+    }
+  }
 }
 
 function setStatusBarColor(color: string): void {

@@ -134,7 +134,7 @@ export function MobileNav() {
   return (
     <nav
       className="pointer-events-none fixed inset-x-0 z-30 px-4 lg:hidden"
-      style={{ bottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
+      style={{ bottom: 'calc(1.25rem + var(--sab))' }}
       aria-label="Main"
     >
       <div

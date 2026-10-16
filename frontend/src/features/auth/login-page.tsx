@@ -355,12 +355,12 @@ export function LoginPage() {
       <div className="relative flex min-h-[100dvh] flex-col bg-white">
         {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
         <img src="/images/splash-savanna.jpg" alt="" aria-hidden className="fixed inset-0 h-full w-full object-cover" />
-        <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[env(safe-area-inset-top)]">
+        <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
           <Brand size="lg" />
         </div>
         <main
           className={
-            'relative flex shrink-0 flex-col rounded-t-3xl px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 ' +
+            'relative flex shrink-0 flex-col rounded-t-3xl px-5 pb-[max(1.5rem,var(--sab))] pt-3 ' +
             (dark
               ? 'border-t border-white/15 bg-gradient-to-b from-black/70 via-black/45 to-black/75 text-white shadow-[0_-10px_24px_rgba(0,0,0,0.45)]'
               : 'bg-white/55 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)]')

@@ -26,7 +26,7 @@ export function HelpPage() {
         className="fixed inset-0 z-0 bg-gradient-to-b from-black/70 via-black/45 to-black/75"
       />
 
-      <main className="relative z-10 mx-auto min-h-full w-full max-w-xl px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="relative z-10 mx-auto min-h-full w-full max-w-xl px-5 pb-[max(1.5rem,var(--sab))]">
         <AppBar
           title="Help & support"
           onBack={() => navigate('/')}

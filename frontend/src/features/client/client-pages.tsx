@@ -47,7 +47,7 @@ export function ClientShell({ title, children }: { title: string; children: Reac
         className="fixed inset-0 -z-10 bg-gradient-to-b from-black/70 via-black/45 to-black/75"
       />
 
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 bg-black/45 py-3 pl-4 pr-4 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-3 bg-black/45 py-3 pl-4 pr-4 pt-[max(0.75rem,var(--sat))] backdrop-blur-md">
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
