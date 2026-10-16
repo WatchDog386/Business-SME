@@ -89,11 +89,13 @@ export class BusinessesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add a member to the business' })
   addMember(
-    @CurrentBusiness() business: { id: string; role?: string },
+    @CurrentBusiness() business: { id: string },
+    @CurrentMembership() membership: { role: UserRole },
     @CurrentUser() user: AuthUser,
     @Body() dto: AddMemberDto,
   ) {
-    return this.businessesService.addMember(business.id, dto, { userId: user.id, role: business.role });
+    // The caller's role lives on the verified membership, not on the business
+    return this.businessesService.addMember(business.id, dto, { userId: user.id, role: membership.role });
   }
 
   @Patch('current/members/:memberId')
