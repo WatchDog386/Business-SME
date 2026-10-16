@@ -13,10 +13,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InvalidDetailsArt } from '@/components/brand/invalid-details-art';
-import { notifyError } from '@/components/ui/popup-host';
+import { notifyError, notifyInfo } from '@/components/ui/popup-host';
 import { Download, Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
-import { PinPad } from './components/pin-pad';
+import { PinBoxes } from './components/pin-boxes';
 import { clearPinDevice, lastLogin, readPinDevice, rememberLastLogin } from '@/lib/pin-device';
 import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
@@ -52,7 +52,7 @@ export function LoginPage() {
   // A device where PIN sign-in was turned on opens on the PIN pad
   const [pinDevice, setPinDevice] = useState(readPinDevice);
   const [usePassword, setUsePassword] = useState(false);
-  const [pinRound, setPinRound] = useState(0);
+  const [pin, setPin] = useState('');
 
   const {
     register,
@@ -120,7 +120,7 @@ export function LoginPage() {
     mutationFn: (pin: string) => authApi.pinLogin(pinDevice!.deviceId, pinDevice!.deviceToken, pin),
     onSuccess: (result) => void finishSignIn(result),
     onError: (err) => {
-      setPinRound((r) => r + 1);
+      setPin('');
       const code = err instanceof ApiErrorShape ? err.code : '';
       if (code === 'DEVICE_NOT_RECOGNISED') {
         // PIN sign-in was turned off for this device (e.g. a new temporary password)
@@ -242,28 +242,62 @@ export function LoginPage() {
       </form>
   );
 
-  // Phones show the pad over the photo, so it sits on a dark frosted panel to stay readable
-  const pinDark = !isDesktop;
+  // Like the Co-op Bank app: a device with PIN sign-in opens on M-PIN, with
+  // Username (username or email and password) one tap away
+  const sheetDark = !isDesktop && theme === 'dark';
   const linkClass = 'auth-link text-sm font-medium !text-[#2F7F81] hover:!text-[#256A6C]';
+  const tab = (active: boolean) =>
+    'h-11 flex-1 rounded-full text-[15px] font-semibold transition-colors ' +
+    (active
+      ? '!text-white bg-gradient-to-b from-[#8BC53F] to-[#6C9E2A] shadow-sm'
+      : sheetDark
+        ? '!text-white/85 hover:!text-white'
+        : '!text-slate-700 hover:!text-slate-900');
+
+  const submitPin = () => {
+    if (pin.length === 4 && !pinMutation.isPending) pinMutation.mutate(pin);
+  };
+
+  const forgotPin = () => {
+    setUsePassword(true);
+    notifyInfo(
+      'Forgot your M-PIN?',
+      'Sign in with your username and password, then set a new PIN under Profile → PIN.',
+      { tone: 'dark', actionLabel: 'Okay' },
+    );
+  };
+
+  // On phones the PIN sits on a dark frosted panel so the boxes stay clear over the photo
+  const pinPanel = !isDesktop;
   const pinView = pinDevice ? (
     <div
       className={
-        'flex flex-col items-center gap-6 ' +
-        (pinDark ? 'rounded-3xl bg-black/55 px-4 pb-4 pt-5 backdrop-blur-md [&_.auth-link]:!text-[#7BCFD2]' : '')
+        'flex flex-col gap-6 ' +
+        (pinPanel ? 'rounded-3xl bg-black/60 px-4 pb-4 pt-6 backdrop-blur-md [&_.auth-link]:!text-[#9BD84F]' : '')
       }
     >
-      <p className={pinDark ? 'text-center text-sm text-white/85' : 'text-center text-sm text-slate-700'}>
-        Hello <span className="font-semibold">{pinDevice.fullName.split(' ')[0]}</span>, enter your PIN
-      </p>
-      <PinPad
-        dark={pinDark}
-        onComplete={(pin) => pinMutation.mutate(pin)}
+      <PinBoxes
+        value={pin}
+        onChange={setPin}
+        onSubmit={submitPin}
+        dark={pinPanel}
         disabled={pinMutation.isPending || signingIn}
-        resetKey={pinRound}
+        autoFocus={!isDesktop}
       />
-      <div className="flex w-full items-center justify-between">
-        <button type="button" data-keep-color onClick={() => setUsePassword(true)} className={linkClass}>
-          Use password instead
+      <Button
+        type="button"
+        data-keep-color
+        onClick={submitPin}
+        disabled={pin.length < 4}
+        loading={pinMutation.isPending}
+        className="h-14 w-full rounded-2xl text-[20px] font-medium !text-white shadow-none transition-colors bg-[#3A8F91] hover:bg-[#2F7F81] active:bg-[#2F7F81] disabled:opacity-60"
+        size="lg"
+      >
+        Login
+      </Button>
+      <div className="flex items-center justify-between">
+        <button type="button" data-keep-color onClick={forgotPin} className={linkClass}>
+          Forgot M-PIN?
         </button>
         <button type="button" data-keep-color onClick={forgetDevice} className={linkClass}>
           Not you?
@@ -273,20 +307,28 @@ export function LoginPage() {
     </div>
   ) : null;
 
-  // The PIN pad when this device has PIN sign-in, otherwise username or email and password
-  const signIn =
-    pinView && !usePassword ? (
-      pinView
-    ) : (
-      <>
-        {form}
-        {pinDevice && (
-          <button type="button" data-keep-color onClick={() => setUsePassword(false)} className={'mx-auto mt-4 block ' + linkClass}>
-            Sign in with your PIN
-          </button>
-        )}
-      </>
-    );
+  const signIn = pinView ? (
+    <>
+      <div
+        role="tablist"
+        aria-label="Sign in with"
+        className={'mb-6 flex gap-2 rounded-full p-1 ' + (sheetDark ? 'bg-white/10' : 'bg-white/70')}
+      >
+        <button type="button" role="tab" data-keep-color aria-selected={!usePassword} onClick={() => setUsePassword(false)} className={tab(!usePassword)}>
+          M-PIN
+        </button>
+        <button type="button" role="tab" data-keep-color aria-selected={usePassword} onClick={() => setUsePassword(true)} className={tab(usePassword)}>
+          Username
+        </button>
+      </div>
+      {usePassword ? form : pinView}
+    </>
+  ) : (
+    form
+  );
+
+  /** "Welcome back Felix" on a device that knows the person, as on a banking app. */
+  const welcome = pinDevice ? `Welcome back ${pinDevice.fullName.split(' ')[0]}` : 'Welcome back!';
 
   const installAppButton = canInstall ? (
     <button
@@ -326,7 +368,7 @@ export function LoginPage() {
         >
           <div className={dark ? 'mx-auto h-1 w-12 rounded-full bg-white/40' : 'mx-auto h-1 w-12 rounded-full bg-slate-400'} aria-hidden />
           <h1 className={dark ? 'mt-5 text-center text-[22px] font-semibold tracking-tight text-white' : 'mt-5 text-center text-[22px] font-semibold tracking-tight text-slate-900'}>
-            Welcome back!
+            {welcome}
           </h1>
           <p className={dark ? 'mb-6 mt-1 text-center text-sm text-white/70' : 'mb-6 mt-1 text-center text-sm text-slate-700'}>
             Sign in with your Optimas staff account.
@@ -348,8 +390,8 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Welcome back!"
-      mobileTitle="Welcome back!"
+      title={welcome}
+      mobileTitle={welcome}
       hideLabelsOnMobile
       hideMobileFooter
       hideFooterLinks
