@@ -1,0 +1,31 @@
+[Unit]
+Description=Kenya SME Platform API (NestJS)
+Documentation=file:///opt/kenya-sme/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kenya
+Group=kenya
+WorkingDirectory=/opt/kenya-sme/backend
+EnvironmentFile=/opt/kenya-sme/backend/.env
+ExecStart=/usr/bin/node dist/main.js
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/kenya-sme/backend/data
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kenya-api
+
+[Install]
+WantedBy=multi-user.target
