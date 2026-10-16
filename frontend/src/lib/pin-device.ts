@@ -86,3 +86,22 @@ export function lastLogin(): string | null {
     return null;
   }
 }
+
+const LAST_NAME_KEY = 'ksa_last_name';
+
+/** Full name of whoever last signed in on this device, for "Welcome back Felix". */
+export function rememberLastName(fullName: string) {
+  try {
+    localStorage.setItem(LAST_NAME_KEY, fullName.trim());
+  } catch {
+    // Ignore
+  }
+}
+
+export function lastName(): string | null {
+  try {
+    return localStorage.getItem(LAST_NAME_KEY);
+  } catch {
+    return null;
+  }
+}

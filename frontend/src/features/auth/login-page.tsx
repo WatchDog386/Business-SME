@@ -19,13 +19,14 @@ import { ArrowLeft, Download, Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
 import { PinBoxes } from './components/pin-boxes';
 import { HomePhoto } from '@/components/brand/home-photo';
-import { clearPinDevice, lastLogin, readPinDevice, rememberLastLogin } from '@/lib/pin-device';
+import { clearPinDevice, lastLogin, lastName, readPinDevice, rememberLastLogin, rememberLastName } from '@/lib/pin-device';
 import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { usePhotoStatusBar } from '@/hooks/use-photo-status-bar';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { useTheme } from '@/lib/theme';
+import { useHiddenStatusBar } from '@/hooks/use-hidden-status-bar';
 import { SHOW_MOBILE_HOME } from '@/lib/flags';
 import type { AuthResult, MfaChallenge } from '@/api/types';
 
@@ -69,6 +70,7 @@ export function LoginPage() {
   const finishSignIn = async (result: AuthResult) => {
     setSigningIn(true);
     setAuth(result.accessToken, result.user);
+    rememberLastName(result.user.fullName);
     // Invalidate first so dashboard bootstrap has fresh data, then go to loading/success
     await queryClient.invalidateQueries();
     try {
@@ -147,6 +149,9 @@ export function LoginPage() {
 
   // Phone sign-in shows the photo right up behind the status bar (same as the home page)
   usePhotoStatusBar(!isDesktop && !challenge);
+  // In the Android app the status bar is hidden on the login page, so the photo
+  // fills the whole screen; it comes back as soon as the page closes
+  useHiddenStatusBar(!isDesktop);
 
   // Strict flow: login -> loading/success -> dashboard. Don't jump to dashboard
   // ahead of success page — only redirect if already authenticated before this visit.
@@ -329,7 +334,9 @@ export function LoginPage() {
   );
 
   /** "Welcome back Felix" on a device that knows the person, as on a banking app. */
-  const welcome = pinDevice ? `Welcome back ${pinDevice.fullName.split(' ')[0]}` : 'Welcome back!';
+  // The PIN device's owner, else whoever last signed in on this device
+  const firstName = (pinDevice?.fullName ?? lastName() ?? '').trim().split(/\s+/)[0];
+  const welcome = firstName ? `Welcome back ${firstName}` : 'Welcome back!';
 
   const installAppButton = canInstall ? (
     <button
