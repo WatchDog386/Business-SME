@@ -137,6 +137,17 @@ export class CreateSaleDto {
   @IsOptional()
   @IsUUID('4', { message: 'Pick a valid category.' })
   categoryId?: string;
+
+  @ApiPropertyOptional({
+    example: 2500,
+    description: 'New installation: extra charge (KSh) added to a WiFi package sale as its own line.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Enter the installation charge in whole shillings.' })
+  @Min(0)
+  @Max(10_000_000)
+  installationFee?: number;
 }
 
 export class RecordPaymentDto {

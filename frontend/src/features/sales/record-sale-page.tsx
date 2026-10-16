@@ -144,9 +144,18 @@ export function RecordSalePage() {
   const taxRate = Number(watch('taxRate') || 0);
   const amountPaid = Number(watch('amountPaid') || 0);
 
+  // A WiFi package in the cart: subsequent (package only) or new installation (package + charge)
+  const hasPackage = lineItems.some(
+    (line) => line.type === 'PRODUCT' && productsQuery.data?.items.find((p) => p.id === line.id)?.billing_days,
+  );
+  const [installType, setInstallType] = useState<'subsequent' | 'new'>('subsequent');
+  const [installFee, setInstallFee] = useState('');
+  const installationFee = hasPackage && installType === 'new' ? Math.max(0, Math.round(Number(installFee) || 0)) : 0;
+  const installFeeMissing = hasPackage && installType === 'new' && installationFee <= 0;
+
   const subtotal = useMemo(
-    () => lineItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0),
-    [lineItems],
+    () => lineItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0) + installationFee,
+    [lineItems, installationFee],
   );
   const appliedDiscount = Math.min(Math.max(0, Math.round(discount)), subtotal);
   const tax = Math.round(((subtotal - appliedDiscount) * taxRate) / 100);
@@ -278,6 +287,7 @@ export function RecordSalePage() {
         idempotencyKey: idempotencyKey.current,
         saleDate: values.saleDate,
         categoryId: values.categoryId || undefined,
+        installationFee: !isAmountCategory && installationFee > 0 ? installationFee : undefined,
       });
     },
     onSuccess: async (sale) => {
@@ -425,6 +435,8 @@ export function RecordSalePage() {
     setSaleSource('existing');
     setSaleCategory(null);
     setPackageMode(null);
+    setInstallType('subsequent');
+    setInstallFee('');
     setAmountValue('');
     setApplyClientAdvance(false);
     setCatalogSearch('');
@@ -933,6 +945,51 @@ export function RecordSalePage() {
                   })}
                 </div>
 
+                {hasPackage && (
+                  <section className="space-y-3 rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
+                    <p className="text-[13px] font-semibold text-foreground">Is this a subsequent payment or a new installation?</p>
+                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Installation">
+                      {([
+                        { id: 'subsequent', label: 'Subsequent', hint: 'Package amount only' },
+                        { id: 'new', label: 'New installation', hint: 'Package + installation charge' },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={installType === opt.id}
+                          onClick={() => setInstallType(opt.id)}
+                          className={cn(
+                            'rounded-xl border p-3 text-left transition-colors',
+                            installType === opt.id
+                              ? 'border-brand-600 bg-brand-50 [.dark_&]:bg-brand-600/15'
+                              : 'border-edge bg-white [.dark_&]:bg-surface-3',
+                          )}
+                        >
+                          <span className="block text-[14px] font-semibold text-foreground">{opt.label}</span>
+                          <span className="mt-0.5 block text-[11px] text-foreground-4">{opt.hint}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {installType === 'new' && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="install-fee">Installation charge (KSh)</Label>
+                        <Input
+                          id="install-fee"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="e.g. 2500"
+                          className="bg-white [.dark_&]:bg-surface-3"
+                          value={installFee}
+                          onChange={(e) => setInstallFee(e.target.value)}
+                        />
+                        {installFeeMissing && <p className="text-[11px] text-foreground-4">Enter the installation charge to continue.</p>}
+                      </div>
+                    )}
+                  </section>
+                )}
+
                 <div className="space-y-2 rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
                   {lineItems.map((item) => (
                     <div key={item.key} className="flex justify-between gap-3 text-[13px]">
@@ -942,6 +999,12 @@ export function RecordSalePage() {
                       <span className="shrink-0 font-medium tabular-nums text-foreground">{formatKES(item.unitPrice * item.quantity)}</span>
                     </div>
                   ))}
+                  {installationFee > 0 && (
+                    <div className="flex justify-between gap-3 text-[13px]">
+                      <span className="truncate text-foreground-3">Installation fee</span>
+                      <span className="shrink-0 font-medium tabular-nums text-foreground">{formatKES(installationFee)}</span>
+                    </div>
+                  )}
                   <div className="flex items-baseline justify-between border-t border-black/5 pt-2 [.dark_&]:border-white/10">
                     <span className="text-[14px] font-medium text-foreground">Total</span>
                     <span className="text-[20px] font-semibold tabular-nums tracking-tight text-foreground">{formatKES(total)}</span>
@@ -952,7 +1015,7 @@ export function RecordSalePage() {
                   <Button type="button" variant="outline" className="h-12 rounded-2xl px-5" onClick={() => setPageStep(1)}>
                     Add more
                   </Button>
-                  <Button type="button" className="h-12 rounded-2xl bg-brand-600 text-white hover:bg-brand-700" onClick={() => setPageStep(3)}>
+                  <Button type="button" disabled={installFeeMissing} className="h-12 rounded-2xl bg-brand-600 text-white hover:bg-brand-700" onClick={() => setPageStep(3)}>
                     Checkout · {formatKES(total)}
                   </Button>
                 </div>
@@ -989,6 +1052,16 @@ export function RecordSalePage() {
                     </div>
                   );
                 })}
+                {installationFee > 0 && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <span className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-[#F57C00] to-[#FFB74D]" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-medium text-foreground">Installation fee</span>
+                      <span className="block text-[12px] text-foreground-4">New installation</span>
+                    </span>
+                    <span className="text-[14px] font-semibold tabular-nums text-foreground">{formatKES(installationFee)}</span>
+                  </div>
+                )}
                 {appliedDiscount > 0 && (
                   <div className="flex justify-between px-4 pb-1 text-[13px]">
                     <span className="text-foreground-4">Discount</span>

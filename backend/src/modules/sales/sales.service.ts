@@ -24,7 +24,8 @@ import { Category } from '../categories/entities/category.entity';
 import { recordDateUtc } from '../../common/utils/dates';
 
 interface ResolvedItem {
-  type: 'PRODUCT' | 'SERVICE';
+  /** CHARGE: an extra amount with no catalogue item, e.g. the installation fee. */
+  type: 'PRODUCT' | 'SERVICE' | 'CHARGE';
   id: string;
   name: string;
   unitPrice: number;
@@ -217,6 +218,34 @@ export class SalesService {
     return { subtotal, discount: appliedDiscount, tax, total };
   }
 
+  /**
+   * New installation: the installation fee rides on a WiFi package sale as
+   * its own line, so it shows on the receipt and in revenue.
+   */
+  private installationCharges(dto: CreateSaleDto, items: ResolvedItem[]): ResolvedItem[] {
+    const fee = roundKES(dto.installationFee ?? 0);
+    if (fee <= 0) return [];
+    if (!items.some((i) => i.billingDays)) {
+      throw new BadRequestException({
+        code: 'INSTALLATION_NEEDS_PACKAGE',
+        message: 'An installation charge can only be added to a WiFi package sale.',
+      });
+    }
+    return [
+      {
+        type: 'CHARGE',
+        id: 'installation',
+        name: 'Installation fee',
+        unitPrice: fee,
+        costPrice: null,
+        quantity: 1,
+        total: fee,
+        billingDays: null,
+        speedMbps: null,
+      },
+    ];
+  }
+
   private isAmountOnly(dto: CreateSaleDto): boolean {
     return (!dto.items || dto.items.length === 0) && !!dto.total;
   }
@@ -232,7 +261,8 @@ export class SalesService {
         items: [],
       };
     }
-    const items = await this.resolveItems(businessId, dto.items);
+    const catalogue = await this.resolveItems(businessId, dto.items);
+    const items = [...catalogue, ...this.installationCharges(dto, catalogue)];
     const totals = this.computeTotals(items, dto.discount ?? 0, dto.taxRate ?? 0);
     return {
       ...totals,
@@ -282,6 +312,14 @@ export class SalesService {
     const resolved = isAmountOnly
       ? []
       : await this.resolveItems(businessId, dto.items);
+    if (isAmountOnly && dto.installationFee) {
+      throw new BadRequestException({
+        code: 'INSTALLATION_NEEDS_PACKAGE',
+        message: 'An installation charge can only be added to a WiFi package sale.',
+      });
+    }
+    // Extra lines with no catalogue item (installation fee); not used to infer the sale type
+    const charges = this.installationCharges(dto, resolved);
     const totals = isAmountOnly
       ? {
           subtotal: roundKES(dto.total as number),
@@ -289,7 +327,7 @@ export class SalesService {
           tax: 0,
           total: roundKES(dto.total as number),
         }
-      : this.computeTotals(resolved, dto.discount ?? 0, dto.taxRate ?? 0);
+      : this.computeTotals([...resolved, ...charges], dto.discount ?? 0, dto.taxRate ?? 0);
 
     if (totals.total === 0) {
       throw new BadRequestException({
@@ -416,7 +454,7 @@ export class SalesService {
       await manager.save(saleEntity);
 
       const saleItems: SaleItem[] = [];
-      for (const item of resolved) {
+      for (const item of [...resolved, ...charges]) {
         // WiFi package: start or extend the client's subscription
         const packageEvent =
           item.billingDays && dto.customerId && paymentStatus === 'PAID'
@@ -504,7 +542,7 @@ export class SalesService {
           paymentStatus,
           amountPaid,
           advanceCredit: appliedAdvance,
-          items: resolved.map((i) => ({
+          items: [...resolved, ...charges].map((i) => ({
             name: i.name,
             quantity: i.quantity,
             unitPrice: i.unitPrice,

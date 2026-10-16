@@ -284,6 +284,8 @@ export interface CreateSaleInput {
   /** Day the sale happened (YYYY-MM-DD); today or earlier. */
   saleDate?: string;
   categoryId?: string;
+  /** New installation: extra charge added to a WiFi package sale. */
+  installationFee?: number;
   /** Amount-only express sale (e.g. recorded from a scanned M-Pesa SMS). */
   total?: number;
 }
