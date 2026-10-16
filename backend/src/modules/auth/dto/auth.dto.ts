@@ -109,3 +109,46 @@ export class UpdateProfileDto {
   })
   avatarUrl?: string | null;
 }
+
+/** A 4-digit PIN; the server also refuses easy ones like 1234. */
+const PIN_RULE = /^\d{4}$/;
+
+export class SetPinDto {
+  @ApiProperty({ example: '4826' })
+  @IsString()
+  @Matches(PIN_RULE, { message: 'Your PIN must be exactly 4 digits.' })
+  pin: string;
+
+  /** Shown in the list of devices, e.g. "Android phone". */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  deviceName?: string;
+}
+
+export class ChangePinDto extends SetPinDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty({ message: 'Enter your password.' })
+  password: string;
+}
+
+export class DeviceDto {
+  @ApiProperty()
+  @IsString()
+  @MaxLength(64)
+  deviceId: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(128)
+  deviceToken: string;
+}
+
+export class PinLoginDto extends DeviceDto {
+  @ApiProperty({ example: '4826' })
+  @IsString()
+  @Matches(PIN_RULE, { message: 'Enter your 4-digit PIN.' })
+  pin: string;
+}

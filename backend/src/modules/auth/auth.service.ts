@@ -65,6 +65,8 @@ export interface AuthResult {
     /** True while the person is still on a password the office chose for them. */
     mustChangePassword: boolean;
     selfServicePasswordChangeUsed: boolean;
+    /** The person has set a PIN; the app asks for one until they do. */
+    hasPin: boolean;
   };
 }
 
@@ -127,6 +129,8 @@ export class AuthService {
       });
     }
     this.loginFailures.delete(key);
+    // The password is the way back in after too many wrong PINs
+    if (user.pin_failed_attempts) await this.userRepo.update(user.id, { pin_failed_attempts: 0 });
     // Two-factor sign-in is optional: people turn it on in Settings. Only then
     // does sign-in ask for a code; everyone else gets a session straight away.
     if (!user.totp_enabled) return this.buildAuthResult(user);
@@ -377,6 +381,7 @@ export class AuthService {
       twoFactorEnabled: user.totp_enabled,
       mustChangePassword: user.must_change_password,
       selfServicePasswordChangeUsed: user.self_service_password_change_used,
+      hasPin: Boolean(user.pin_set_at),
     };
   }
 
@@ -399,6 +404,7 @@ export class AuthService {
       emailVerified: user.email_verified,
       mustChangePassword: user.must_change_password,
       selfServicePasswordChangeUsed: user.self_service_password_change_used,
+      hasPin: Boolean(user.pin_set_at),
     };
   }
 
@@ -562,7 +568,7 @@ export class AuthService {
     });
   }
 
-  private buildAuthResult(user: User): AuthResult {
+  buildAuthResult(user: User): AuthResult {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -581,6 +587,7 @@ export class AuthService {
         emailVerified: user.email_verified,
         mustChangePassword: user.must_change_password,
         selfServicePasswordChangeUsed: user.self_service_password_change_used,
+        hasPin: Boolean(user.pin_set_at),
       },
     };
   }

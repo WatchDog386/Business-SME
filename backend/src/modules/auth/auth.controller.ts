@@ -11,14 +11,19 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { PinService } from './pin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthUser } from '../../common/types/auth-user.interface';
 import {
   ChangePasswordDto,
+  ChangePinDto,
+  DeviceDto,
   ForgotPasswordDto,
   LoginDto,
+  PinLoginDto,
   ResetPasswordDto,
+  SetPinDto,
   TwoFactorCodeDto,
   TwoFactorDisableDto,
   TwoFactorEnableDto,
@@ -29,7 +34,56 @@ import {
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly pinService: PinService,
+  ) {}
+
+  // ---- PIN sign-in on trusted devices ----
+
+  @Post('pin/login')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sign in on a trusted device with its PIN' })
+  pinLogin(@Body() dto: PinLoginDto) {
+    return this.pinService.login(dto.deviceId, dto.deviceToken, dto.pin);
+  }
+
+  @Post('pin/forget')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Turn PIN sign-in off on this device ("Not you?")' })
+  pinForget(@Body() dto: DeviceDto) {
+    return this.pinService.forget(dto.deviceId, dto.deviceToken);
+  }
+
+  @Post('pin/setup')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set the first PIN; trusts this device for PIN sign-in' })
+  pinSetup(@CurrentUser() user: AuthUser, @Body() dto: SetPinDto) {
+    return this.pinService.setup(user.id, dto.pin, dto.deviceName);
+  }
+
+  @Post('pin/change')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change the PIN (needs the password)' })
+  pinChange(@CurrentUser() user: AuthUser, @Body() dto: ChangePinDto) {
+    return this.pinService.change(user.id, dto.password, dto.pin, dto.deviceName);
+  }
+
+  @Post('pin/device')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Turn on PIN sign-in on this device with the existing PIN' })
+  pinDevice(@CurrentUser() user: AuthUser, @Body() dto: SetPinDto) {
+    return this.pinService.enableDevice(user.id, dto.pin, dto.deviceName);
+  }
 
   @Post('login')
   @Throttle({ default: { limit: 20, ttl: 60_000 } })

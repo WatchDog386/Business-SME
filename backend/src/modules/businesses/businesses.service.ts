@@ -172,6 +172,9 @@ export class BusinessesService {
         fullName: dto.fullName.trim(),
         phone: dto.phone,
         passwordHash: await bcrypt.hash(dto.password, 10),
+        // The admin only hands out a temporary password: the person picks
+        // their own, then a PIN, at their first sign-in
+        mustChangePassword: true,
       });
     }
 

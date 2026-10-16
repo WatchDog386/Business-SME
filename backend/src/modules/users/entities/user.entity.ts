@@ -43,6 +43,20 @@ export class User extends BaseEntity {
   @Column({ type: 'timestamptz', nullable: true })
   sessions_valid_after: Date | null;
 
+  // ---- PIN sign-in (set by the person, used on their trusted devices) ----
+
+  /** bcrypt hash of the 4-digit PIN. */
+  @Column({ type: 'varchar', length: 255, nullable: true, select: false })
+  pin_hash: string | null;
+
+  /** When the PIN was set; null means no PIN yet. */
+  @Column({ type: 'timestamptz', nullable: true })
+  pin_set_at: Date | null;
+
+  /** Wrong PINs in a row; at the limit PIN sign-in waits for a password sign-in. */
+  @Column({ type: 'integer', default: 0 })
+  pin_failed_attempts: number;
+
   /** A client may change a password once between office-issued resets. */
   @Column({ type: 'boolean', default: false })
   self_service_password_change_used: boolean;

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useBootstrap } from '@/hooks/use-bootstrap';
@@ -15,6 +15,8 @@ import { hasOnboarded } from '@/features/onboarding/onboarding-state';
 import { useTheme } from '@/lib/theme';
 import { useRole } from '@/hooks/use-role';
 import { SetPasswordGate } from '@/features/auth/set-password-gate';
+import { SetPinGate, TrustDevicePrompt } from '@/features/auth/set-pin-gate';
+import { pinDeviceSkipped, readPinDevice } from '@/lib/pin-device';
 
 /** The only pages a subscriber (CLIENT role) may open. */
 const CLIENT_PATHS = [
@@ -35,6 +37,8 @@ export function AppShell() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const location = useLocation();
+  // Asked once per visit whether this device should open with the PIN
+  const [trustAsked, setTrustAsked] = useState(pinDeviceSkipped);
   const isDashboard = location.pathname === '/dashboard';
   const { isClient } = useRole();
 
@@ -87,6 +91,12 @@ export function AppShell() {
 
   // Still on a password the office gave them: they set their own before the app
   if (user?.mustChangePassword) return <SetPasswordGate />;
+
+  // Then a PIN of their own, as on a banking app
+  if (user && user.hasPin === false) return <SetPinGate />;
+  if (user?.hasPin && !trustAsked && readPinDevice()?.userId !== user.id) {
+    return <TrustDevicePrompt onDone={() => setTrustAsked(true)} />;
+  }
 
   // Clients only have their own dashboard and account page: no staff menu, footer bar
   // or any other page. CLIENT_PATHS lists what they are allowed to open.

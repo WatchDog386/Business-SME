@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { ChangePasswordForm } from '@/features/auth/components/change-password-form';
+import { ChangePinForm } from '@/features/auth/components/change-pin-form';
 import { notifySuccess } from '@/components/ui/popup-host';
 import { requestLogout } from '@/components/layout/session-timeout';
 import { PROFILE_GREEN, ProfileRing, profileCompletion } from '@/components/layout/profile-visuals';
@@ -239,6 +240,14 @@ export function ProfilePage() {
         <SectionLabel>Password</SectionLabel>
         <div className="mt-4">
           <ChangePasswordForm />
+        </div>
+      </section>
+
+      {/* Change PIN */}
+      <section className="px-1">
+        <SectionLabel>PIN</SectionLabel>
+        <div className="mt-4">
+          <ChangePinForm />
         </div>
       </section>
 

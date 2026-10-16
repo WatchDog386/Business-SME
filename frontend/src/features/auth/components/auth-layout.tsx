@@ -64,7 +64,7 @@ export function AuthLayout({
         <div
           className={cn(
             forceMobileLayout
-              ? 'login-dark-fields mt-6 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70'
+              ? 'login-dark-fields mt-6 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button:not([data-keep-color])]:!text-white/70'
               : 'mt-6 [&_input]:!rounded-lg [&_input]:!border-transparent [&_input]:!bg-slate-100 [&_input]:!text-slate-600 [&_input]:!shadow-none [&_input]:placeholder:text-slate-400',
             hideLabelsOnMobile && '[&_label]:sr-only',
           )}

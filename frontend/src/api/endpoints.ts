@@ -1,6 +1,7 @@
 import { api, client, API_BASE_URL, type Paginated } from './client';
 import type {
   AuthResult,
+  PinDeviceResult,
   CallDue,
   CallLog,
   CallOutcome,
@@ -61,6 +62,21 @@ export const authApi = {
   twoFactorVerify: (mfaToken: string, code: string) =>
     api<AuthResult>({ method: 'POST', url: '/auth/2fa/verify', data: { mfaToken, code } }),
   me: () => api<User>({ method: 'GET', url: '/auth/me' }),
+  /** PIN sign-in on a device that was trusted earlier. */
+  pinLogin: (deviceId: string, deviceToken: string, pin: string) =>
+    api<AuthResult>({ method: 'POST', url: '/auth/pin/login', data: { deviceId, deviceToken, pin } }),
+  /** "Not you?": this device stops offering PIN sign-in. */
+  pinForget: (deviceId: string, deviceToken: string) =>
+    api<{ forgotten: boolean }>({ method: 'POST', url: '/auth/pin/forget', data: { deviceId, deviceToken } }),
+  /** First PIN, after the person has their own password; trusts this device. */
+  pinSetup: (pin: string, deviceName: string) =>
+    api<PinDeviceResult>({ method: 'POST', url: '/auth/pin/setup', data: { pin, deviceName } }),
+  /** New PIN from the profile page (needs the password). */
+  pinChange: (password: string, pin: string, deviceName: string) =>
+    api<PinDeviceResult>({ method: 'POST', url: '/auth/pin/change', data: { password, pin, deviceName } }),
+  /** Turns on PIN sign-in on this device using the existing PIN. */
+  pinTrustDevice: (pin: string, deviceName: string) =>
+    api<PinDeviceResult>({ method: 'POST', url: '/auth/pin/device', data: { pin, deviceName } }),
   forgotPassword: (email: string) =>
     api<{ resetToken?: string }>({
       method: 'POST',

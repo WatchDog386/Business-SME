@@ -8,6 +8,7 @@ import { LogOut, Moon, Pencil, Save, Sun } from 'lucide-react';
 import { authApi, clientApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { ChangePasswordForm } from '@/features/auth/components/change-password-form';
+import { ChangePinForm } from '@/features/auth/components/change-pin-form';
 import { useTheme } from '@/lib/theme';
 import { useAuthStore } from '@/stores/auth';
 import { requestLogout } from '@/components/layout/session-timeout';
@@ -278,6 +279,14 @@ export function ClientProfilePage() {
             </div>
           </section>
         )}
+
+        {/* Change PIN */}
+        <section className="mt-4 rounded-2xl border border-white/10 bg-[#1E1E1E] p-4">
+          <h3 className="text-[15px] font-semibold text-white">Change PIN</h3>
+          <div className="mt-3">
+            <ChangePinForm dark />
+          </div>
+        </section>
 
         {/* Appearance */}
         <section className="mt-4 rounded-[26px] border border-white/10 bg-[#1E1E1E] p-2">

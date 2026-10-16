@@ -16,6 +16,8 @@ import { InvalidDetailsArt } from '@/components/brand/invalid-details-art';
 import { notifyError } from '@/components/ui/popup-host';
 import { Download, Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
+import { PinPad } from './components/pin-pad';
+import { clearPinDevice, lastLogin, readPinDevice, rememberLastLogin } from '@/lib/pin-device';
 import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
 import { Brand } from '@/components/layout/brand';
@@ -47,12 +49,19 @@ export function LoginPage() {
   const isDesktop = useIsDesktop();
   const [theme] = useTheme();
   const { canInstall, install } = useInstallPrompt();
+  // A device where PIN sign-in was turned on opens on the PIN pad
+  const [pinDevice, setPinDevice] = useState(readPinDevice);
+  const [usePassword, setUsePassword] = useState(false);
+  const [pinRound, setPinRound] = useState(0);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { identifier: readPinDevice()?.login ?? lastLogin() ?? '' },
+  });
 
   /** Runs once the second factor has passed: store the session and go in. */
   const finishSignIn = async (result: AuthResult) => {
@@ -86,7 +95,8 @@ export function LoginPage() {
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
       authApi.login(values.identifier, values.password),
-    onSuccess: (result) => {
+    onSuccess: (result, values) => {
+      rememberLastLogin(values.identifier);
       if ('accessToken' in result) void finishSignIn(result);
       else setChallenge(result);
     },
@@ -106,12 +116,40 @@ export function LoginPage() {
     },
   });
 
+  const pinMutation = useMutation({
+    mutationFn: (pin: string) => authApi.pinLogin(pinDevice!.deviceId, pinDevice!.deviceToken, pin),
+    onSuccess: (result) => void finishSignIn(result),
+    onError: (err) => {
+      setPinRound((r) => r + 1);
+      const code = err instanceof ApiErrorShape ? err.code : '';
+      if (code === 'DEVICE_NOT_RECOGNISED') {
+        // PIN sign-in was turned off for this device (e.g. a new temporary password)
+        clearPinDevice();
+        setPinDevice(null);
+      } else if (code === 'PIN_LOCKED') {
+        setUsePassword(true);
+      }
+      notifyError(code === 'WRONG_PIN' ? 'Wrong PIN' : 'Could not sign in', apiErrorMessage(err), {
+        tone: 'dark',
+        actionLabel: 'Okay',
+      });
+    },
+  });
+
+  /** "Not you?": forget this device so the next person signs in with their own details. */
+  const forgetDevice = () => {
+    if (pinDevice) void authApi.pinForget(pinDevice.deviceId, pinDevice.deviceToken).catch(() => undefined);
+    clearPinDevice();
+    setPinDevice(null);
+  };
+
   // Phone sign-in shows the photo right up behind the status bar (same as the home page)
   usePhotoStatusBar(!isDesktop && !challenge);
 
   // Strict flow: login -> loading/success -> dashboard. Don't jump to dashboard
   // ahead of success page — only redirect if already authenticated before this visit.
-  if (token && !mutation.isPending && !mutation.isSuccess) return <Navigate to="/dashboard" replace />;
+  const signingInNow = mutation.isPending || mutation.isSuccess || pinMutation.isPending || pinMutation.isSuccess;
+  if (token && !signingInNow) return <Navigate to="/dashboard" replace />;
 
   if (challenge) {
     const title = 'Two-step verification';
@@ -204,6 +242,52 @@ export function LoginPage() {
       </form>
   );
 
+  // Phones show the pad over the photo, so it sits on a dark frosted panel to stay readable
+  const pinDark = !isDesktop;
+  const linkClass = 'auth-link text-sm font-medium !text-[#2F7F81] hover:!text-[#256A6C]';
+  const pinView = pinDevice ? (
+    <div
+      className={
+        'flex flex-col items-center gap-6 ' +
+        (pinDark ? 'rounded-3xl bg-black/55 px-4 pb-4 pt-5 backdrop-blur-md [&_.auth-link]:!text-[#7BCFD2]' : '')
+      }
+    >
+      <p className={pinDark ? 'text-center text-sm text-white/85' : 'text-center text-sm text-slate-700'}>
+        Hello <span className="font-semibold">{pinDevice.fullName.split(' ')[0]}</span>, enter your PIN
+      </p>
+      <PinPad
+        dark={pinDark}
+        onComplete={(pin) => pinMutation.mutate(pin)}
+        disabled={pinMutation.isPending || signingIn}
+        resetKey={pinRound}
+      />
+      <div className="flex w-full items-center justify-between">
+        <button type="button" data-keep-color onClick={() => setUsePassword(true)} className={linkClass}>
+          Use password instead
+        </button>
+        <button type="button" data-keep-color onClick={forgetDevice} className={linkClass}>
+          Not you?
+        </button>
+      </div>
+      {signingIn && <WorkspaceLoader />}
+    </div>
+  ) : null;
+
+  // The PIN pad when this device has PIN sign-in, otherwise username or email and password
+  const signIn =
+    pinView && !usePassword ? (
+      pinView
+    ) : (
+      <>
+        {form}
+        {pinDevice && (
+          <button type="button" data-keep-color onClick={() => setUsePassword(false)} className={'mx-auto mt-4 block ' + linkClass}>
+            Sign in with your PIN
+          </button>
+        )}
+      </>
+    );
+
   const installAppButton = canInstall ? (
     <button
       type="button"
@@ -248,12 +332,12 @@ export function LoginPage() {
             Sign in with your Optimas staff account.
           </p>
           {dark ? (
-            <div className="login-dark-fields mt-6 [&_input]:!h-12 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70 [&_.auth-link]:!text-[#7BCFD2] [&_.text-danger]:!text-red-300 [&_label]:sr-only">
-              {form}
+            <div className="login-dark-fields mt-6 [&_input]:!h-12 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button:not([data-keep-color])]:!text-white/70 [&_.auth-link]:!text-[#7BCFD2] [&_.text-danger]:!text-red-300 [&_label]:sr-only">
+              {signIn}
             </div>
           ) : (
-            <div className="login-dark-fields mt-6 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button]:!text-white/70 [&_.auth-link]:!text-[#2F7F81] [&_.text-danger]:!text-red-700 [&_label]:sr-only">
-              {form}
+            <div className="login-dark-fields mt-6 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button:not([data-keep-color])]:!text-white/70 [&_.auth-link]:!text-[#2F7F81] [&_.text-danger]:!text-red-700 [&_label]:sr-only">
+              {signIn}
             </div>
           )}
           {installAppButton}
@@ -274,7 +358,7 @@ export function LoginPage() {
       subtitle="Sign in with your Optimas staff account."
     >
       <>
-        {form}
+        {signIn}
         {installAppButton}
       </>
     </AuthLayout>

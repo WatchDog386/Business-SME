@@ -20,11 +20,25 @@ export interface User {
   mustChangePassword?: boolean;
   /** Client's one permitted self-service password change has been used. */
   selfServicePasswordChangeUsed?: boolean;
+  /** The person has set a PIN for quick sign-in; the app asks for one until they do. */
+  hasPin?: boolean;
   /** True for the app-owner platform-admin accounts. */
 }
 
 export interface AuthResult {
   accessToken: string;
+  user: User;
+}
+
+/** The secret a trusted device keeps so it can offer PIN sign-in. */
+export interface DeviceCredential {
+  deviceId: string;
+  deviceToken: string;
+}
+
+/** A PIN was set or this device was trusted. */
+export interface PinDeviceResult {
+  device: DeviceCredential;
   user: User;
 }
 
