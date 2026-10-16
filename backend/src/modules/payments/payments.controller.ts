@@ -1,3 +1,4 @@
+import { SkipThrottle } from '@nestjs/throttler';
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
@@ -60,6 +61,7 @@ export class PaymentsController {
 /** Safaricom posts results here (public, no sign-in). Point MPESA_CALLBACK_URL at it. */
 @ApiTags('payments')
 @Controller('payments/mpesa')
+@SkipThrottle()
 export class MpesaCallbackController {
   constructor(private readonly payments: PaymentsService) {}
 

@@ -4,6 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -13,6 +14,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes, createHash } from 'node:crypto';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import * as nodemailer from 'nodemailer';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../../common/types/auth-user.interface';
@@ -46,6 +48,9 @@ export interface MfaChallenge {
 
 const MFA_TICKET_TTL = '10m';
 const MAX_CODE_ATTEMPTS = 5;
+/** Wrong passwords allowed per account before it is paused, and for how long. */
+const MAX_LOGIN_FAILURES = 10;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
 const ISSUER = 'Optimas';
 
 export interface AuthResult {
@@ -65,8 +70,11 @@ export interface AuthResult {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   /** Wrong-code count per second-step ticket (tickets expire after 10 minutes). */
   private readonly attempts = new Map<string, { count: number; expires: number }>();
+  /** Wrong-password count per sign-in name, so guessing from many addresses still stops. */
+  private readonly loginFailures = new Map<string, { count: number; expires: number }>();
 
   constructor(
     private readonly usersService: UsersService,
@@ -84,6 +92,19 @@ export class AuthService {
    */
   async login(identifier: string, password: string): Promise<MfaChallenge | AuthResult> {
     const id = identifier.trim();
+    const key = id.toLowerCase();
+    const now = Date.now();
+    const failures = this.loginFailures.get(key);
+    if (failures && failures.expires < now) this.loginFailures.delete(key);
+    else if (failures && failures.count >= MAX_LOGIN_FAILURES) {
+      throw new HttpException(
+        {
+          code: 'TOO_MANY_ATTEMPTS',
+          message: 'Too many wrong passwords. Wait 15 minutes, then try again.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
     const candidates = id.includes('@')
       ? [await this.usersService.findByEmail(id)].filter((u): u is User => Boolean(u))
       : await this.subscribersByLoginId(id);
@@ -96,11 +117,16 @@ export class AuthService {
       }
     }
     if (!user) {
+      for (const [k, v] of this.loginFailures) if (v.expires < now) this.loginFailures.delete(k);
+      const entry = this.loginFailures.get(key) ?? { count: 0, expires: now + LOGIN_LOCK_MS };
+      entry.count += 1;
+      this.loginFailures.set(key, entry);
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
         message: id.includes('@') ? 'Wrong email or password.' : 'Wrong username or password.',
       });
     }
+    this.loginFailures.delete(key);
     // Two-factor sign-in is optional: people turn it on in Settings. Only then
     // does sign-in ask for a code; everyone else gets a session straight away.
     if (!user.totp_enabled) return this.buildAuthResult(user);
@@ -435,10 +461,38 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await this.usersService.setResetToken(user.id, hash, expiresAt);
 
-    // NOTE: No SMTP provider configured yet. In development the token is
-    // returned so the flow can be tested end-to-end. Production wiring to
-    // Resend/email happens in the automation phase.
-    return { resetToken: token };
+    // The token is a password: it only ever goes to the account's own inbox.
+    // Handing it back in the response would let anyone reset any account.
+    await this.sendResetEmail(user, token);
+    return this.config.get<string>('nodeEnv') === 'development' ? { resetToken: token } : {};
+  }
+
+  /** Emails the reset link when SMTP is set up; otherwise the office resets the password. */
+  private async sendResetEmail(user: User, token: string): Promise<void> {
+    const host = this.config.get<string>('SMTP_HOST');
+    if (!host) return;
+    const link = `${this.config.get<string>('frontendUrl')}/reset-password?token=${token}`;
+    const transport = nodemailer.createTransport({
+      host,
+      port: Number(this.config.get<string>('SMTP_PORT') ?? 587),
+      secure: this.config.get<string>('SMTP_SECURE') === 'true',
+      auth: this.config.get<string>('SMTP_USER')
+        ? { user: this.config.get<string>('SMTP_USER'), pass: this.config.get<string>('SMTP_PASS') }
+        : undefined,
+    });
+    try {
+      await transport.sendMail({
+        from: this.config.get<string>('SMTP_FROM') ?? 'Optimas <no-reply@optimas.co.ke>',
+        to: user.email,
+        subject: 'Reset your Optimas password',
+        text:
+          `Hello ${user.full_name},\n\nUse this link within one hour to choose a new password:\n${link}\n\n` +
+          'If you did not ask for this, ignore this email; your password stays the same.',
+      });
+    } catch (err) {
+      // Same response either way, so a mail failure can't reveal which accounts exist
+      this.logger.error(`Password reset email to ${user.email} failed: ${(err as Error).message}`);
+    }
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

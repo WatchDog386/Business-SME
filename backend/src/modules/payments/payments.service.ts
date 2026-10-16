@@ -162,6 +162,18 @@ export class PaymentsService {
     }
     if (record.state !== 'pending') return this.present(record);
 
+    const answer = await this.query(checkoutRequestId);
+    // While the client is still on the PIN screen Daraja answers with an error: keep waiting
+    if (answer) this.settle(record, answer.code, answer.desc, null);
+    if (record.state === 'pending' && Date.now() - record.createdAt > 3 * 60_000) {
+      record.state = 'failed';
+      record.message = 'No answer from the phone. Send the prompt again.';
+    }
+    return this.present(record);
+  }
+
+  /** Asks Daraja for a push's result; null while there is no answer yet or on a network hiccup. */
+  private async query(checkoutRequestId: string): Promise<{ code: string; desc: string } | null> {
     const timestamp = this.timestamp();
     try {
       const res = await fetch(`${this.base}/mpesa/stkpushquery/v1/query`, {
@@ -175,20 +187,17 @@ export class PaymentsService {
         }),
       });
       const body = (await res.json().catch(() => ({}))) as { ResultCode?: string | number; ResultDesc?: string };
-      // While the client is still on the PIN screen Daraja answers with an error: keep waiting
-      if (body.ResultCode !== undefined) this.settle(record, String(body.ResultCode), body.ResultDesc ?? '', null);
+      return body.ResultCode === undefined ? null : { code: String(body.ResultCode), desc: body.ResultDesc ?? '' };
     } catch {
-      // Network hiccup: report pending and let the app ask again
+      return null;
     }
-    if (record.state === 'pending' && Date.now() - record.createdAt > 3 * 60_000) {
-      record.state = 'failed';
-      record.message = 'No answer from the phone. Send the prompt again.';
-    }
-    return this.present(record);
   }
 
-  /** Safaricom calls this when the client pays or cancels. */
-  handleCallback(payload: unknown) {
+  /**
+   * Safaricom calls this when the client pays or cancels. The URL is public,
+   * so a "paid" result is only trusted once Daraja itself confirms it.
+   */
+  async handleCallback(payload: unknown) {
     const cb = (payload as { Body?: { stkCallback?: unknown } } | null)?.Body?.stkCallback as
       | {
           CheckoutRequestID?: string;
@@ -198,9 +207,14 @@ export class PaymentsService {
         }
       | undefined;
     const record = cb?.CheckoutRequestID ? this.pushes.get(cb.CheckoutRequestID) : undefined;
-    if (cb && record) {
+    if (cb && record && record.state === 'pending') {
       const receipt = cb.CallbackMetadata?.Item?.find((i) => i.Name === 'MpesaReceiptNumber')?.Value;
-      this.settle(record, String(cb.ResultCode), cb.ResultDesc ?? '', receipt ? String(receipt) : null);
+      if (String(cb.ResultCode) === '0') {
+        const confirmed = await this.query(record.checkoutRequestId);
+        if (confirmed?.code === '0') this.settle(record, '0', confirmed.desc, receipt ? String(receipt) : null);
+      } else {
+        this.settle(record, String(cb.ResultCode), cb.ResultDesc ?? '', null);
+      }
     }
     return { ResultCode: 0, ResultDesc: 'Accepted' };
   }

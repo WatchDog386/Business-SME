@@ -309,14 +309,24 @@ export class ClientPortalService {
 
     let user = await this.users.findByEmail(email);
     if (user) {
-      const other = await this.memberRepo.findOne({ where: { businessId, userId: user.id } });
-      if (other && !(other.role === UserRole.CLIENT && other.customerId === customerId)) {
+      // Only this client's own login may be reset here. Any other account
+      // (staff, another client, or someone in a different business) is off
+      // limits, or staff could set a password on an account that isn't theirs.
+      const memberships = await this.memberRepo.find({ where: { userId: user.id } });
+      const ownLogin = (m: BusinessMember) =>
+        m.businessId === businessId && m.role === UserRole.CLIENT && m.customerId === customerId;
+      // A login with no memberships is only reusable when it is this client's own internal one
+      const reusable = memberships.length
+        ? memberships.every(ownLogin)
+        : email === accountLoginEmail(customerId);
+      if (!reusable) {
+        const sameBusiness = memberships.find((m) => m.businessId === businessId);
         throw new ConflictException({
           code: 'EMAIL_IN_USE',
           message:
-            other.role === UserRole.CLIENT
+            sameBusiness?.role === UserRole.CLIENT
               ? 'That email already signs in another client.'
-              : 'That email belongs to a staff member. Use a different email for the client.',
+              : 'That email already belongs to another account. Use a different email for the client.',
         });
       }
       // Existing login for this client: set the new password

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
@@ -32,6 +34,11 @@ import { ClientPortalModule } from './modules/client-portal/client-portal.module
       envFilePath: ['backend/.env', '.env'],
     }),
     ScheduleModule.forRoot(),
+    // Per-IP request ceiling for the whole API; sign-in routes set tighter ones
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'default', ttl: 60_000, limit: 300 }],
+      errorMessage: 'Too many requests. Wait a minute, then try again.',
+    }),
     DatabaseModule,
     CommonModule,
     AuditModule,
@@ -47,12 +54,13 @@ import { ClientPortalModule } from './modules/client-portal/client-portal.module
     RecurringExpensesModule,
     SubscriptionsModule,
     CallsModule,
-  SmsModule,
+    SmsModule,
     DocumentsModule,
     PaymentsModule,
     ClientPortalModule,
     DashboardModule,
     ReportsModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

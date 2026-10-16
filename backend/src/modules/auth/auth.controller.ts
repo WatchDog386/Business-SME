@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -22,6 +23,7 @@ import {
   TwoFactorDisableDto,
   TwoFactorEnableDto,
   TwoFactorTicketDto,
+  UpdateProfileDto,
 } from './dto/auth.dto';
 
 @ApiTags('auth')
@@ -30,6 +32,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Check username (or email) and password; returns a session, or a two-factor challenge when it is on' })
   login(@Body() dto: LoginDto) {
@@ -37,6 +40,7 @@ export class AuthController {
   }
 
   @Post('2fa/setup')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'First sign-in: get a new authenticator secret and QR link' })
   startTwoFactorSetup(@Body() dto: TwoFactorTicketDto) {
@@ -44,6 +48,7 @@ export class AuthController {
   }
 
   @Post('2fa/enable')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Confirm the first authenticator code; returns recovery codes and a session' })
   enableTwoFactor(@Body() dto: TwoFactorCodeDto) {
@@ -51,6 +56,7 @@ export class AuthController {
   }
 
   @Post('2fa/verify')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Second sign-in step: authenticator or recovery code; returns a session' })
   verifyTwoFactor(@Body() dto: TwoFactorCodeDto) {
@@ -98,7 +104,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Update current user profile' })
   updateProfile(
     @CurrentUser() user: AuthUser,
-    @Body() dto: { fullName?: string; phone?: string; avatarUrl?: string | null },
+    @Body() dto: UpdateProfileDto,
   ) {
     return this.authService.updateProfile(user.id, dto);
   }
@@ -113,6 +119,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request a password reset link' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -120,6 +127,7 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password with a reset token' })
   resetPassword(@Body() dto: ResetPasswordDto) {

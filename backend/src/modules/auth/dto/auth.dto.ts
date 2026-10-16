@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class LoginDto {
@@ -83,4 +83,29 @@ export class TwoFactorCodeDto extends TwoFactorTicketDto {
   @IsString()
   @IsNotEmpty({ message: 'Enter the code from your authenticator app.' })
   code: string;
+}
+
+export class UpdateProfileDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'Enter your name.' })
+  @MaxLength(120)
+  fullName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  phone?: string;
+
+  /** A photo picked in the app (data URL, up to ~2 MB) or an https link; null removes it. */
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(3_000_000, { message: 'Photo must be smaller than 2 MB.' })
+  @Matches(/^(data:image\/(png|jpe?g|webp|gif|avif|bmp|heic|heif);base64,|https:\/\/)/, {
+    message: 'Photo must be an image such as JPEG or PNG (not SVG).',
+  })
+  avatarUrl?: string | null;
 }
