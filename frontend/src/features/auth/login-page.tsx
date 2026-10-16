@@ -95,13 +95,14 @@ export function LoginPage() {
     onError: (err) => {
       if (err instanceof ApiErrorShape && err.code === 'INVALID_CREDENTIALS') {
         notifyError('Invalid Details', apiErrorMessage(err), {
+          tone: 'dark',
           illustration: <InvalidDetailsArt />,
           actionLabel: 'Okay',
           duration: null,
         });
         return;
       }
-      notifyError('Could not sign in', apiErrorMessage(err));
+      notifyError('Could not sign in', apiErrorMessage(err), { tone: 'dark', actionLabel: 'Okay' });
     },
   });
 
