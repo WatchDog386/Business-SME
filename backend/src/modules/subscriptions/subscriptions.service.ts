@@ -144,6 +144,25 @@ export class SubscriptionsService {
     await repo.save(existing);
   }
 
+  /**
+   * Sets the package a subscriber is on, as recorded in the billing system.
+   * No sale: an existing plan keeps its dates and only changes package; a
+   * subscriber without one starts today.
+   */
+  async setPackage(businessId: string, customerId: string, productId: string) {
+    const existing = await this.repo.findOne({ where: { businessId, customerId } });
+    if (!existing) return this.create(businessId, { customerId, productId });
+    const pkg = await this.productRepo.findOne({ where: { businessId, id: productId } });
+    if (!pkg || !pkg.billing_days) {
+      throw new BadRequestException({ code: 'NOT_A_PACKAGE', message: 'Choose a WiFi package.' });
+    }
+    existing.productId = pkg.id;
+    existing.package_name = pkg.name;
+    existing.speed_mbps = pkg.speed_mbps;
+    existing.price = pkg.selling_price;
+    return this.present(await this.repo.save(existing));
+  }
+
   async forCustomer(businessId: string, customerId: string) {
     const sub = await this.repo.findOne({ where: { businessId, customerId } });
     return sub ? this.present(sub) : null;

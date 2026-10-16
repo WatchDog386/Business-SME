@@ -1,14 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, X } from 'lucide-react';
-import { customersApi } from '@/api/endpoints';
+import { customersApi, productsApi, subscriptionsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import type { Customer, SubscriberInput } from '@/api/types';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
 import { PageLoader } from '@/components/ui/spinner';
+import { formatKES } from '@/lib/utils';
 import { useRole } from '@/hooks/use-role';
 import { OnboardedAccess, type OnboardedSubscriber } from './onboarded-access-step';
 
@@ -35,8 +37,9 @@ function Field({ label, htmlFor, hint, children }: { label: string; htmlFor?: st
 /**
  * Add or edit a subscriber as an app user. Subscribers already exist in the
  * company's billing system and are already installed, so this only records
- * who they are: account number (FBI-0001 style), username, name, contacts,
- * location and SMS group. No package, invoice or wallet is touched. Once
+ * who they are: account number (FBI-0001 style), username, name, package,
+ * contacts, location and SMS group. The package is recorded without a sale,
+ * so no invoice or wallet is touched. Once
  * saved, the office hands them their own login with a temporary password.
  */
 export function SubscriberForm({
@@ -76,6 +79,22 @@ export function SubscriberForm({
     queryFn: () => customersApi.get(id!),
     enabled: editing,
   });
+  const packageQuery = useQuery({
+    queryKey: ['subscriptions', 'customer', id],
+    queryFn: () => subscriptionsApi.forCustomer(id!),
+    enabled: editing,
+  });
+  const productsQuery = useQuery({
+    queryKey: ['products', { page: 1, limit: 100 }],
+    queryFn: () => productsApi.list({ page: 1, limit: 100 }),
+  });
+  const packages = useMemo(
+    () =>
+      (productsQuery.data?.items ?? [])
+        .filter((p) => p.billing_days && p.active)
+        .sort((a, b) => a.selling_price - b.selling_price),
+    [productsQuery.data],
+  );
   const options = optionsQuery.data;
 
   const [accountNumber, setAccountNumber] = useState('');
@@ -88,6 +107,7 @@ export function SubscriberForm({
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
   const [smsGroup, setSmsGroup] = useState('');
+  const [packageId, setPackageId] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState<OnboardedSubscriber | null>(null);
@@ -118,10 +138,17 @@ export function SubscriberForm({
     setSmsGroup(c.sms_group ?? '');
   }, [customerQuery.data]);
 
+  // Editing: show the package they are on now
+  const currentPackageId = packageQuery.data?.productId ?? '';
+  useEffect(() => {
+    if (currentPackageId) setPackageId(currentPackageId);
+  }, [currentPackageId]);
+
   const mutation = useMutation({
     mutationFn: async () => {
       if (!accountNumber.trim()) throw new Error('Enter the account number, e.g. FBI-0001.');
       if (!name.trim()) throw new Error('Enter the full name.');
+      if (!packageId) throw new Error('Choose the package the subscriber is on.');
 
       // Only these fields are sent, so editing never clears anything else on file
       const data: SubscriberInput & { name: string } = {
@@ -138,10 +165,13 @@ export function SubscriberForm({
 
       if (editing) {
         await customersApi.update(id!, data);
+        if (packageId !== currentPackageId) await subscriptionsApi.setPackage(id!, packageId);
         return null;
       }
 
       const customer = await customersApi.create(data);
+      // Recorded as their current package; no sale or invoice is raised
+      const plan = await subscriptionsApi.setPackage(customer.id, packageId);
       return {
         customerId: customer.id,
         name: customer.name,
@@ -149,7 +179,7 @@ export function SubscriberForm({
         accountNumber: customer.account_number ?? '',
         phone: customer.phone ?? '',
         email: customer.email ?? '',
-        packageName: null,
+        packageName: plan.packageName,
         invoice: null,
       } satisfies OnboardedSubscriber;
     },
@@ -214,6 +244,19 @@ export function SubscriberForm({
 
           <Field label="Full name" htmlFor="sf-name">
             <Input id="sf-name" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field
+            label="Package"
+            htmlFor="sf-package"
+            hint={packages.length || productsQuery.isLoading ? undefined : 'No packages yet. Add one under Products with billing days.'}
+          >
+            <Select id="sf-package" placeholder="Choose a package" value={packageId} onChange={(e) => setPackageId(e.target.value)}>
+              {packages.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} · {formatKES(p.selling_price)} / {p.billing_days} days
+                </option>
+              ))}
+            </Select>
           </Field>
         </Section>
 

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { IsDateString, IsOptional, IsUUID } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -19,6 +19,12 @@ class CreateSubscriptionDto {
   @IsOptional()
   @IsDateString()
   startedAt?: string;
+}
+
+class SetPackageDto {
+  @ApiProperty({ description: 'A WiFi package (product with billing days)' })
+  @IsUUID()
+  productId: string;
 }
 
 @ApiTags('subscriptions')
@@ -60,5 +66,15 @@ export class SubscriptionsController {
     @Param('customerId', ParseUUIDPipe) customerId: string,
   ) {
     return this.subscriptions.forCustomer(business.id, customerId);
+  }
+
+  @Patch('customer/:customerId')
+  @ApiOperation({ summary: "Set a client's WiFi package (no sale; keeps the current dates)" })
+  setPackage(
+    @CurrentBusiness() business: { id: string },
+    @Param('customerId', ParseUUIDPipe) customerId: string,
+    @Body() dto: SetPackageDto,
+  ) {
+    return this.subscriptions.setPackage(business.id, customerId, dto.productId);
   }
 }

@@ -385,6 +385,9 @@ export const subscriptionsApi = {
   /** Add an already-connected subscriber without a sale. */
   create: (data: { customerId: string; productId: string; startedAt?: string }) =>
     api<Subscription>({ method: 'POST', url: '/subscriptions', data }),
+  /** Set the package a client is on (no sale; creates the plan if missing). */
+  setPackage: (customerId: string, productId: string) =>
+    api<Subscription>({ method: 'PATCH', url: `/subscriptions/customer/${customerId}`, data: { productId } }),
 };
 
 // ---- M-Pesa prompts (STK push) ----

@@ -65,7 +65,15 @@ export function OnboardedAccess({ subscriber, onDone }: { subscriber: OnboardedS
           .join(' · ')}
       </Alert>
 
-      {/* How the first package settled; plain subscriber adds have none */}
+      {/* Added without a sale: just the package they are on */}
+      {!subscriber.invoice && subscriber.packageName && (
+        <div className="rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-4">Package</p>
+          <p className="mt-1 text-[14px] font-semibold text-foreground">{subscriber.packageName}</p>
+        </div>
+      )}
+
+      {/* How the first package settled, when it was sold */}
       {subscriber.invoice && (
         <div className="rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-4">First package</p>
