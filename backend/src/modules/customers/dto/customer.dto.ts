@@ -23,13 +23,13 @@ export const SERVICE_TYPES = ['HOTSPOT', 'PPPOE', 'STATIC'] as const;
 
 /** Subscriber account details (ISP billing), shared by create and update. */
 class SubscriberFieldsDto {
-  @ApiPropertyOptional({ example: '1617' })
+  @ApiPropertyOptional({ example: 'FBI-0001' })
   @IsOptional()
   @IsString()
   @MaxLength(30)
   accountNumber?: string;
 
-  @ApiPropertyOptional({ example: '1617' })
+  @ApiPropertyOptional({ example: 'FBI-0001' })
   @IsOptional()
   @IsString()
   @MaxLength(60)
@@ -133,6 +133,7 @@ export class CreateCustomerDto extends SubscriberFieldsDto {
 
   @ApiPropertyOptional({ example: 'mary@example.com' })
   @IsOptional()
+  @ValidateIf((_, v) => v !== '')
   @IsEmail({}, { message: 'Enter a valid email address.' })
   email?: string;
 

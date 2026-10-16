@@ -10,11 +10,14 @@ import { AuditService } from '../audit/audit.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import { PaginatedResult } from '../../common/dto/pagination.dto';
 
+/** Every subscriber account number starts with this, e.g. FBI-0001. */
+const ACCOUNT_PREFIX = 'FBI-';
+
 /** Maps the subscriber fields that were sent onto entity columns. */
 function subscriberColumns(dto: UpdateCustomerDto): Partial<Customer> {
   const out: Partial<Customer> = {};
   const text = (v: string | undefined) => (v === undefined ? undefined : v.trim() || null);
-  if (dto.accountNumber !== undefined) out.account_number = text(dto.accountNumber);
+  if (dto.accountNumber !== undefined) out.account_number = text(dto.accountNumber)?.toUpperCase() ?? null;
   if (dto.username !== undefined) out.username = text(dto.username);
   if (dto.extraPhones !== undefined) out.extra_phones = dto.extraPhones.map((p) => p.trim()).filter(Boolean);
   if (dto.kraPin !== undefined) out.kra_pin = text(dto.kraPin)?.toUpperCase() ?? null;
@@ -101,7 +104,7 @@ export class CustomersService {
     dto: CreateCustomerDto,
     actorId: string,
   ): Promise<Customer> {
-    const accountNumber = dto.accountNumber?.trim() || (await this.nextAccountNumber(businessId));
+    const accountNumber = dto.accountNumber?.trim().toUpperCase() || (await this.nextAccountNumber(businessId));
     const username = dto.username?.trim() || accountNumber;
     await this.assertAccountFree(businessId, accountNumber);
     await this.assertUsernameFree(businessId, username);
@@ -137,8 +140,8 @@ export class CustomersService {
     actorId: string,
   ): Promise<Customer> {
     const customer = await this.get(businessId, id);
-    if (dto.accountNumber !== undefined && dto.accountNumber.trim() !== customer.account_number) {
-      await this.assertAccountFree(businessId, dto.accountNumber.trim(), id);
+    if (dto.accountNumber !== undefined && dto.accountNumber.trim().toUpperCase() !== customer.account_number) {
+      await this.assertAccountFree(businessId, dto.accountNumber.trim().toUpperCase(), id);
     }
     // The username is how a subscriber signs in, so it has to stay unique
     if (dto.username !== undefined && dto.username.trim() !== customer.username) {
@@ -209,15 +212,18 @@ export class CustomersService {
     });
   }
 
-  /** Next free numeric account number: one above the highest so far, starting at 1001. */
+  /**
+   * Next free account number in the company's FBI-0001 style: one above the
+   * highest FBI number so far (case-insensitive), at least four digits.
+   */
   async nextAccountNumber(businessId: string): Promise<string> {
     const row = await this.repo
       .createQueryBuilder('c')
-      .select(`MAX(CAST(c.account_number AS INTEGER))`, 'max')
+      .select(`MAX(CAST(SUBSTRING(c.account_number FROM 5) AS INTEGER))`, 'max')
       .where('c.businessId = :businessId', { businessId })
-      .andWhere(`c.account_number ~ '^[0-9]{1,9}$'`)
+      .andWhere(`c.account_number ~* '^FBI-[0-9]{1,9}$'`)
       .getRawOne<{ max: number | null }>();
-    return String(Math.max(Number(row?.max ?? 0) + 1, 1001));
+    return `${ACCOUNT_PREFIX}${String(Number(row?.max ?? 0) + 1).padStart(4, '0')}`;
   }
 
   /** Known locations, SMS groups and routers, for the subscriber form's pickers. */

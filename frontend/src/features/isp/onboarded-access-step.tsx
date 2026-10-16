@@ -65,16 +65,10 @@ export function OnboardedAccess({ subscriber, onDone }: { subscriber: OnboardedS
           .join(' · ')}
       </Alert>
 
-      {/* How the first month settled: paid, part-paid, or on the account */}
-      <div className="rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-4">
-          First package
-        </p>
-        {!subscriber.invoice ? (
-          <p className="mt-1 text-[13px] text-foreground-2">
-            No package yet. Sell them one from their account and the invoice starts there.
-          </p>
-        ) : (
+      {/* How the first package settled; plain subscriber adds have none */}
+      {subscriber.invoice && (
+        <div className="rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-4">First package</p>
           <div className="mt-1 space-y-1">
             <p className="text-[14px] font-semibold text-foreground">{subscriber.packageName}</p>
             {subscriber.invoice.paid >= subscriber.invoice.total ? (
@@ -89,8 +83,8 @@ export function OnboardedAccess({ subscriber, onDone }: { subscriber: OnboardedS
               </p>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {grant.error && <Alert variant="error">{apiErrorMessage(grant.error)}</Alert>}
 
