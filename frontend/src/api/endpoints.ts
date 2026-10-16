@@ -585,7 +585,11 @@ export const dashboardApi = {
 
 // ---- Daily report ----
 
+export type ReportPeriod = 'day' | 'week' | 'month' | 'year';
+
 export interface DailyReport {
+  period?: ReportPeriod;
+  /** First day of the period (YYYY-MM-DD). */
   date: string;
   from: string;
   to: string;
@@ -644,12 +648,15 @@ export interface DailyHistoryRow {
 }
 
 export const reportsApi = {
-  day: (date?: string) => api<DailyReport>({ method: 'GET', url: '/reports/day', params: date ? { date } : undefined }),
+  /** Report for the day, week, month or year containing `date` (today by default). */
+  day: (date?: string, period: ReportPeriod = 'day') =>
+    api<DailyReport>({ method: 'GET', url: '/reports/day', params: { ...(date ? { date } : {}), period } }),
   deliverySettings: () => api<DailyReportDeliverySettings>({ method: 'GET', url: '/reports/delivery' }),
   updateDeliverySettings: (data: { email: string | null; enabled: boolean }) =>
     api<DailyReportDeliverySettings>({ method: 'PATCH', url: '/reports/delivery', data }),
-  dayHistory: (days: number, until?: string) =>
-    api<DailyHistoryRow[]>({ method: 'GET', url: '/reports/day/history', params: { days, until } }),
+  /** Totals for each of the last `days` periods (oldest first); `date` is each period's first day. */
+  dayHistory: (days: number, until?: string, period: ReportPeriod = 'day') =>
+    api<DailyHistoryRow[]>({ method: 'GET', url: '/reports/day/history', params: { days, until, period } }),
   profitLoss: (params: { from?: string; to?: string }) =>
     api<ProfitLoss>({ method: 'GET', url: '/reports/profit-loss', params }),
   dailySummary: (params: { from?: string; to?: string }) =>
@@ -675,7 +682,7 @@ export const reportsApi = {
   /** Downloads a server-generated export (e.g. `profit-loss/export.xlsx`). */
   download: async (
     path: string,
-    params: { from?: string; to?: string; date?: string },
+    params: { from?: string; to?: string; date?: string; period?: ReportPeriod },
     fallbackName: string,
   ) => {
     const res = await client.get<Blob>(`/reports/${path}`, {

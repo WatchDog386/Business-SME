@@ -26,6 +26,7 @@ import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { usePhotoStatusBar } from '@/hooks/use-photo-status-bar';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { useTheme } from '@/lib/theme';
+import { SHOW_MOBILE_HOME } from '@/lib/flags';
 import type { AuthResult, MfaChallenge } from '@/api/types';
 
 const schema = z.object({
@@ -357,14 +358,14 @@ export function LoginPage() {
         <HomePhoto featured className="fixed inset-0 h-full w-full object-cover" />
         <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
           <img src={mainLogo} alt="Optimas Networks" width={900} height={332} className="w-80 max-w-[85%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
-          {/* Back to the home page, sitting on the photo just above the sheet */}
-          <Link
+          {/* Back to the home page, sitting on the photo just above the sheet (while home is shown) */}
+          {SHOW_MOBILE_HOME && <Link
             to="/"
             aria-label="Back to home"
             className="absolute bottom-4 left-4 flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white backdrop-blur-sm transition-transform active:scale-90"
           >
             <ArrowLeft className="h-5 w-5" aria-hidden />
-          </Link>
+          </Link>}
         </div>
         <main
           className={

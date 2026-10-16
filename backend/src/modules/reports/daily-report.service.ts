@@ -13,11 +13,19 @@ import { roundKES } from '../../common/utils/money';
 const DAY = 86_400_000;
 const EXPIRING_DAYS = 7;
 
+/** The span a report covers: one day, an ISO week (Monday start), a month or a year. */
+export const REPORT_PERIODS = ['day', 'week', 'month', 'year'] as const;
+export type ReportPeriod = (typeof REPORT_PERIODS)[number];
+
+export function toReportPeriod(value: unknown): ReportPeriod {
+  return REPORT_PERIODS.includes(value as ReportPeriod) ? (value as ReportPeriod) : 'day';
+}
+
 /**
- * The daily report: one calendar day (business timezone, midnight to
- * midnight) of revenue, money collected, WiFi packages, expenses, profit and
- * cash, compared with the day before. A day's report is final once midnight
- * passes; today's is live.
+ * The business report for one period (business timezone): a day, a week
+ * (Monday to Sunday), a month or a year of revenue, money collected, WiFi
+ * packages, expenses, profit and cash, compared with the period before. A
+ * period's report is final once it ends; the current one is live.
  */
 @Injectable()
 export class DailyReportService {
@@ -30,18 +38,19 @@ export class DailyReportService {
     @InjectRepository(Subscription) private readonly subRepo: Repository<Subscription>,
   ) {}
 
-  private dayRange(date: string | undefined, timezone: string) {
+  /** The period containing `date` (today by default). */
+  private periodRange(date: string | undefined, timezone: string, period: ReportPeriod = 'day') {
     const now = DateTime.now().setZone(timezone);
     const parsed = date ? DateTime.fromISO(date, { zone: timezone }) : now;
-    const day = (parsed.isValid ? parsed : now).startOf('day');
+    const day = (parsed.isValid ? parsed : now).startOf(period);
     const start = day.toJSDate();
-    const end = day.plus({ days: 1 }).toJSDate();
+    const end = day.plus({ [`${period}s`]: 1 }).toJSDate();
     return { day, start, end, closed: end.getTime() <= now.toMillis() };
   }
 
-  async report(businessId: string, date: string | undefined, timezone = 'Africa/Nairobi') {
-    const { day, start, end, closed } = this.dayRange(date, timezone);
-    const prev = { start: new Date(start.getTime() - DAY), end: start };
+  async report(businessId: string, date: string | undefined, timezone = 'Africa/Nairobi', period: ReportPeriod = 'day') {
+    const { day, start, end, closed } = this.periodRange(date, timezone, period);
+    const prev = { start: day.minus({ [`${period}s`]: 1 }).toJSDate(), end: start };
 
     const [sales, items, payments, expenses, prevTotals, subs, debts] = await Promise.all([
       this.saleRepo
@@ -170,6 +179,7 @@ export class DailyReportService {
     const netProfit = roundKES(grossProfit - expenseTotal);
 
     return {
+      period,
       date: day.toISODate(),
       from: start,
       to: end,
@@ -237,13 +247,14 @@ export class DailyReportService {
     };
   }
 
-  /** Revenue, expenses and net profit for each of the last `days` days (oldest first). */
-  async history(businessId: string, days = 7, until?: string, timezone = 'Africa/Nairobi') {
-    const { day } = this.dayRange(until, timezone);
+  /** Revenue, expenses and net profit for each of the last `count` periods (oldest first). */
+  async history(businessId: string, count = 7, until?: string, timezone = 'Africa/Nairobi', period: ReportPeriod = 'day') {
+    const { day } = this.periodRange(until, timezone, period);
+    const unit = `${period}s`;
     const out: Array<{ date: string; revenue: number; expenses: number; net: number; salesCount: number }> = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = day.minus({ days: i });
-      const t = await this.totals(businessId, d.toJSDate(), d.plus({ days: 1 }).toJSDate());
+    for (let i = count - 1; i >= 0; i--) {
+      const d = day.minus({ [unit]: i });
+      const t = await this.totals(businessId, d.toJSDate(), d.plus({ [unit]: 1 }).toJSDate());
       out.push({ date: d.toISODate() ?? '', revenue: t.revenue, expenses: t.expenses, net: t.net, salesCount: t.salesCount });
     }
     return out;

@@ -3,7 +3,7 @@ import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { DateTime } from 'luxon';
 import { ReportsService } from './reports.service';
-import { DailyReportService } from './daily-report.service';
+import { DailyReportService, type ReportPeriod } from './daily-report.service';
 import { formatMoney } from '../../common/utils/money';
 
 export interface ExportContext {
@@ -29,6 +29,14 @@ const MUTED = '#6B7280';
 
 type Row = [string, string];
 type DailyReportData = Awaited<ReturnType<DailyReportService['report']>>;
+
+/** Words for each report period: titles, "vs the week before", file names. */
+const PERIOD_WORDS: Record<ReportPeriod, { title: string; unit: string; file: string }> = {
+  day: { title: 'Daily', unit: 'day', file: 'daily' },
+  week: { title: 'Weekly', unit: 'week', file: 'weekly' },
+  month: { title: 'Monthly', unit: 'month', file: 'monthly' },
+  year: { title: 'Yearly', unit: 'year', file: 'yearly' },
+};
 
 @Injectable()
 export class ReportExportService {
@@ -190,14 +198,15 @@ export class ReportExportService {
     return this.pdfFile(buffer, 'expenses', ctx);
   }
 
-  /** The daily report for one day, as a PDF to keep or send to the owner. */
-  async dailyPdf(ctx: ExportContext, date?: string, data?: DailyReportData): Promise<ExportFile> {
-    const r = data ?? await this.dailyReports.report(ctx.businessId, date, ctx.timezone);
+  /** The report for one day, week, month or year, as a PDF to keep or send to the owner. */
+  async dailyPdf(ctx: ExportContext, date?: string, data?: DailyReportData, period: ReportPeriod = 'day'): Promise<ExportFile> {
+    const r = data ?? await this.dailyReports.report(ctx.businessId, date, ctx.timezone, period);
+    const words = PERIOD_WORDS[r.period ?? period];
     const m = (v: number) => formatMoney(v, ctx.currency);
     const change = (now: number, before: number) =>
-      before ? `${now >= before ? '+' : ''}${Math.round(((now - before) / before) * 100)}% vs the day before` : '';
+      before ? `${now >= before ? '+' : ''}${Math.round(((now - before) / before) * 100)}% vs the ${words.unit} before` : '';
     const buffer = await this.renderPdf((doc) => {
-      this.pdfHeader(doc, ctx, r.closed ? 'Daily report' : 'Daily report (so far today)', r.from, r.to);
+      this.pdfHeader(doc, ctx, r.closed ? `${words.title} report` : `${words.title} report (so far)`, r.from, r.to);
       this.pdfTable(doc, 'Summary', [
         ['Revenue', m(r.revenue.total)],
         ['Money collected', m(r.revenue.collected)],
@@ -209,7 +218,7 @@ export class ReportExportService {
         ['Number of sales', String(r.revenue.salesCount)],
         ['Average sale', m(r.revenue.averageSale)],
         ['Not fully paid', String(r.revenue.unpaid)],
-        ['Change in revenue', change(r.revenue.total, r.previous.revenue) || 'No sales the day before'],
+        ['Change in revenue', change(r.revenue.total, r.previous.revenue) || `No sales the ${words.unit} before`],
         ...r.revenue.collectedByMethod.map((p): Row => [`Collected by ${p.method}`, m(p.total)]),
       ]);
       this.pdfTable(doc, 'WiFi packages', [
@@ -233,16 +242,17 @@ export class ReportExportService {
         ['Owed by clients', `${m(r.debts.outstanding)} (${r.debts.debtors} clients)`],
       ]);
     });
-    return { buffer, filename: `daily-report-${r.date}.pdf`, contentType: PDF_TYPE };
+    return { buffer, filename: `${words.file}-report-${r.date}.pdf`, contentType: PDF_TYPE };
   }
 
   /** Full daily workbook with summary and transaction detail for reconciliation. */
-  async dailyXlsx(ctx: ExportContext, date?: string, data?: DailyReportData): Promise<ExportFile> {
-    const r = data ?? await this.dailyReports.report(ctx.businessId, date, ctx.timezone);
+  async dailyXlsx(ctx: ExportContext, date?: string, data?: DailyReportData, period: ReportPeriod = 'day'): Promise<ExportFile> {
+    const r = data ?? await this.dailyReports.report(ctx.businessId, date, ctx.timezone, period);
+    const words = PERIOD_WORDS[r.period ?? period];
     const workbook = this.newWorkbook();
     const money = this.moneyFormat(ctx.currency);
-    const summary = workbook.addWorksheet('Daily summary');
-    this.writeSheetHeader(summary, ctx, 'Daily report', r.from, r.to);
+    const summary = workbook.addWorksheet(`${words.title} summary`);
+    this.writeSheetHeader(summary, ctx, `${words.title} report`, r.from, r.to);
     summary.addRow([]);
     summary.addRow(['Metric', 'Value']).font = { bold: true };
     const summaryRows: Array<[string, string | number]> = [
@@ -347,7 +357,7 @@ export class ReportExportService {
     const file = await workbook.xlsx.writeBuffer();
     return {
       buffer: Buffer.from(file as ArrayBuffer),
-      filename: `daily-report-${r.date}.xlsx`,
+      filename: `${words.file}-report-${r.date}.xlsx`,
       contentType: XLSX_TYPE,
     };
   }

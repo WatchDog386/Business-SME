@@ -152,6 +152,10 @@ export function RecordSalePage() {
   const [installFee, setInstallFee] = useState('');
   const installationFee = hasPackage && installType === 'new' ? Math.max(0, Math.round(Number(installFee) || 0)) : 0;
   const installFeeMissing = hasPackage && installType === 'new' && installationFee <= 0;
+  // A package sale is either paid now (checkout) or billed: an unpaid invoice
+  // on the client's account, and the package starts once it is paid
+  const [billing, setBilling] = useState<'checkout' | 'invoice'>('checkout');
+  const invoicing = hasPackage && billing === 'invoice';
 
   const subtotal = useMemo(
     () => lineItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0) + installationFee,
@@ -275,14 +279,14 @@ export function RecordSalePage() {
           quantity: item.quantity,
         })),
         saleType: saleCategory ?? 'PRODUCT',
-        applyAdvances: !isAmountCategory && applyClientAdvance,
+        applyAdvances: !isAmountCategory && !invoicing && applyClientAdvance,
         total: isAmountCategory ? Number(amountValue) : undefined,
         customerId: resolvedCustomerId,
         discount: Number(values.discount || 0),
         taxRate: Number(values.taxRate || 0),
-        paymentMethod: values.paymentMethod,
-        amountPaid: isAmountCategory ? Number(amountValue) : Number(values.amountPaid === '' ? 0 : values.amountPaid),
-        reference: captured?.reference ?? undefined,
+        paymentMethod: invoicing ? 'CREDIT' : values.paymentMethod,
+        amountPaid: invoicing ? 0 : isAmountCategory ? Number(amountValue) : Number(values.amountPaid === '' ? 0 : values.amountPaid),
+        reference: invoicing ? undefined : captured?.reference ?? undefined,
         notes: values.notes || undefined,
         idempotencyKey: idempotencyKey.current,
         saleDate: values.saleDate,
@@ -437,6 +441,7 @@ export function RecordSalePage() {
     setPackageMode(null);
     setInstallType('subsequent');
     setInstallFee('');
+    setBilling('checkout');
     setAmountValue('');
     setApplyClientAdvance(false);
     setCatalogSearch('');
@@ -504,9 +509,11 @@ export function RecordSalePage() {
         <span className="flex h-16 w-16 items-center justify-center rounded-full bg-success-soft">
           <CheckCircle2 className="h-9 w-9 text-success" aria-hidden />
         </span>
-        <h2 className="text-lg font-medium tracking-tight text-foreground">Sale recorded!</h2>
+        <h2 className="text-lg font-medium tracking-tight text-foreground">{invoicing ? 'Invoice generated' : 'Sale recorded!'}</h2>
         <p className="max-w-xs text-[13px] leading-relaxed text-foreground-3">
-          {successSale.sale_type === 'PACKAGE' && successSale.payment_status !== 'PAID' ? (
+          {invoicing ? (
+            <>The {formatKES(successSale.total)} invoice is on the client's account. Their package starts once it is paid. Open it to download, share on WhatsApp or email it.</>
+          ) : successSale.sale_type === 'PACKAGE' && successSale.payment_status !== 'PAID' ? (
             <>Payment recorded. Package access will start when the balance is paid. The {formatKES(successSale.total)} sale is included in revenue as payments are received.</>
           ) : successSale.sale_type === 'GENERAL' ? (
             <>Today's combined sales total of {formatKES(successSale.total)} was recorded as received revenue.</>
@@ -527,7 +534,7 @@ export function RecordSalePage() {
             className="rounded-full bg-accent text-white hover:bg-accent-strong"
             onClick={() => window.location.assign(`/sales/${successSale.id}`)}
           >
-            View sale
+            {invoicing ? 'Open invoice' : 'View sale'}
           </Button>
         </div>
       </div>
@@ -1146,8 +1153,44 @@ export function RecordSalePage() {
                 )}
               </section>
 
+              {/* Package: take payment now, or bill the client with an invoice */}
+              {hasPackage && (
+                <section className="space-y-3">
+                  <SectionHeading>Payment</SectionHeading>
+                  <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Checkout or invoice">
+                    {([
+                      { id: 'checkout', label: 'Checkout', hint: 'Client pays now' },
+                      { id: 'invoice', label: 'Generate invoice', hint: 'Client pays later' },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={billing === opt.id}
+                        onClick={() => setBilling(opt.id)}
+                        className={cn(
+                          'rounded-xl border p-3 text-left transition-colors',
+                          billing === opt.id
+                            ? 'border-brand-600 bg-brand-50 [.dark_&]:bg-brand-600/15'
+                            : 'border-edge bg-white [.dark_&]:bg-surface-3',
+                        )}
+                      >
+                        <span className="block text-[14px] font-semibold text-foreground">{opt.label}</span>
+                        <span className="mt-0.5 block text-[11px] text-foreground-4">{opt.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {invoicing && (
+                    <p className="rounded-2xl bg-[#F2F2F4] p-4 text-[12px] leading-relaxed text-foreground-3 [.dark_&]:bg-[#1E1E1E]">
+                      The full {formatKES(total)} goes on the client's account as an unpaid invoice you can download, share on WhatsApp or email.
+                      Their package starts once it is paid.
+                    </p>
+                  )}
+                </section>
+              )}
+
               {/* How the client pays */}
-              <section className="space-y-3">
+              <section className={cn('space-y-3', invoicing && 'hidden')}>
                 <SectionHeading>How is the client paying?</SectionHeading>
                 {advanceToApply > 0 && amountDueAfterAdvance === 0 ? (
                   <div className="space-y-3 rounded-2xl bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
@@ -1251,14 +1294,16 @@ export function RecordSalePage() {
                   form="record-sale-form"
                   size="lg"
                   className="h-14 w-full rounded-2xl bg-brand-600 text-[15px] font-semibold text-white shadow-[0_10px_24px_-10px_rgba(45,160,67,0.7)] hover:bg-brand-700"
-                  disabled={lineItems.length === 0 || total <= 0 || (payMode !== 'cash' && !captured)}
+                  disabled={lineItems.length === 0 || total <= 0 || (!invoicing && payMode !== 'cash' && !captured)}
                   loading={mutation.isPending}
                 >
                   <Lock className="h-4 w-4" aria-hidden />
-                  Confirm sale · {formatKES(total)}
+                  {invoicing ? 'Generate invoice' : 'Confirm sale'} · {formatKES(total)}
                 </Button>
                 <p className="text-center text-[11px] text-foreground-4">
-                  {payMode === 'cash'
+                  {invoicing
+                    ? 'Saved as an unpaid invoice on the client’s account.'
+                    : payMode === 'cash'
                     ? 'The sale is saved with the amount received.'
                     : captured
                       ? 'Payment confirmed. Saving starts or renews the WiFi package.'

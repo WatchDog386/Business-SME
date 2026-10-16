@@ -8,6 +8,7 @@ import { OfflineBanner } from '@/components/layout/offline-banner';
 import { SessionTimeout } from '@/components/layout/session-timeout';
 import { PopupHost } from '@/components/ui/popup-host';
 import { InstallAppPrompt } from '@/components/layout/install-app-prompt';
+import { SHOW_MOBILE_HOME } from '@/lib/flags';
 import { SignInReveal } from '@/components/ui/workspace-loader';
 
 const LoginPage = lazy(() => import('@/features/auth/login-page').then((m) => ({ default: m.LoginPage })));
@@ -46,15 +47,12 @@ const ClientMethodPage = lazy(() => import('@/features/client/client-pay-flow').
 const ClientNotificationsPage = lazy(() => import('@/features/client/client-notifications').then((m) => ({ default: m.ClientNotificationsPage })));
 const NotFoundPage = lazy(() => import('@/features/misc/not-found-page').then((m) => ({ default: m.NotFoundPage })));
 
-/**
- * Signed-in users go straight to the dashboard. Signed-out phones see the mobile
- * home page (also where logout lands); desktop opens the login page.
- */
+/** Signed-in users go straight to the dashboard; everyone else to login. */
 function HomeRoute() {
   const token = useAuthStore((s) => s.token);
   const isDesktop = useIsDesktop();
   if (token) return <Navigate to="/dashboard" replace />;
-  if (!isDesktop) return <MobileHomePage />;
+  if (SHOW_MOBILE_HOME && !isDesktop) return <MobileHomePage />;
   return <Navigate to="/login" replace />;
 }
 

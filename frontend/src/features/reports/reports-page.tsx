@@ -19,7 +19,7 @@ import {
   Wifi,
   X,
 } from 'lucide-react';
-import { reportsApi, type DailyReport } from '@/api/endpoints';
+import { reportsApi, type DailyReport, type ReportPeriod } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import { Alert } from '@/components/ui/alert';
 import { PageLoader } from '@/components/ui/spinner';
@@ -54,17 +54,69 @@ function shortDay(date: string): { weekday: string; day: string } {
   };
 }
 
+/** Tabs, titles and how many periods the picker and chart show. */
+const PERIODS: Record<ReportPeriod, { tab: string; title: string; unit: string; count: number; chart: string }> = {
+  day: { tab: 'Daily', title: 'Daily report', unit: 'day', count: 7, chart: 'last 7 days' },
+  week: { tab: 'Weekly', title: 'Weekly report', unit: 'week', count: 8, chart: 'last 8 weeks' },
+  month: { tab: 'Monthly', title: 'Monthly report', unit: 'month', count: 12, chart: 'last 12 months' },
+  year: { tab: 'Yearly', title: 'Yearly report', unit: 'year', count: 5, chart: 'last 5 years' },
+};
+const PERIOD_ORDER: ReportPeriod[] = ['day', 'week', 'month', 'year'];
+
+function isPeriod(value: string | null): value is ReportPeriod {
+  return value === 'day' || value === 'week' || value === 'month' || value === 'year';
+}
+
+/** First day (YYYY-MM-DD) of the period containing `date`; weeks start on Monday. */
+function periodStart(date: string, period: ReportPeriod): string {
+  if (period === 'day') return date;
+  if (period === 'month') return `${date.slice(0, 7)}-01`;
+  if (period === 'year') return `${date.slice(0, 4)}-01-01`;
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+const fmtDay = (date: string, opts: Intl.DateTimeFormatOptions) =>
+  new Date(`${date}T12:00:00+03:00`).toLocaleDateString('en-KE', { timeZone: TZ, ...opts });
+
+/** "Today", "This week", "Last month", "Week of 6 Oct", "October 2026", "2025"… */
+function periodLabel(date: string, period: ReportPeriod, today: string): string {
+  if (period === 'day') return dayLabel(date, today);
+  const start = periodStart(date, period);
+  const current = periodStart(today, period);
+  if (start === current) return `This ${period}`;
+  // The day before this period starts lies in the previous period
+  const prevOfCurrent = periodStart(new Date(new Date(`${current}T00:00:00Z`).getTime() - DAY).toISOString().slice(0, 10), period);
+  if (start === prevOfCurrent) return `Last ${period}`;
+  if (period === 'week') return `Week of ${fmtDay(start, { day: 'numeric', month: 'short' })}`;
+  if (period === 'month') return fmtDay(start, { month: 'long', year: 'numeric' });
+  return start.slice(0, 4);
+}
+
+/** Two short lines for a picker chip. */
+function chipText(date: string, period: ReportPeriod, today: string): { top: string; main: string } {
+  if (period === 'day') {
+    const { weekday, day } = shortDay(date);
+    return { top: date === today ? 'Today' : weekday, main: day };
+  }
+  if (period === 'week') return { top: 'Week', main: fmtDay(date, { day: 'numeric', month: 'short' }) };
+  if (period === 'month') return { top: date.slice(0, 4), main: fmtDay(date, { month: 'short' }) };
+  return { top: 'Year', main: date.slice(0, 4) };
+}
+
 function updatedText(r: DailyReport): string {
-  if (r.closed) return 'Final · closed at midnight';
+  if (r.closed) return r.period && r.period !== 'day' ? `Final · this ${r.period} has ended` : 'Final · closed at midnight';
   const mins = Math.max(0, Math.round((Date.now() - new Date(r.generatedAt).getTime()) / 60000));
   return mins < 1 ? 'Live · updated just now' : `Live · updated ${mins} min ago`;
 }
 
 /** Plain-text summary for WhatsApp. */
 function summaryText(r: DailyReport, label: string): string {
+  const period = r.period ?? 'day';
   const lines = [
-    `*Optimas daily report: ${label} (${r.date})*`,
-    r.closed ? '' : '_So far today_',
+    `*Optimas ${PERIODS[period].tab.toLowerCase()} report: ${label} (from ${r.date})*`,
+    r.closed ? '' : `_So far this ${period === 'day' ? 'day' : period}_`,
     '',
     `Revenue: ${formatKES(r.revenue.total)} (${r.revenue.salesCount} sales)`,
     `Collected: ${formatKES(r.revenue.collected)}`,
@@ -88,8 +140,9 @@ const METHOD_STYLE: Record<string, { label: string; icon: typeof Wallet; tint: s
 };
 
 /**
- * Daily report: each day closes at midnight (Nairobi). Today's is live; any
- * past day can be opened, shared on WhatsApp or downloaded as a PDF.
+ * Business report by day, week (Monday to Sunday), month or year (Nairobi
+ * time). The current period is live; any past one can be opened, shared on
+ * WhatsApp or downloaded as a PDF or Excel workbook.
  */
 export function ReportsPage() {
   const isDesktop = useIsDesktop();
@@ -105,23 +158,46 @@ function DailyReportPage() {
   const today = nairobiDay();
   // ?date=YYYY-MM-DD opens that day (e.g. from the "Yesterday's report" notification)
   const [searchParams] = useSearchParams();
+  // ?period=week|month|year opens that view; daily by default
+  const [period, setPeriod] = useState<ReportPeriod>(() => {
+    const wanted = searchParams.get('period');
+    return isPeriod(wanted) ? wanted : 'day';
+  });
+  const cfg = PERIODS[period];
   const [date, setDate] = useState(() => {
     const wanted = searchParams.get('date');
     return wanted && /^\d{4}-\d{2}-\d{2}$/.test(wanted) && wanted <= today ? wanted : today;
   });
+  const selectedStart = periodStart(date, period);
+  const isCurrent = selectedStart === periodStart(today, period);
+  const choosePeriod = (next: ReportPeriod) => {
+    setPeriod(next);
+    setDate(today);
+  };
   const [downloading, setDownloading] = useState<'pdf' | 'xlsx' | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const report = useQuery({ queryKey: ['daily-report', date], queryFn: () => reportsApi.day(date), refetchInterval: date === today ? 60_000 : false });
-  const history = useQuery({ queryKey: ['daily-report-history', today], queryFn: () => reportsApi.dayHistory(7, today) });
+  const report = useQuery({
+    queryKey: ['daily-report', period, selectedStart],
+    queryFn: () => reportsApi.day(selectedStart, period),
+    refetchInterval: isCurrent ? 60_000 : false,
+  });
+  const history = useQuery({
+    queryKey: ['daily-report-history', period, today],
+    queryFn: () => reportsApi.dayHistory(cfg.count, today, period),
+  });
   const r = report.data;
-  const label = dayLabel(date, today);
+  const label = periodLabel(date, period, today);
 
   const download = async (format: 'pdf' | 'xlsx') => {
     setDownloading(format);
     setDownloadError(null);
     try {
-      await reportsApi.download(`day/export.${format}`, { date }, `daily-report-${date}.${format}`);
+      await reportsApi.download(
+        `day/export.${format}`,
+        { date: selectedStart, period },
+        `${cfg.tab.toLowerCase()}-report-${selectedStart}.${format}`,
+      );
     } catch (err) {
       setDownloadError(apiErrorMessage(err));
     } finally {
@@ -144,7 +220,7 @@ function DailyReportPage() {
           Back
         </button>
         <h1 className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[22px] font-semibold leading-tight tracking-tight text-foreground">
-          Daily report
+          {cfg.title}
         </h1>
         <div className="ml-auto flex shrink-0 gap-1.5">
           <button
@@ -152,7 +228,7 @@ function DailyReportPage() {
             onClick={() => void download('pdf')}
             disabled={Boolean(downloading) || !r}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90 disabled:opacity-50"
-            aria-label="Download daily report PDF"
+            aria-label={`Download ${cfg.tab.toLowerCase()} report PDF`}
             title="Download PDF"
           >
             {downloading === 'pdf' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-5 w-5" />}
@@ -162,7 +238,7 @@ function DailyReportPage() {
             onClick={() => void download('xlsx')}
             disabled={Boolean(downloading) || !r}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-3 text-foreground active:scale-90 disabled:opacity-50"
-            aria-label="Download daily report Excel workbook"
+            aria-label={`Download ${cfg.tab.toLowerCase()} report Excel workbook`}
             title="Download Excel"
           >
             {downloading === 'xlsx' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-5 w-5" />}
@@ -170,45 +246,78 @@ function DailyReportPage() {
         </div>
       </header>
 
-      {/* Day picker: last 7 days */}
+      {/* Daily, weekly, monthly or yearly */}
+      <div role="tablist" aria-label="Report period" className="grid grid-cols-4 gap-1 rounded-full bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] [.dark_&]:bg-white/10">
+        {PERIOD_ORDER.map((p) => (
+          <button
+            key={p}
+            type="button"
+            role="tab"
+            aria-selected={period === p}
+            onClick={() => choosePeriod(p)}
+            className={cn(
+              'h-9 rounded-full text-[13px] font-semibold transition-colors',
+              period === p ? 'bg-[#1C1F1B] text-white [.dark_&]:bg-white [.dark_&]:text-[#1C1F1B]' : 'text-foreground-3',
+            )}
+          >
+            {PERIODS[p].tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Period picker: the most recent days, weeks, months or years */}
       <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
         {(history.data ?? []).slice().reverse().map((h) => {
-          const { weekday, day } = shortDay(h.date);
-          const active = h.date === date;
+          const { top: weekday, main: day } = chipText(h.date, period, today);
+          const active = h.date === selectedStart;
           return (
             <button
               key={h.date}
               type="button"
               onClick={() => setDate(h.date)}
               className={cn(
-                'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-2xl text-center transition-colors',
+                'flex h-16 shrink-0 flex-col items-center justify-center rounded-2xl text-center transition-colors',
+                period === 'week' ? 'w-16' : 'w-14',
                 active ? 'bg-[#1C1F1B] text-white [.dark_&]:bg-white [.dark_&]:text-[#1C1F1B]' : 'bg-white text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.06)] [.dark_&]:bg-white/10',
               )}
             >
-              <span className={cn('text-[11px]', active ? 'opacity-70' : 'text-foreground-4')}>{h.date === today ? 'Today' : weekday}</span>
-              <span className="text-[17px] font-semibold tabular-nums">{day}</span>
+              <span className={cn('text-[11px]', active ? 'opacity-70' : 'text-foreground-4')}>{weekday}</span>
+              <span className={cn('font-semibold tabular-nums', period === 'week' ? 'text-[13px]' : 'text-[17px]')}>{day}</span>
             </button>
           );
         })}
-        <label className="relative flex h-16 w-14 shrink-0 cursor-pointer flex-col items-center justify-center rounded-2xl bg-white text-[11px] text-foreground-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] [.dark_&]:bg-white/10">
-          <ChevronDown className="h-4 w-4" aria-hidden />
-          Older
-          <input
-            type="date"
-            max={today}
-            value={date}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            className="absolute inset-0 opacity-0"
-            aria-label="Pick a day"
-          />
-        </label>
+        {period !== 'year' && (
+          <label className="relative flex h-16 w-14 shrink-0 cursor-pointer flex-col items-center justify-center rounded-2xl bg-white text-[11px] text-foreground-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] [.dark_&]:bg-white/10">
+            <ChevronDown className="h-4 w-4" aria-hidden />
+            Older
+            {period === 'month' ? (
+              <input
+                type="month"
+                max={today.slice(0, 7)}
+                value={date.slice(0, 7)}
+                onChange={(e) => e.target.value && setDate(`${e.target.value}-01`)}
+                className="absolute inset-0 opacity-0"
+                aria-label="Pick a month"
+              />
+            ) : (
+              <input
+                type="date"
+                max={today}
+                value={date}
+                onChange={(e) => e.target.value && setDate(e.target.value)}
+                className="absolute inset-0 opacity-0"
+                aria-label={period === 'week' ? 'Pick a day in the week' : 'Pick a day'}
+              />
+            )}
+          </label>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
         <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white pl-3.5 pr-2 text-[13px] font-medium text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.06)] [.dark_&]:bg-white/10">
           {label}
-          {date !== today && (
-            <button type="button" onClick={() => setDate(today)} className="flex h-6 w-6 items-center justify-center rounded-full text-foreground-4" aria-label="Back to today">
+          {!isCurrent && (
+            <button type="button" onClick={() => setDate(today)} className="flex h-6 w-6 items-center justify-center rounded-full text-foreground-4" aria-label={period === 'day' ? 'Back to today' : `Back to this ${period}`}>
               <X className="h-3.5 w-3.5" />
             </button>
           )}
@@ -231,17 +340,17 @@ function DailyReportPage() {
               countLabel={r.revenue.salesCount === 1 ? 'Sale' : 'Sales'}
               more={{ label: 'Sales', to: '/sales' }}
             >
-              <Tile label="Total revenue" sub="Generated" value={formatKES(r.revenue.total)} icon={TrendingUp} delta={change(r.revenue.total, r.previous.revenue)} />
+              <Tile label="Total revenue" sub="Generated" value={formatKES(r.revenue.total)} icon={TrendingUp} delta={change(r.revenue.total, r.previous.revenue)} versus={cfg.unit} />
               <Tile label="Collected" sub={r.revenue.unpaid ? `${r.revenue.unpaid} not fully paid` : 'All paid'} value={formatKES(r.revenue.collected)} icon={Wallet} />
             </Panel>
 
             <Panel tone="mint" note={updatedText(r)} title="Expenses" count={r.expenses.count} countLabel={r.expenses.count === 1 ? 'Item' : 'Items'} more={{ label: 'Expenses', to: '/expenses' }}>
-              <Tile label="Total spent" sub="Approved" value={formatKES(r.expenses.total)} icon={Receipt} delta={change(r.expenses.total, r.previous.expenses)} invert />
+              <Tile label="Total spent" sub="Approved" value={formatKES(r.expenses.total)} icon={Receipt} delta={change(r.expenses.total, r.previous.expenses)} versus={cfg.unit} invert />
               <Tile label="Awaiting approval" sub={`${r.expenses.pendingCount} pending`} value={formatKES(r.expenses.pendingTotal)} icon={RefreshCw} />
             </Panel>
 
             <Panel tone="sand" note={`${r.profit.margin}% of revenue kept`} title="Profit" count={r.profit.margin} countLabel="% margin">
-              <Tile label="Net profit" sub="Revenue less costs" value={formatKES(r.profit.net)} icon={TrendingUp} delta={change(r.profit.net, r.previous.net)} />
+              <Tile label="Net profit" sub="Revenue less costs" value={formatKES(r.profit.net)} icon={TrendingUp} delta={change(r.profit.net, r.previous.net)} versus={cfg.unit} />
               <Tile label="Cash in hand" sub="Collected less spent" value={formatKES(r.cash.net)} icon={Banknote} />
             </Panel>
 
@@ -251,14 +360,16 @@ function DailyReportPage() {
             </Panel>
           </div>
 
-          {/* Last 7 days: tap a bar to open that day */}
-          {history.data && <WeekChart rows={history.data} selected={date} today={today} onSelect={setDate} />}
+          {/* Recent periods: tap a bar to open that one */}
+          {history.data && (
+            <WeekChart rows={history.data} selected={selectedStart} period={period} today={today} title={`Revenue, ${cfg.chart}`} onSelect={setDate} />
+          )}
 
           {/* Money in by method: side-scrolling cards */}
           <section>
             <SectionTitle title="Money in" right={formatKES(r.revenue.collected)} />
             {r.revenue.collectedByMethod.length === 0 ? (
-              <p className="px-1 text-[13px] text-foreground-4">No payments on this day.</p>
+              <p className="px-1 text-[13px] text-foreground-4">{period === 'day' ? 'No payments on this day.' : `No payments this ${period}.`}</p>
             ) : (
               <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4">
                 {r.revenue.collectedByMethod.map((m) => {
@@ -317,7 +428,7 @@ function DailyReportPage() {
 
           {/* Subscribers and balances */}
           <section>
-            <SectionTitle title="Subscribers" right={r.closed ? 'At end of day' : 'Right now'} />
+            <SectionTitle title="Subscribers" right={r.closed ? `At end of ${period === 'day' ? 'day' : period}` : 'Right now'} />
             <div className="grid grid-cols-3 gap-2">
               {[
                 { label: 'Active', value: r.subscribers.active, cls: 'bg-emerald-50 text-emerald-700 [.dark_&]:bg-emerald-500/10 [.dark_&]:text-emerald-300' },
@@ -339,19 +450,31 @@ function DailyReportPage() {
             </Link>
           </section>
 
-          {/* The day's sales */}
+          {/* The period's sales (latest first) */}
           <section>
-            <SectionTitle title={`Sales on ${label.toLowerCase() === 'today' || label === 'Yesterday' ? label.toLowerCase() : label}`} right={`${r.sales.length}`} />
+            <SectionTitle
+              title={period === 'day' ? `Sales on ${label.toLowerCase() === 'today' || label === 'Yesterday' ? label.toLowerCase() : label}` : `Sales · ${label}`}
+              right={`${r.sales.length}`}
+            />
             <Rows
               rows={r.sales.slice(0, 12).map((s) => ({
                 key: s.id,
                 to: `/sales/${s.id}`,
                 left: s.customer,
-                sub: `${new Date(s.at).toLocaleTimeString('en-KE', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })} · ${METHOD_STYLE[s.method]?.label ?? s.method}${s.status !== 'PAID' ? ` · ${s.status.toLowerCase()}` : ''}`,
+                sub: `${
+                  period === 'day'
+                    ? new Date(s.at).toLocaleTimeString('en-KE', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
+                    : new Date(s.at).toLocaleDateString('en-KE', { timeZone: TZ, day: 'numeric', month: 'short' })
+                } · ${METHOD_STYLE[s.method]?.label ?? s.method}${s.status !== 'PAID' ? ` · ${s.status.toLowerCase()}` : ''}`,
                 right: formatKES(s.total),
               }))}
-              empty="No sales on this day."
+              empty={period === 'day' ? 'No sales on this day.' : `No sales this ${period}.`}
             />
+            {r.sales.length > 12 && (
+              <Link to="/sales" className="mt-1 block px-1 text-[12px] font-semibold text-brand-600">
+                See all {r.sales.length} sales
+              </Link>
+            )}
           </section>
 
           {/* Send it */}
@@ -374,7 +497,9 @@ function DailyReportPage() {
             </button>
           </div>
           <p className="text-center text-[11px] text-foreground-4">
-            A new report starts every day at midnight. Yesterday's is final the moment the day ends.
+            {period === 'day'
+              ? "A new report starts every day at midnight. Yesterday's is final the moment the day ends."
+              : `Each ${period} is final the moment it ends. Weeks run Monday to Sunday.`}
           </p>
         </>
       )}
@@ -437,14 +562,17 @@ function Tile({
   value,
   icon: Icon,
   delta,
+  versus = 'day',
   invert = false,
 }: {
   label: string;
   sub: string;
   value: string;
   icon: typeof Wallet;
-  /** % change vs the day before; for costs, up is bad (invert). */
+  /** % change vs the period before; for costs, up is bad (invert). */
   delta?: number | null;
+  /** "day", "week"… for "vs week before". */
+  versus?: string;
   invert?: boolean;
 }) {
   const good = delta != null && (invert ? delta <= 0 : delta >= 0);
@@ -464,7 +592,7 @@ function Tile({
         {delta != null && (
           <p className={cn('flex items-center gap-0.5 text-[10px] font-semibold', good ? 'text-emerald-600' : 'text-red-600')}>
             {delta >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-            {Math.abs(delta)}% vs day before
+            {Math.abs(delta)}% vs {versus} before
           </p>
         )}
       </div>
@@ -475,12 +603,16 @@ function Tile({
 function WeekChart({
   rows,
   selected,
+  period,
   today,
+  title,
   onSelect,
 }: {
   rows: Array<{ date: string; revenue: number }>;
   selected: string;
+  period: ReportPeriod;
   today: string;
+  title: string;
   onSelect: (date: string) => void;
 }) {
   const max = Math.max(...rows.map((r) => r.revenue), 1);
@@ -489,12 +621,12 @@ function WeekChart({
     <section className="rounded-[28px] bg-[#F2F2F4] p-4 [.dark_&]:bg-[#1E1E1E]">
       <div className="flex items-baseline justify-between">
         <div>
-          <p className="text-[11px] text-foreground-4">Revenue, last 7 days</p>
+          <p className="text-[11px] text-foreground-4">{title}</p>
           <p className="text-[22px] font-semibold tabular-nums tracking-tight text-foreground">{formatKES(total)}</p>
         </div>
         <Wifi className="h-5 w-5 text-foreground-5" aria-hidden />
       </div>
-      <div className="mt-8 flex h-36 items-end gap-2.5">
+      <div className={cn('mt-8 flex h-36 items-end', rows.length > 8 ? 'gap-1' : 'gap-2.5')}>
         {rows.map((r, i) => {
           const active = r.date === selected;
           const h = r.revenue > 0 ? Math.max(10, Math.round((r.revenue / max) * 112)) : 6;
@@ -516,7 +648,13 @@ function WeekChart({
                 }}
               />
               <span className={cn('text-[11px] leading-none', active ? 'font-semibold text-foreground' : 'text-foreground-4')}>
-                {r.date === today ? 'Today' : shortDay(r.date).weekday}
+                {period === 'day'
+                  ? r.date === today ? 'Today' : shortDay(r.date).weekday
+                  : period === 'week'
+                    ? fmtDay(r.date, { day: 'numeric', month: 'numeric' })
+                    : period === 'month'
+                      ? fmtDay(r.date, { month: 'narrow' })
+                      : r.date.slice(2, 4)}
               </span>
             </button>
           );

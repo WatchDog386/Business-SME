@@ -10,7 +10,7 @@ import {
 import { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
-import { DailyReportService } from './daily-report.service';
+import { DailyReportService, toReportPeriod } from './daily-report.service';
 import { DailyReportDeliveryService } from './daily-report-delivery.service';
 import { UpdateDailyReportDeliveryDto } from './dto/daily-report-delivery.dto';
 import {
@@ -64,23 +64,32 @@ export class ReportsController {
   ) {}
 
   @Get('day')
-  @ApiOperation({ summary: 'Daily report for one day (business timezone); today by default' })
+  @ApiOperation({ summary: 'Report for the day, week, month or year containing a date (business timezone); today by default' })
   @ApiQuery({ name: 'date', required: false, example: '2026-10-11' })
-  day(@CurrentBusiness() business: { id: string; timezone: string }, @Query('date') date?: string) {
-    return this.dailyReports.report(business.id, date, business.timezone);
+  @ApiQuery({ name: 'period', required: false, enum: ['day', 'week', 'month', 'year'] })
+  day(
+    @CurrentBusiness() business: { id: string; timezone: string },
+    @Query('date') date?: string,
+    @Query('period') period?: string,
+  ) {
+    return this.dailyReports.report(business.id, date, business.timezone, toReportPeriod(period));
   }
 
   @Get('day/history')
-  @ApiOperation({ summary: 'Revenue, expenses and net profit per day, up to a date' })
-  @ApiQuery({ name: 'days', required: false })
+  @ApiOperation({ summary: 'Revenue, expenses and net profit per day, week, month or year, up to a date' })
+  @ApiQuery({ name: 'days', required: false, description: 'How many periods' })
   @ApiQuery({ name: 'until', required: false })
+  @ApiQuery({ name: 'period', required: false, enum: ['day', 'week', 'month', 'year'] })
   dayHistory(
     @CurrentBusiness() business: { id: string; timezone: string },
     @Query('days') days?: string,
     @Query('until') until?: string,
+    @Query('period') period?: string,
   ) {
-    const n = Math.min(31, Math.max(1, Number(days) || 7));
-    return this.dailyReports.history(business.id, n, until, business.timezone);
+    const p = toReportPeriod(period);
+    const max = { day: 31, week: 26, month: 24, year: 10 }[p];
+    const n = Math.min(max, Math.max(1, Number(days) || 7));
+    return this.dailyReports.history(business.id, n, until, business.timezone, p);
   }
 
   @Get('day/export.pdf')
@@ -88,9 +97,10 @@ export class ReportsController {
   async dayPdf(
     @CurrentBusiness() business: BusinessCtx,
     @Query('date') date: string | undefined,
+    @Query('period') period: string | undefined,
     @Res() res: Response,
   ) {
-    sendFile(res, await this.exportService.dailyPdf(exportContext(business, {}), date));
+    sendFile(res, await this.exportService.dailyPdf(exportContext(business, {}), date, undefined, toReportPeriod(period)));
   }
 
   @Get('day/export.xlsx')
@@ -98,9 +108,10 @@ export class ReportsController {
   async dayXlsx(
     @CurrentBusiness() business: BusinessCtx,
     @Query('date') date: string | undefined,
+    @Query('period') period: string | undefined,
     @Res() res: Response,
   ) {
-    sendFile(res, await this.exportService.dailyXlsx(exportContext(business, {}), date));
+    sendFile(res, await this.exportService.dailyXlsx(exportContext(business, {}), date, undefined, toReportPeriod(period)));
   }
 
   @Get('delivery')

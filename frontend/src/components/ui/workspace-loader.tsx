@@ -95,7 +95,7 @@ export function WorkspaceLoader() {
       aria-live="polite"
       className="fixed inset-0 z-[99] flex flex-col items-center justify-center bg-white text-slate-900"
     >
-      <Brand size="md" compact />
+      <Brand size="xl" compact />
       <div className="mt-6 flex h-7 items-center justify-center">
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
@@ -175,7 +175,7 @@ export function SignInReveal() {
         (phase === 'fading' ? 'opacity-0' : 'opacity-100')
       }
     >
-      <Brand size="md" compact />
+      <Brand size="xl" compact />
       <p className="mt-6 h-7 text-[17px] font-medium text-slate-700">{STEPS[STEPS.length - 1]}</p>
     </div>,
     document.body,
