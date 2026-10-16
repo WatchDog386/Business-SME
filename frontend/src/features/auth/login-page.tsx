@@ -4,7 +4,7 @@ import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { authApi, businessesApi } from '@/api/endpoints';
 import { ApiErrorShape, apiErrorMessage } from '@/api/client';
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InvalidDetailsArt } from '@/components/brand/invalid-details-art';
 import { notifyError, notifyInfo } from '@/components/ui/popup-host';
-import { Download, Lock, Mail } from 'lucide-react';
+import { ArrowLeft, Download, Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
 import { PinBoxes } from './components/pin-boxes';
 import { HomePhoto } from '@/components/brand/home-photo';
@@ -283,7 +283,6 @@ export function LoginPage() {
         onSubmit={submitPin}
         dark={pinPanel}
         disabled={pinMutation.isPending || signingIn}
-        autoFocus={!isDesktop}
       />
       <Button
         type="button"
@@ -358,6 +357,14 @@ export function LoginPage() {
         <HomePhoto featured className="fixed inset-0 h-full w-full object-cover" />
         <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
           <img src={mainLogo} alt="Optimas Networks" width={900} height={332} className="w-80 max-w-[85%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
+          {/* Back to the home page, sitting on the photo just above the sheet */}
+          <Link
+            to="/"
+            aria-label="Back to home"
+            className="absolute bottom-4 left-4 flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white backdrop-blur-sm transition-transform active:scale-90"
+          >
+            <ArrowLeft className="h-5 w-5" aria-hidden />
+          </Link>
         </div>
         <main
           className={
@@ -372,7 +379,7 @@ export function LoginPage() {
             {welcome}
           </h1>
           <p className={dark ? 'mb-6 mt-1 text-center text-sm text-white/70' : 'mb-6 mt-1 text-center text-sm text-slate-700'}>
-            Sign in with your Optimas staff account.
+            Sign in to your Optimas account.
           </p>
           {dark ? (
             <div className="login-dark-fields mt-6 [&_input]:!h-12 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button:not([data-keep-color])]:!text-white/70 [&_.auth-link]:!text-[#7BCFD2] [&_.text-danger]:!text-red-300 [&_label]:sr-only">
@@ -398,7 +405,7 @@ export function LoginPage() {
       hideFooterLinks
       forceMobileLayout
       centerTitle
-      subtitle="Sign in with your Optimas staff account."
+      subtitle="Sign in to your Optimas account."
     >
       <>
         {signIn}
