@@ -1,6 +1,6 @@
-/** The photo behind the home and login pages: public/images/hero.png. */
-const FEATURED_PHOTO = '/images/hero.png';
-/** The sunrise photo, used for home and login until hero.png is there. */
+/** The photo behind the home and login pages: public/images/hero.jpeg. */
+const FEATURED_PHOTO = '/images/hero.jpeg';
+/** The sunrise photo, used for home and login until hero.jpeg is there. */
 const FEATURED_FALLBACK = '/images/home-sunrise.jpg';
 /** The HD photo for the other pages, once it is added to public/images. */
 const HD_PHOTO = '/images/home-hd.jpg';
@@ -10,7 +10,7 @@ const FALLBACK_PHOTO = '/images/splash-savanna.jpg';
 /**
  * Full-screen photo behind the home, login, help and client pages.
  *
- * - `featured` (home and login): hero.png, else the sunrise photo.
+ * - `featured` (home and login): hero.jpeg, else the sunrise photo.
  * - Otherwise: public/images/home-hd.jpg when it exists, else the original.
  *
  * A missing file comes back as the app page, which fails to load as an
