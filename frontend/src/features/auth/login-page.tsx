@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import mainLogo from '@/assets/optima-logo-main.png';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,7 +19,7 @@ import { ArrowLeft, Download, Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
 import { PinBoxes } from './components/pin-boxes';
 import { HomePhoto } from '@/components/brand/home-photo';
-import { clearPinDevice, forgetLastName, lastLogin, lastName, readPinDevice, rememberLastLogin, rememberLastName } from '@/lib/pin-device';
+import { clearPinDevice, lastLogin, readPinDevice, rememberLastLogin } from '@/lib/pin-device';
 import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
@@ -54,13 +55,10 @@ export function LoginPage() {
   const [pinDevice, setPinDevice] = useState(readPinDevice);
   const [usePassword, setUsePassword] = useState(false);
   const [pin, setPin] = useState('');
-  // Whoever last signed in on this device, for "Welcome back Felix"
-  const [knownName, setKnownName] = useState(() => readPinDevice()?.fullName ?? lastName());
 
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -71,7 +69,6 @@ export function LoginPage() {
   const finishSignIn = async (result: AuthResult) => {
     setSigningIn(true);
     setAuth(result.accessToken, result.user);
-    rememberLastName(result.user.fullName);
     // Invalidate first so dashboard bootstrap has fresh data, then go to loading/success
     await queryClient.invalidateQueries();
     try {
@@ -146,15 +143,6 @@ export function LoginPage() {
     if (pinDevice) void authApi.pinForget(pinDevice.deviceId, pinDevice.deviceToken).catch(() => undefined);
     clearPinDevice();
     setPinDevice(null);
-    forgetLastName();
-    setKnownName(null);
-  };
-
-  /** Someone else is signing in on this device: forget the remembered name. */
-  const notMe = () => {
-    forgetLastName();
-    setKnownName(null);
-    setValue('identifier', '');
   };
 
   // Phone sign-in shows the photo right up behind the status bar (same as the home page)
@@ -341,8 +329,7 @@ export function LoginPage() {
   );
 
   /** "Welcome back Felix" on a device that knows the person, as on a banking app. */
-  const firstName = (pinDevice?.fullName ?? knownName ?? '').trim().split(/\s+/)[0];
-  const welcome = firstName ? `Welcome back ${firstName}` : 'Welcome back!';
+  const welcome = pinDevice ? `Welcome back ${pinDevice.fullName.split(' ')[0]}` : 'Welcome back!';
 
   const installAppButton = canInstall ? (
     <button
@@ -364,41 +351,46 @@ export function LoginPage() {
   // follows the chosen theme and its fields match the Statement / Deposit pills
   // on the subscriber dashboard.
   if (!isDesktop) {
-    // Full screen like the loading page, only with the photo: no logo and no
-    // separate sheet. A dark fade at the bottom keeps the form readable.
+    const dark = theme === 'dark';
     return (
-      <div className="relative flex min-h-[100dvh] flex-col">
+      <div className="relative flex min-h-[100dvh] flex-col bg-white">
+        {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
         <HomePhoto featured className="fixed inset-0 h-full w-full object-cover" />
-        <div className="pointer-events-none fixed inset-0 bg-gradient-to-b from-transparent from-30% via-black/45 via-60% to-black/90" aria-hidden />
-        <div className="relative min-h-[30vh] w-full flex-1 pt-[var(--sat)]">
-          {/* Back to the home page (while the home page is shown) */}
-          {SHOW_MOBILE_HOME && (
-            <Link
-              to="/"
-              aria-label="Back to home"
-              className="absolute bottom-4 left-4 flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white backdrop-blur-sm transition-transform active:scale-90"
-            >
-              <ArrowLeft className="h-5 w-5" aria-hidden />
-            </Link>
-          )}
+        <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
+          <img src={mainLogo} alt="Optimas Networks" width={900} height={332} className="w-80 max-w-[85%] drop-shadow-[0_2px_10px_rgba(255,255,255,0.35)]" />
+          {/* Back to the home page, sitting on the photo just above the sheet (while home is shown) */}
+          {SHOW_MOBILE_HOME && <Link
+            to="/"
+            aria-label="Back to home"
+            className="absolute bottom-4 left-4 flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white backdrop-blur-sm transition-transform active:scale-90"
+          >
+            <ArrowLeft className="h-5 w-5" aria-hidden />
+          </Link>}
         </div>
-        <main className="relative flex shrink-0 flex-col px-5 pb-[max(1.5rem,var(--sab))] pt-2 text-white">
-          <h1 className="text-center text-[24px] font-semibold tracking-tight text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.45)]">{welcome}</h1>
-          <p className="mb-6 mt-1 text-center text-sm text-white/80">
-            {knownName && !pinDevice ? (
-              <>
-                Sign in to continue.{' '}
-                <button type="button" data-keep-color onClick={notMe} className="font-semibold !text-[#9BD84F] underline-offset-2 hover:underline">
-                  Not {firstName}?
-                </button>
-              </>
-            ) : (
-              'Sign in to your Optimas account.'
-            )}
+        <main
+          className={
+            'relative flex shrink-0 flex-col rounded-t-3xl px-5 pb-[max(1.5rem,var(--sab))] pt-3 ' +
+            (dark
+              ? 'border-t border-white/15 bg-gradient-to-b from-black/70 via-black/45 to-black/75 text-white shadow-[0_-10px_24px_rgba(0,0,0,0.45)]'
+              : 'bg-white/55 text-slate-900 shadow-[0_-8px_24px_rgba(0,0,0,0.12)]')
+          }
+        >
+          <div className={dark ? 'mx-auto h-1 w-12 rounded-full bg-white/40' : 'mx-auto h-1 w-12 rounded-full bg-slate-400'} aria-hidden />
+          <h1 className={dark ? 'mt-5 text-center text-[22px] font-semibold tracking-tight text-white' : 'mt-5 text-center text-[22px] font-semibold tracking-tight text-slate-900'}>
+            {welcome}
+          </h1>
+          <p className={dark ? 'mb-6 mt-1 text-center text-sm text-white/70' : 'mb-6 mt-1 text-center text-sm text-slate-700'}>
+            Sign in to your Optimas account.
           </p>
-          <div className="login-dark-fields [&_input]:!h-12 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-black/55 [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_input]:backdrop-blur-sm [&_button:not([data-keep-color])]:!text-white/80 [&_.auth-link]:!text-[#9BD84F] [&_.text-danger]:!text-red-300 [&_label]:sr-only">
-            {signIn}
-          </div>
+          {dark ? (
+            <div className="login-dark-fields mt-6 [&_input]:!h-12 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button:not([data-keep-color])]:!text-white/70 [&_.auth-link]:!text-[#7BCFD2] [&_.text-danger]:!text-red-300 [&_label]:sr-only">
+              {signIn}
+            </div>
+          ) : (
+            <div className="login-dark-fields mt-6 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button:not([data-keep-color])]:!text-white/70 [&_.auth-link]:!text-[#2F7F81] [&_.text-danger]:!text-red-700 [&_label]:sr-only">
+              {signIn}
+            </div>
+          )}
           {installAppButton}
         </main>
       </div>

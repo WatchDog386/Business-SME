@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: https:; script-src * 'self' 'unsafe-inline' 'unsafe-eval' http: https:; style-src * 'self' 'unsafe-inline' http: https:; connect-src * 'self' http: https: ws: wss:;">
-    <meta name="theme-color" content="#FFFFFF" />
+    <meta name="theme-color" content="#0033A1" />
     <meta name="description" content="Optimas Technologies Ltd business system — stock, sales, invoices and daily transaction reports." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -16,8 +16,39 @@
     <link rel="manifest" href="/manifest.json" />
     <title>Optimas Technologies</title>
     <style>
-      /* No launch splash: until the app renders, the page is plain white. */
-      html.booting, html.booting body { background: #ffffff; }
+      /* Boot splash: shown until the app renders. Matches the manifest launch screen. */
+      html.booting, html.booting body { background: #0033A1; }
+      #splash-screen {
+        position: fixed;
+        inset: 0;
+        background: #0033A1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 24px;
+        z-index: 9999;
+        transition: opacity 0.35s ease, visibility 0.35s ease;
+      }
+      #splash-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #splash-screen img {
+        width: 176px;
+        max-width: 100%;
+        height: auto;
+        animation: splash-in 0.5s ease-out both;
+      }
+      /* Desktop has no launch screen: the landing page shows straight away. */
+      @media (min-width: 1024px) {
+        #splash-screen { display: none; }
+        html.booting, html.booting body { background: #ffffff; }
+      }
+      @keyframes splash-in {
+        from { opacity: 0; transform: scale(0.96); }
+        to { opacity: 1; transform: none; }
+      }
     </style>
   </head>
   <body>
@@ -29,27 +60,42 @@
         window.__installPromptEvent = e;
       });
     </script>
+    <div id="splash-screen" aria-hidden="true">
+      <img src="/icons/splash-logo.png" alt="" width="1200" height="288" />
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Once the app has rendered, let it paint its own backgrounds and status bar
       (function () {
-        function ready() {
-          document.documentElement.classList.remove('booting');
-          window.dispatchEvent(new Event('splash-hidden'));
+        var shownAt = Date.now();
+        // Phones keep the splash up briefly like a native launch screen (desktop hides it via CSS).
+        var minVisible = window.matchMedia('(min-width: 1024px)').matches ? 0 : 1200;
+        var done = false;
+        function hide() {
+          if (done) return;
+          done = true;
+          var wait = Math.max(0, minVisible - (Date.now() - shownAt));
+          setTimeout(function () {
+            var splash = document.getElementById('splash-screen');
+            if (splash) splash.classList.add('hidden');
+            window.dispatchEvent(new Event('splash-hidden'));
+            // The app paints its own backgrounds; drop the blue page fill.
+            document.documentElement.classList.remove('booting');
+            // The status-bar colour is set by the app per page (see lib/theme.ts)
+          }, wait);
         }
         document.addEventListener('DOMContentLoaded', function () {
           var root = document.getElementById('root');
           var observer = new MutationObserver(function () {
             if (root.hasChildNodes()) {
               observer.disconnect();
-              ready();
+              hide();
             }
           });
           observer.observe(root, { childList: true });
           setTimeout(function () {
             observer.disconnect();
-            ready();
+            hide();
           }, 4000);
         });
       })();
