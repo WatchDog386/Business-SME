@@ -52,6 +52,14 @@
     </style>
   </head>
   <body>
+    <script>
+      // The browser may say "this app can be installed" before the app's code
+      // has loaded; keep that event so the install prompt can use it later.
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__installPromptEvent = e;
+      });
+    </script>
     <div id="splash-screen" aria-hidden="true">
       <img src="/icons/splash-logo.png" alt="" width="1200" height="288" />
     </div>

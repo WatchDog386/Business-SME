@@ -7,6 +7,7 @@ import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { OfflineBanner } from '@/components/layout/offline-banner';
 import { SessionTimeout } from '@/components/layout/session-timeout';
 import { PopupHost } from '@/components/ui/popup-host';
+import { InstallAppPrompt } from '@/components/layout/install-app-prompt';
 
 const LoginPage = lazy(() => import('@/features/auth/login-page').then((m) => ({ default: m.LoginPage })));
 const ForgotPasswordPage = lazy(() => import('@/features/auth/forgot-password-page').then((m) => ({ default: m.ForgotPasswordPage })));
@@ -75,6 +76,7 @@ export default function App() {
       <OfflineBanner />
       <SessionTimeout />
       <PopupHost />
+      <InstallAppPrompt />
       <Suspense fallback={<RouteLoading />}>
         <Routes>
           <Route path="/splash" element={<Navigate to="/" replace />} />

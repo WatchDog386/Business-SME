@@ -5,8 +5,12 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-// The browser fires this once per page load, possibly before React mounts
-let deferred: BeforeInstallPromptEvent | null = null;
+// The browser fires this once per page load, possibly before this code loads:
+// index.html keeps an early one on window.__installPromptEvent
+let deferred: BeforeInstallPromptEvent | null =
+  typeof window !== 'undefined'
+    ? ((window as Window & { __installPromptEvent?: BeforeInstallPromptEvent }).__installPromptEvent ?? null)
+    : null;
 const listeners = new Set<() => void>();
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e) => {

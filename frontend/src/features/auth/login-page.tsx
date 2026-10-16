@@ -17,6 +17,7 @@ import { notifyError, notifyInfo } from '@/components/ui/popup-host';
 import { Download, Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
 import { PinBoxes } from './components/pin-boxes';
+import { HomePhoto } from '@/components/brand/home-photo';
 import { clearPinDevice, lastLogin, readPinDevice, rememberLastLogin } from '@/lib/pin-device';
 import { AuthLayout } from './components/auth-layout';
 import { TwoFactorVerify } from './components/two-factor';
@@ -354,7 +355,7 @@ export function LoginPage() {
     return (
       <div className="relative flex min-h-[100dvh] flex-col bg-white">
         {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
-        <img src="/images/splash-savanna.jpg" alt="" aria-hidden className="fixed inset-0 h-full w-full object-cover" />
+        <HomePhoto className="fixed inset-0 h-full w-full object-cover" />
         <div className="relative flex min-h-[200px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">
           <Brand size="lg" />
         </div>

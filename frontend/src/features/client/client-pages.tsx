@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { HomePhoto } from '@/components/brand/home-photo';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, MessageCircle, Phone, Search, Wallet } from 'lucide-react';
@@ -36,12 +37,7 @@ export function ClientShell({ title, children }: { title: string; children: Reac
   const navigate = useNavigate();
   return (
     <div className="relative isolate -mx-4 -mt-2 min-h-[100dvh] pb-8">
-      <img
-        src="/images/splash-savanna.jpg"
-        alt=""
-        aria-hidden
-        className="fixed inset-0 -z-20 h-full w-full object-cover"
-      />
+      <HomePhoto className="fixed inset-0 -z-20 h-full w-full object-cover" />
       <div
         aria-hidden
         className="fixed inset-0 -z-10 bg-gradient-to-b from-black/70 via-black/45 to-black/75"

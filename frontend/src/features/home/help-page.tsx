@@ -1,4 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom';
+import { HomePhoto } from '@/components/brand/home-photo';
 import { ArrowUpRight, KeyRound, PhoneCall, ShieldCheck } from 'lucide-react';
 import { AppBar } from '@/components/layout/app-bar';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
@@ -15,12 +16,7 @@ export function HelpPage() {
 
   return (
     <div className="dark fixed inset-0 isolate overflow-y-auto bg-[#121212] text-white">
-      <img
-        src="/images/splash-savanna.jpg"
-        alt=""
-        aria-hidden
-        className="fixed inset-0 z-0 h-full w-full object-cover"
-      />
+      <HomePhoto className="fixed inset-0 z-0 h-full w-full object-cover" />
       <div
         aria-hidden
         className="fixed inset-0 z-0 bg-gradient-to-b from-black/70 via-black/45 to-black/75"

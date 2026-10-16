@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { HomePhoto } from '@/components/brand/home-photo';
 
 /**
  * The savanna photo behind the subscriber pages. It is mounted on the body rather
@@ -9,12 +10,7 @@ import { createPortal } from 'react-dom';
 export function ClientBackdrop() {
   return createPortal(
     <>
-      <img
-        src="/images/splash-savanna.jpg"
-        alt=""
-        aria-hidden
-        className="fixed inset-0 z-[-1] h-full w-full object-cover"
-      />
+      <HomePhoto className="fixed inset-0 z-[-1] h-full w-full object-cover" />
       <div
         aria-hidden
         className="fixed inset-0 z-[-1] bg-gradient-to-b from-black/70 via-black/45 to-black/75"

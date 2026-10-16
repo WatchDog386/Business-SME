@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { HomePhoto } from '@/components/brand/home-photo';
 import { useId } from 'react';
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import { Brand } from '@/components/layout/brand';
@@ -31,12 +32,7 @@ export function MobileHomePage() {
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-white">
       {/* Photo covers the whole screen, from under the status bar down behind the sheet */}
-      <img
-        src="/images/splash-savanna.jpg"
-        alt=""
-        aria-hidden
-        className="absolute inset-0 h-full w-full object-cover"
-      />
+      <HomePhoto className="absolute inset-0 h-full w-full object-cover" />
 
       {/* White logo and wordmark stay readable over the photo. */}
       <div className="relative flex min-h-[170px] w-full flex-1 items-center justify-center pb-10 pt-[var(--sat)]">

@@ -79,8 +79,8 @@ export function WorkspaceLoader() {
     };
   }, []);
 
-  // Match the dashboard surface while the loader is on screen.
-  useEffect(() => overrideStatusBarColor('#121212'), []);
+  // A white screen while signing in, with the status bar to match
+  useEffect(() => overrideStatusBarColor('#FFFFFF'), []);
 
   const step = Math.min(STEPS.length - 1, Math.floor(now / STEP_MS));
 
@@ -88,14 +88,14 @@ export function WorkspaceLoader() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-[99] flex flex-col items-center justify-center bg-[#121212] text-white"
+      className="fixed inset-0 z-[99] flex flex-col items-center justify-center bg-white text-slate-900"
     >
-      <Brand size="md" compact onDark />
+      <Brand size="md" compact />
       <div className="mt-6 flex h-7 items-center justify-center">
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
             key={step}
-            className="text-[17px] font-medium text-white"
+            className="text-[17px] font-medium text-slate-700"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
