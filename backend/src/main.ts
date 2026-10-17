@@ -26,7 +26,15 @@ async function bootstrap() {
   app.set('trust proxy', 1);
   app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'same-site' } }));
 
-  app.use(json({ limit: '10mb' }));
+  // Keep the raw bytes too: webhook signatures (e.g. Mobile Sasa) are computed over the exact body
+  app.use(
+    json({
+      limit: '10mb',
+      verify: (req, _res, buf) => {
+        (req as { rawBody?: Buffer }).rawBody = buf;
+      },
+    }),
+  );
   app.use(urlencoded({ limit: '10mb', extended: true }));
 
   app.setGlobalPrefix('api/v1');
