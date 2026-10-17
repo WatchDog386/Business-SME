@@ -1,11 +1,12 @@
 import { SkipThrottle } from '@nestjs/throttler';
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessGuard } from '../../common/guards/business.guard';
 import { CurrentBusiness } from '../../common/decorators/current-user.decorator';
 import { PaymentsService } from './payments.service';
+import { MpesaWebhookService } from './mpesa-webhook.service';
 
 class StkPushDto {
   @ApiProperty({ example: '0712345678' })
@@ -70,5 +71,29 @@ export class MpesaCallbackController {
   @ApiOperation({ summary: 'Daraja STK callback' })
   callback(@Body() body: unknown) {
     return this.payments.handleCallback(body);
+  }
+}
+
+/**
+ * Payments forwarded by the partner who holds the Daraja keys (public, secret-protected).
+ * The fields are documented in deploy/MPESA_WEBHOOK.md.
+ */
+@ApiTags('payments')
+@Controller('payments/mpesa')
+export class MpesaWebhookController {
+  constructor(private readonly webhook: MpesaWebhookService) {}
+
+  @Post('webhook')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Record an M-Pesa payment posted by the paybill partner' })
+  async receive(
+    @Body() body: unknown,
+    @Headers('x-webhook-secret') secretHeader?: string,
+    @Headers('authorization') authorization?: string,
+    @Query('token') token?: string,
+  ) {
+    const bearer = authorization?.replace(/^Bearer\s+/i, '');
+    this.webhook.authorise(secretHeader || bearer || token);
+    return this.webhook.receive(body);
   }
 }
