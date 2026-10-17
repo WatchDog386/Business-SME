@@ -200,7 +200,7 @@ function PaidCard({ payment, total, onRedo }: { payment: CapturedPayment; total:
 }
 
 /** Sends the STK push and waits for the client's PIN, checking every few seconds. */
-function PromptToPay({
+export function PromptToPay({
   total,
   phone,
   onPhoneChange,

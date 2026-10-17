@@ -263,6 +263,8 @@ export interface Sale {
   updated_at: string;
   customer_name?: string | null;
   item_count?: number;
+  /** Collected so far (sales list only). */
+  amount_paid?: number;
   /** Invoice number (INV-000123). */
   number?: number | null;
 }

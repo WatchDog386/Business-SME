@@ -21,6 +21,7 @@ import { invoiceNo } from '@/features/isp/document-actions';
 import { useState } from 'react';
 import { SubscriberForm } from '@/features/isp/subscriber-form';
 import { ClientAppAccess } from './client-app-access';
+import { UnpaidInvoices } from './unpaid-invoices';
 import { ContactButtons, LogCallSheet, SendSmsSheet } from '@/features/isp/contact';
 import { CallHistory, SubscriptionCard } from '@/features/isp/subscription';
 
@@ -91,6 +92,9 @@ export function CustomerDetailPage() {
           <Stat label="Last visit" value={customer.last_visit_at ? formatDate(customer.last_visit_at) : '—'} />
         </div>
       </div>
+
+      {/* Unpaid invoices, each with a prompt to pay */}
+      <UnpaidInvoices customer={customer} />
 
       {/* Actions in the Sales page's outline pill style */}
       <div className="grid grid-cols-2 gap-2.5">

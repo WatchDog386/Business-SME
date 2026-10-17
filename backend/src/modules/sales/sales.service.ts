@@ -584,6 +584,10 @@ export class SalesService {
         '(SELECT COUNT(*) FROM sale_items si WHERE si."saleId" = sale.id)',
         'item_count',
       )
+      .addSelect(
+        `(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p."saleId" = sale.id AND p.status = 'SUCCESS')`,
+        'amount_paid',
+      )
       .where('sale.businessId = :businessId', { businessId });
 
     const boundary = (value: string) => {
@@ -634,6 +638,10 @@ export class SalesService {
           (result.raw[idx] as { category_name?: string }).category_name ?? null,
         item_count: Number(
           (result.raw[idx] as { item_count?: string }).item_count ?? 0,
+        ),
+        /** Collected so far, so invoices can show what is still due. */
+        amount_paid: Number(
+          (result.raw[idx] as { amount_paid?: string }).amount_paid ?? 0,
         ),
       }),
     );

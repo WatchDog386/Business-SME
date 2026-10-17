@@ -14,6 +14,7 @@ import { Alerts } from './components/alerts';
 import { RecentTransactions } from './components/recent-transactions';
 import { IspOverview } from './components/isp-overview';
 import { AdvertBanner } from '@/components/brand/advert-banner';
+import { UnpaidInvoicesSection } from './components/unpaid-invoices-section';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { DesktopDashboard } from './desktop-dashboard';
 import { useRole } from '@/hooks/use-role';
@@ -108,6 +109,10 @@ function AdminDashboard() {
       {/* Paybill advert, below Calls due today */}
       <motion.div {...rise(3)}>
         <AdvertBanner />
+      </motion.div>
+      {/* Subscribers who owe: tap one to prompt them to pay */}
+      <motion.div {...rise(3)}>
+        <UnpaidInvoicesSection />
       </motion.div>
       <motion.div {...rise(3)}>
         <Alerts data={data} />
