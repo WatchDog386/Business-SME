@@ -38,8 +38,23 @@ export class SmsService {
     return (this.config.get<string>(name) ?? process.env[name] ?? '').trim();
   }
 
+  /**
+   * Which gateway: Mobile Sasa (SMS_PROVIDER=mobilesasa, or a mobilesasa.com
+   * URL) or the default BulkSMS-style gateway (Mobitech and similar).
+   */
+  private get provider(): 'mobilesasa' | 'bulksms' {
+    const named = this.env('SMS_PROVIDER').toLowerCase();
+    if (named === 'mobilesasa') return 'mobilesasa';
+    if (named) return 'bulksms';
+    return /mobilesasa\.com/i.test(this.env('BULKSMS_API_URL')) ? 'mobilesasa' : 'bulksms';
+  }
+
   private get url(): string {
-    return this.env('BULKSMS_API_URL');
+    const url = this.env('BULKSMS_API_URL');
+    if (this.provider === 'mobilesasa' && (!url || !/\/send\//.test(url))) {
+      return 'https://api.mobilesasa.com/v1/send/message';
+    }
+    return url;
   }
 
   private get apiKey(): string {
@@ -47,7 +62,8 @@ export class SmsService {
   }
 
   private get senderId(): string {
-    return this.env('BULKSMS_SENDER_ID');
+    // Mobile Sasa has a shared sender for accounts without their own
+    return this.env('BULKSMS_SENDER_ID') || (this.provider === 'mobilesasa' ? 'MOBILESASA' : '');
   }
 
   /** Header the provider expects the key in; `h_api_key` on the BulkSMS gateway. */
@@ -118,6 +134,7 @@ export class SmsService {
     }
 
     const body = message.trim().slice(0, MAX_MESSAGE_LENGTH);
+    if (this.provider === 'mobilesasa') return this.sendMobileSasa(mobile, body);
 
     // The gateway answers with an array of per-recipient results.
     const res = await fetch(this.url, {
@@ -168,6 +185,53 @@ export class SmsService {
       statusCode,
       statusDesc: String(first?.status_desc ?? (ok ? 'Success' : 'Unknown')),
       messageId: first?.message_id ? String(first.message_id) : null,
+      to: mobile,
+    };
+  }
+
+  /**
+   * Mobile Sasa: POST /v1/send/message with a Bearer API token (Settings →
+   * API Tokens, scope "Send messages") and { senderID, phone, message }.
+   * Success is { status: true, responseCode: "0200", messageId }.
+   */
+  private async sendMobileSasa(mobile: string, body: string): Promise<SmsResult> {
+    const res = await fetch(this.url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ senderID: this.senderId, phone: mobile, message: body }),
+    }).catch((err) => {
+      this.logger.error(`SMS request to ${this.url} failed`, err as Error);
+      return null;
+    });
+    if (!res) {
+      throw new ServiceUnavailableException({
+        code: 'SMS_UNREACHABLE',
+        message: 'Could not reach the SMS provider. Check the network and try again.',
+      });
+    }
+    const parsed = (await res.json().catch(() => null)) as
+      | { status?: boolean; responseCode?: string | number; message?: string; messageId?: string | number }
+      | null;
+    const statusCode = String(parsed?.responseCode ?? res.status);
+    const ok = res.ok && (parsed?.status === true || statusCode === '0200');
+    if (!ok) {
+      this.logger.warn(`Mobile Sasa did not accept the SMS to ${mobile}: HTTP ${res.status} ${JSON.stringify(parsed)}`);
+      if (res.status === 401 || res.status === 403) {
+        throw new ServiceUnavailableException({
+          code: 'SMS_PROVIDER_ERROR',
+          message: `Mobile Sasa rejected the API token (HTTP ${res.status}). Check BULKSMS_API_KEY.`,
+        });
+      }
+    }
+    return {
+      ok,
+      statusCode,
+      statusDesc: String(parsed?.message ?? (ok ? 'Accepted' : `HTTP ${res.status}`)),
+      messageId: parsed?.messageId != null ? String(parsed.messageId) : null,
       to: mobile,
     };
   }
