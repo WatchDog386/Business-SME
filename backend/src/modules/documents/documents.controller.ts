@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { IsEmail, IsIn } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsEmail, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessGuard } from '../../common/guards/business.guard';
 import { CurrentBusiness } from '../../common/decorators/current-user.decorator';
@@ -13,6 +13,24 @@ class EmailDocumentDto {
 
   @IsEmail({}, { message: 'Enter a valid email address.' })
   to: string;
+}
+
+class EmailReminderDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @IsUUID('4', { each: true })
+  saleIds: string[];
+
+  @IsString()
+  @MinLength(1, { message: 'Write a message first.' })
+  @MaxLength(2000)
+  message: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  subject?: string;
 }
 
 class ShareDocumentDto {
@@ -73,6 +91,26 @@ export class DocumentsController {
     @Body() dto: EmailDocumentDto,
   ) {
     return this.documents.email(business.id, saleId, dto.kind, dto.to);
+  }
+}
+
+/** Payment reminders by email, with the client's unpaid invoices attached. */
+@ApiTags('documents')
+@Controller('customers/:customerId')
+@UseGuards(JwtAuthGuard, BusinessGuard)
+@ApiBearerAuth()
+export class CustomerEmailController {
+  constructor(private readonly documents: DocumentsService) {}
+
+  @Post('email-reminder')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Email the client a payment reminder with their invoice PDFs attached' })
+  emailReminder(
+    @CurrentBusiness() business: { id: string },
+    @Param('customerId', ParseUUIDPipe) customerId: string,
+    @Body() dto: EmailReminderDto,
+  ) {
+    return this.documents.emailReminder(business.id, customerId, dto.saleIds, dto.message, dto.subject);
   }
 }
 

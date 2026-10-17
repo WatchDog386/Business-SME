@@ -480,7 +480,19 @@ export const callsApi = {
 };
 
 export const smsApi = {
-  status: () => api<{ configured: boolean; missing: string[] }>({ method: 'GET', url: '/sms/status' }),
+  /** SMS, WhatsApp (Cloud API) and email (SMTP) sending readiness. */
+  status: () =>
+    api<{ configured: boolean; missing: string[]; whatsapp?: boolean; email?: boolean }>({ method: 'GET', url: '/sms/status' }),
+  /** WhatsApp via the Cloud API; `params` fill the approved template ({{1}} name, {{2}} amount, {{3}} account). */
+  whatsapp: (customerId: string, message: string, params?: string[]) =>
+    api<{ sent: boolean; messageId: string | null; statusDesc: string; to: string }>({
+      method: 'POST',
+      url: `/customers/${customerId}/whatsapp`,
+      data: { message, params },
+    }),
+  /** Payment reminder by email with the invoice PDFs attached. */
+  emailReminder: (customerId: string, data: { saleIds: string[]; message: string; subject?: string }) =>
+    api<{ success: boolean; to: string }>({ method: 'POST', url: `/customers/${customerId}/email-reminder`, data }),
   send: (customerId: string, message: string) =>
     api<{ sent: boolean; statusCode: string; statusDesc: string; messageId: string | null; to: string | null }>({
       method: 'POST',

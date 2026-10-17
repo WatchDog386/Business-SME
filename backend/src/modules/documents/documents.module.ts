@@ -4,12 +4,12 @@ import { Business } from '../businesses/entities/business.entity';
 import { SalesModule } from '../sales/sales.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { DocumentsService } from './documents.service';
-import { DocumentsController, PublicDocumentsController } from './documents.controller';
+import { CustomerEmailController, DocumentsController, PublicDocumentsController } from './documents.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Business]), SalesModule, SubscriptionsModule],
   providers: [DocumentsService],
-  controllers: [DocumentsController, PublicDocumentsController],
+  controllers: [DocumentsController, CustomerEmailController, PublicDocumentsController],
   exports: [DocumentsService],
 })
 export class DocumentsModule {}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BellRing, MessageSquare, Smartphone } from 'lucide-react';
+import { BellRing, Mail, MessageSquare, Smartphone } from 'lucide-react';
 import { paymentsApi, salesApi, smsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
 import type { Customer, Sale } from '@/api/types';
@@ -157,12 +157,40 @@ function PromptBody({ customer, invoices, onClose }: { customer: Customer; invoi
   const smsFailed = sms.data && !sms.data.sent ? `The SMS was not delivered: ${sms.data.statusDesc}` : null;
   const waNumber = (customer.phone ?? '').replace(/\D/g, '').replace(/^0/, '254');
 
+  // Which channels the server can send on by itself
+  const channels = useQuery({ queryKey: ['notify-status'], queryFn: smsApi.status, staleTime: 5 * 60_000 });
+  const waApi = channels.data?.whatsapp ?? false;
+  const emailReady = channels.data?.email ?? false;
+
+  // WhatsApp from the server (approved template: name, amount due, account)
+  const whatsapp = useMutation({
+    mutationFn: () => smsApi.whatsapp(customer.id, message.trim(), [customer.name.split(' ')[0], formatKES(due), account || '-']),
+    onSuccess: () => {
+      notifySuccess('Reminder sent', `WhatsApp sent to ${customer.phone}.`);
+      onClose();
+    },
+  });
+
+  const email = useMutation({
+    mutationFn: () =>
+      smsApi.emailReminder(customer.id, {
+        saleIds: invoices.map((i) => i.id),
+        message: message.trim(),
+        subject: `Payment reminder: ${formatKES(due)} due`,
+      }),
+    onSuccess: (res) => {
+      notifySuccess('Reminder sent', `Email sent to ${res.to}.`);
+      onClose();
+    },
+  });
+  const sendError = sms.error ?? whatsapp.error ?? email.error;
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="How to prompt">
         {([
           { id: 'prompt', title: 'M-Pesa prompt', hint: stkReady ? 'PIN pop-up on their phone' : 'Not set up yet', icon: Smartphone },
-          { id: 'reminder', title: 'Send reminder', hint: 'SMS or WhatsApp', icon: MessageSquare },
+          { id: 'reminder', title: 'Send reminder', hint: 'SMS, WhatsApp or email', icon: MessageSquare },
         ] as const).map((o) => (
           <button
             key={o.id}
@@ -208,30 +236,60 @@ function PromptBody({ customer, invoices, onClose }: { customer: Customer; invoi
       ) : (
         <div className="space-y-3">
           <Textarea rows={5} value={message} onChange={(e) => setMessage(e.target.value)} aria-label="Reminder message" />
-          {(sms.error || smsFailed) && <Alert variant="error" inline>{sms.error ? apiErrorMessage(sms.error) : smsFailed}</Alert>}
-          <div className="grid grid-cols-2 gap-2.5">
+          {(sendError || smsFailed) && <Alert variant="error" inline>{sendError ? apiErrorMessage(sendError) : smsFailed}</Alert>}
+          <div className="grid grid-cols-3 gap-2">
             <Button
               type="button"
-              className="h-11 rounded-full bg-brand-600 text-white"
+              className="h-11 rounded-full bg-brand-600 px-2 text-white"
               loading={sms.isPending}
               disabled={!customer.phone || !message.trim()}
               onClick={() => sms.mutate()}
             >
-              <MessageSquare className="h-4 w-4" aria-hidden /> Send SMS
+              <MessageSquare className="h-4 w-4" aria-hidden /> SMS
             </Button>
-            <a
-              href={waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(message.trim())}` : undefined}
-              target="_blank"
-              rel="noreferrer"
-              aria-disabled={!waNumber}
-              className={cn(
-                'flex h-11 items-center justify-center gap-2 rounded-full bg-[#25D366] text-[14px] font-semibold text-white',
-                !waNumber && 'pointer-events-none opacity-50',
-              )}
+            {waApi ? (
+              <Button
+                type="button"
+                className="h-11 rounded-full bg-[#25D366] px-2 text-white hover:bg-[#1ebe5b]"
+                loading={whatsapp.isPending}
+                disabled={!customer.phone || !message.trim()}
+                onClick={() => whatsapp.mutate()}
+              >
+                <WhatsAppIcon className="h-4 w-4" /> WhatsApp
+              </Button>
+            ) : (
+              <a
+                href={waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(message.trim())}` : undefined}
+                target="_blank"
+                rel="noreferrer"
+                aria-disabled={!waNumber}
+                className={cn(
+                  'flex h-11 items-center justify-center gap-1.5 rounded-full bg-[#25D366] text-[14px] font-semibold text-white',
+                  !waNumber && 'pointer-events-none opacity-50',
+                )}
+              >
+                <WhatsAppIcon className="h-4 w-4" /> WhatsApp
+              </a>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 rounded-full px-2"
+              loading={email.isPending}
+              disabled={!customer.email || !emailReady || !message.trim()}
+              onClick={() => email.mutate()}
             >
-              <WhatsAppIcon className="h-4 w-4" /> WhatsApp
-            </a>
+              <Mail className="h-4 w-4" aria-hidden /> Email
+            </Button>
           </div>
+          <p className="text-[11px] leading-relaxed text-foreground-4">
+            {waApi ? 'WhatsApp is sent from the business number.' : 'WhatsApp opens on this device with the message ready.'}{' '}
+            {!customer.email
+              ? 'Add an email address to this subscriber to send by email.'
+              : emailReady
+                ? `Email goes to ${customer.email} with the invoice${invoices.length === 1 ? '' : 's'} attached.`
+                : 'Email is not set up on the server yet.'}
+          </p>
           {!customer.phone && <p className="text-[12px] text-foreground-4">Add a phone number to this subscriber to send reminders.</p>}
         </div>
       )}

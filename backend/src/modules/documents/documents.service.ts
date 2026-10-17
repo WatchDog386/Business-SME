@@ -154,7 +154,8 @@ export class DocumentsService {
     };
   }
 
-  async email(businessId: string, saleId: string, kind: DocKind, to: string) {
+  /** Mail transport from SMTP_* settings; refuses clearly when email isn't set up. */
+  private mailer() {
     const host = this.config.get<string>('SMTP_HOST');
     if (!host) {
       throw new ServiceUnavailableException({
@@ -162,7 +163,7 @@ export class DocumentsService {
         message: 'Email isn’t set up on the server yet. Share by WhatsApp or download the PDF instead.',
       });
     }
-    const transport = nodemailer.createTransport({
+    return nodemailer.createTransport({
       host,
       port: Number(this.config.get<string>('SMTP_PORT') ?? 587),
       secure: this.config.get<string>('SMTP_SECURE') === 'true',
@@ -170,17 +171,56 @@ export class DocumentsService {
         ? { user: this.config.get<string>('SMTP_USER'), pass: this.config.get<string>('SMTP_PASS') }
         : undefined,
     });
+  }
+
+  private from(businessName?: string | null): string {
+    return this.config.get<string>('SMTP_FROM') ?? `${businessName ?? 'Optimas'} <no-reply@optimas.co.ke>`;
+  }
+
+  /** Whether outgoing email (SMTP) is configured. */
+  emailConfigured(): boolean {
+    return Boolean(this.config.get<string>('SMTP_HOST'));
+  }
+
+  async email(businessId: string, saleId: string, kind: DocKind, to: string) {
+    const transport = this.mailer();
     const [{ buffer, filename }, info] = await Promise.all([
       this.render(businessId, saleId, kind, 'a4'),
       this.summary(businessId, saleId, kind),
     ]);
     const business = await this.businessRepo.findOne({ where: { id: businessId } });
     await transport.sendMail({
-      from: this.config.get<string>('SMTP_FROM') ?? `${business?.name ?? 'Optimas'} <no-reply@optimas.co.ke>`,
+      from: this.from(business?.name),
       to,
       subject: `${kind === 'invoice' ? 'Invoice' : 'Receipt'} ${info.reference} from ${business?.name ?? 'Optimas'}`,
       text: `${info.text}\n\nThe ${kind} is attached as a PDF.\n\n${business?.name ?? ''}`,
       attachments: [{ filename, content: buffer, contentType: 'application/pdf' }],
+    });
+    return { success: true, to };
+  }
+
+  /**
+   * Payment reminder by email: the staff member's message, with each unpaid
+   * invoice attached as a PDF. Every invoice must belong to this client.
+   */
+  async emailReminder(businessId: string, customerId: string, saleIds: string[], message: string, subject?: string) {
+    const transport = this.mailer();
+    const sales = await Promise.all(saleIds.map((id) => this.sales.get(businessId, id)));
+    if (sales.some((s) => s.customerId !== customerId)) {
+      throw new BadRequestException({ code: 'INVOICE_NOT_CLIENTS', message: 'These invoices do not all belong to this client.' });
+    }
+    const to = sales[0]?.customer?.email?.trim();
+    if (!to) {
+      throw new BadRequestException({ code: 'CLIENT_HAS_NO_EMAIL', message: 'Add an email address to this subscriber first.' });
+    }
+    const files = await Promise.all(saleIds.map((id) => this.render(businessId, id, 'invoice', 'a4')));
+    const business = await this.businessRepo.findOne({ where: { id: businessId } });
+    await transport.sendMail({
+      from: this.from(business?.name),
+      to,
+      subject: subject?.trim() || `Payment reminder from ${business?.name ?? 'Optimas'}`,
+      text: `${message.trim()}\n\n${files.length === 1 ? 'The invoice is' : 'The invoices are'} attached as PDF.\n\n${business?.name ?? ''}`,
+      attachments: files.map((f) => ({ filename: f.filename, content: f.buffer, contentType: 'application/pdf' })),
     });
     return { success: true, to };
   }
