@@ -60,6 +60,7 @@ export class C2bService {
   constructor(
     private readonly config: ConfigService,
     private readonly sales: SalesService,
+    private readonly payments: PaymentsService,
     @InjectRepository(MpesaC2bTransaction) private readonly txRepo: Repository<MpesaC2bTransaction>,
     @InjectRepository(Customer) private readonly customerRepo: Repository<Customer>,
     @InjectRepository(Subscription) private readonly subRepo: Repository<Subscription>,
@@ -122,7 +123,7 @@ export class C2bService {
     );
   }
 
-  async receive(payload: C2bPayload) {
+  async receive(payload: C2bPayload, opts: { promptUnclaimed?: boolean } = {}) {
     const transId = String(payload.TransID ?? '').trim().toUpperCase();
     const amount = roundKES(Number(payload.TransAmount));
     if (!transId || !Number.isFinite(amount) || amount <= 0) {
@@ -139,6 +140,37 @@ export class C2bService {
     const ref = String(payload.BillRefNumber ?? '').trim();
     const name = [payload.FirstName, payload.MiddleName, payload.LastName].filter(Boolean).join(' ').trim();
     let customer = await this.matchCustomer(business.id, ref);
+
+    // The answer to a prompt sent from the app: whoever sent it records the sale
+    if (
+      !opts.promptUnclaimed &&
+      this.payments.settleFromPaybill(
+        { account: ref, phone: C2bService.localPhone(payload.MSISDN), amount, transId },
+        async () => {
+          await this.txRepo.delete({ trans_id: transId, status: 'PROMPT' });
+          return this.receive(payload, { promptUnclaimed: true });
+        },
+      )
+    ) {
+      await this.txRepo.save(
+        this.txRepo.create({
+          businessId: business.id,
+          trans_id: transId,
+          trans_time: this.transTime(payload.TransTime, business.timezone),
+          amount,
+          bill_ref: ref || null,
+          short_code: payload.BusinessShortCode ? String(payload.BusinessShortCode) : null,
+          msisdn: payload.MSISDN ? String(payload.MSISDN) : null,
+          payer_name: name || null,
+          customerId: customer?.id ?? null,
+          status: 'PROMPT',
+          raw: payload as Record<string, unknown>,
+        }),
+      );
+      this.logger.log(`M-Pesa ${transId}: KES ${amount} for "${ref}" answers a prompt sent from the app`);
+      return ACCEPTED;
+    }
+
     let outcome: MpesaC2bTransaction['status'] = 'APPLIED';
     if (!customer) {
       const phone = C2bService.localPhone(payload.MSISDN);
@@ -178,7 +210,7 @@ export class C2bService {
       tx.status = outcome;
       tx.sale_ids = saleIds;
       await this.txRepo.save(tx);
-      const how = { APPLIED: '', NEW_ACCOUNT: ' (new subscriber)', CUSTOMER: ' (customer, no account)', UNMATCHED: '', PROCESSING: '' }[outcome];
+      const how = { APPLIED: '', NEW_ACCOUNT: ' (new subscriber)', CUSTOMER: ' (customer, no account)', UNMATCHED: '', PROCESSING: '', PROMPT: '' }[outcome];
       this.logger.log(`M-Pesa ${transId}: KES ${amount} for "${ref}" ${customer ? `→ ${customer.name}${how}` : '(no name or phone to record)'}`);
       return ACCEPTED;
     } catch (err) {

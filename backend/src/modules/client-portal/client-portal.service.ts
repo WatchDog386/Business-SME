@@ -184,6 +184,7 @@ export class ClientPortalService {
         amount,
         reference: sale.number ? `INV${sale.number}` : 'Invoice balance',
         description: 'Invoice balance payment',
+        account: customer.account_number,
       });
       this.pending.set(push.checkoutRequestId, { businessId, customerId, userId, saleId: sale.id, recordedSaleId: null });
       return push;
@@ -204,6 +205,7 @@ export class ClientPortalService {
       amount,
       reference: pkg.name.split(/\s+/)[0],
       description: 'WiFi package',
+      account: customer.account_number,
     });
     this.pending.set(push.checkoutRequestId, { businessId, customerId, userId, productId: pkg.id, recordedSaleId: null });
     return push;

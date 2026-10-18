@@ -43,9 +43,10 @@ export class MpesaC2bTransaction extends BaseEntity {
    * APPLIED: on an existing subscriber's account. NEW_ACCOUNT: subscriber
    * created from this payment. CUSTOMER: paid without an account number, on a
    * customer record. UNMATCHED: no name or phone, sale not linked to anyone.
+   * PROMPT: answered a prompt sent from the app, which recorded the sale.
    */
   @Column({ type: 'varchar', length: 12, default: 'PROCESSING' })
-  status: 'PROCESSING' | 'APPLIED' | 'NEW_ACCOUNT' | 'CUSTOMER' | 'UNMATCHED';
+  status: 'PROCESSING' | 'APPLIED' | 'NEW_ACCOUNT' | 'CUSTOMER' | 'UNMATCHED' | 'PROMPT';
 
   /** Sales the money went to (invoices settled, package renewed, credit). */
   @Column({ type: 'simple-json', nullable: true })
