@@ -15,6 +15,7 @@ import { SalesService } from '../sales/sales.service';
 import { UserRole } from '../../common/types/auth-user.interface';
 import { roundKES } from '../../common/utils/money';
 import { normaliseAccountNumber } from '../customers/customers.service';
+import { PaymentsService } from './payments.service';
 
 /** The fields Safaricom posts to a C2B confirmation URL; the forwarder sends the same. */
 export interface C2bPayload {
@@ -35,13 +36,22 @@ export interface C2bPayload {
 
 const ACCEPTED = { ResultCode: 0, ResultDesc: 'Accepted' };
 
+/** "JOHN  KAMAU" → "John Kamau". */
+function titleCase(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, ' ').trim().replace(/(^|[\s'-])\p{L}/gu, (m) => m.toUpperCase());
+}
+
 /**
  * Paybill payments forwarded from the company's existing M-Pesa (Daraja)
- * setup. Each one is matched to a subscriber by the account number they typed
- * (FBI0001…) and applied: unpaid invoices first (oldest first), then a
- * package renewal if what is left covers it, and anything over is kept as
- * credit on their account. Payments with an unknown account number are still
- * counted as revenue and flagged for the office.
+ * setup. Every payment ends up in sales:
+ * - Account number of a subscriber we have (FBI0001…): applied to their
+ *   unpaid invoices first (oldest first), then a package renewal if what is
+ *   left covers it, and anything over is kept as credit on their account.
+ * - FBI account number we don't have yet: the subscriber is created from the
+ *   payment (name and phone) and the money recorded as a sale for them.
+ * - No account number (or one that isn't a subscriber's): the payer is found
+ *   by phone or added as a customer, and the money recorded as their sale.
+ * Only a payment with no name and no usable phone stays unlinked.
  */
 @Injectable()
 export class C2bService {
@@ -128,7 +138,21 @@ export class C2bService {
 
     const ref = String(payload.BillRefNumber ?? '').trim();
     const name = [payload.FirstName, payload.MiddleName, payload.LastName].filter(Boolean).join(' ').trim();
-    const customer = await this.matchCustomer(business.id, ref);
+    let customer = await this.matchCustomer(business.id, ref);
+    let outcome: MpesaC2bTransaction['status'] = 'APPLIED';
+    if (!customer) {
+      const phone = C2bService.localPhone(payload.MSISDN);
+      const account = ref ? C2bService.normaliseAccount(ref) : '';
+      if (/^FBI\d+$/.test(account)) {
+        customer = await this.createSubscriber(business.id, account, name, phone, transId);
+        outcome = 'NEW_ACCOUNT';
+      } else if (name || phone) {
+        customer = await this.findOrCreateCustomer(business.id, name, phone, ref, transId);
+        outcome = 'CUSTOMER';
+      } else {
+        outcome = 'UNMATCHED';
+      }
+    }
 
     const tx = await this.txRepo.save(
       this.txRepo.create({
@@ -147,13 +171,15 @@ export class C2bService {
     );
 
     try {
-      const saleIds = customer
-        ? await this.applyToCustomer(business, customer, amount, transId, actor)
-        : await this.recordUnmatched(business, amount, transId, ref, name, payload.MSISDN, actor);
-      tx.status = customer ? 'APPLIED' : 'UNMATCHED';
+      const saleIds =
+        outcome === 'APPLIED' && customer
+          ? await this.applyToCustomer(business, customer, amount, transId, actor)
+          : await this.recordPaymentSale(business, amount, transId, ref, name, payload.MSISDN, customer, actor);
+      tx.status = outcome;
       tx.sale_ids = saleIds;
       await this.txRepo.save(tx);
-      this.logger.log(`M-Pesa ${transId}: KES ${amount} for "${ref}" ${customer ? `→ ${customer.name}` : '(no matching account)'}`);
+      const how = { APPLIED: '', NEW_ACCOUNT: ' (new subscriber)', CUSTOMER: ' (customer, no account)', UNMATCHED: '', PROCESSING: '' }[outcome];
+      this.logger.log(`M-Pesa ${transId}: KES ${amount} for "${ref}" ${customer ? `→ ${customer.name}${how}` : '(no name or phone to record)'}`);
       return ACCEPTED;
     } catch (err) {
       // Not applied: drop the record so a resend is processed again (each step is idempotent)
@@ -247,27 +273,84 @@ export class C2bService {
     return saleIds;
   }
 
-  /** No subscriber has that account number: count the money, flag it for the office. */
-  private async recordUnmatched(
+  /**
+   * The payer's number as 07XXXXXXXX, or null. Safaricom masks or hashes
+   * MSISDN on some paybills, so anything that isn't a real number is ignored.
+   */
+  static localPhone(msisdn: string | undefined): string | null {
+    const full = msisdn ? PaymentsService.normalisePhone(String(msisdn)) : null;
+    return full ? `0${full.slice(3)}` : null;
+  }
+
+  /** Paid to an FBI account number we don't have yet: add the subscriber. */
+  private async createSubscriber(businessId: string, account: string, name: string, phone: string | null, transId: string) {
+    const usernameTaken = await this.customerRepo
+      .createQueryBuilder('c')
+      .where('c.businessId = :businessId', { businessId })
+      .andWhere('UPPER(c.username) = :account', { account })
+      .getCount();
+    const customer = await this.customerRepo.save(
+      this.customerRepo.create({
+        businessId,
+        name: (name ? titleCase(name) : account).slice(0, 150),
+        phone,
+        account_number: account,
+        username: usernameTaken ? null : account,
+        notes: `Added automatically from M-Pesa payment ${transId}. Check the details and set their package.`,
+      }),
+    );
+    this.logger.log(`New subscriber ${account} (${customer.name}) created from M-Pesa ${transId}`);
+    return customer;
+  }
+
+  /** Paid without a subscriber account number: the customer with that phone, or a new one. */
+  private async findOrCreateCustomer(businessId: string, name: string, phone: string | null, ref: string, transId: string) {
+    if (phone) {
+      const existing = await this.customerRepo
+        .createQueryBuilder('c')
+        .where('c.businessId = :businessId', { businessId })
+        .andWhere(`RIGHT(REGEXP_REPLACE(COALESCE(c.phone, ''), '[^0-9]', '', 'g'), 9) = :last9`, { last9: phone.slice(1) })
+        .orderBy('c.created_at', 'ASC')
+        .getOne();
+      if (existing) return existing;
+    }
+    return this.customerRepo.save(
+      this.customerRepo.create({
+        businessId,
+        name: (name ? titleCase(name) : `M-Pesa ${phone}`).slice(0, 150),
+        phone,
+        notes: `Added automatically from M-Pesa payment ${transId}${ref ? ` (account typed: "${ref}")` : ''}.`,
+      }),
+    );
+  }
+
+  /** The whole payment as one paid sale, on the payer's record when there is one. */
+  private async recordPaymentSale(
     business: Business,
     amount: number,
     transId: string,
     ref: string,
     name: string,
     msisdn: string | undefined,
+    customer: Customer | null,
     actor: { userId: string; role: string },
   ): Promise<string[]> {
+    const from = `${name || 'unknown'}${msisdn ? ` (${msisdn})` : ''}`;
     const sale = await this.sales.create(
       business.id,
       {
         items: [],
         total: amount,
         saleType: 'GENERAL',
+        customerId: customer?.id,
         paymentMethod: 'M-PESA',
         amountPaid: amount,
         reference: transId,
-        notes: `M-Pesa paybill ${transId} from ${name || 'unknown'}${msisdn ? ` (${msisdn})` : ''}: account "${ref || 'blank'}" not matched to a subscriber`,
-        idempotencyKey: `mpesa-${transId}-unmatched`,
+        notes: customer
+          ? `M-Pesa paybill ${transId} from ${from}, account "${ref || 'blank'}"`
+          : `M-Pesa paybill ${transId} from ${from}: account "${ref || 'blank'}", no name or phone to record`,
+        // Same key as before for payer-less payments, so a resend never doubles up
+        idempotencyKey: customer ? `mpesa-${transId}-payment` : `mpesa-${transId}-unmatched`,
       },
       actor,
       business.timezone,

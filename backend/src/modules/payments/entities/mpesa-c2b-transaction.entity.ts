@@ -35,13 +35,17 @@ export class MpesaC2bTransaction extends BaseEntity {
   @Column({ type: 'varchar', length: 150, nullable: true })
   payer_name: string | null;
 
-  /** The subscriber the account number matched, if any. */
+  /** The subscriber or customer the payment was recorded for, if any. */
   @Column({ type: 'uuid', nullable: true })
   customerId: string | null;
 
-  /** APPLIED: on the subscriber's account. UNMATCHED: no subscriber has that account number. */
+  /**
+   * APPLIED: on an existing subscriber's account. NEW_ACCOUNT: subscriber
+   * created from this payment. CUSTOMER: paid without an account number, on a
+   * customer record. UNMATCHED: no name or phone, sale not linked to anyone.
+   */
   @Column({ type: 'varchar', length: 12, default: 'PROCESSING' })
-  status: 'PROCESSING' | 'APPLIED' | 'UNMATCHED';
+  status: 'PROCESSING' | 'APPLIED' | 'NEW_ACCOUNT' | 'CUSTOMER' | 'UNMATCHED';
 
   /** Sales the money went to (invoices settled, package renewed, credit). */
   @Column({ type: 'simple-json', nullable: true })
