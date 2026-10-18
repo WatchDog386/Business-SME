@@ -37,7 +37,7 @@ function Field({ label, htmlFor, hint, children }: { label: string; htmlFor?: st
 /**
  * Add or edit a subscriber as an app user. Subscribers already exist in the
  * company's billing system and are already installed, so this only records
- * who they are: account number (FBI0001 style), username, name, package,
+ * who they are: account number (FBI001 style), username, name, package,
  * contacts, location and SMS group. The package is recorded without a sale,
  * so no invoice or wallet is touched. Once
  * saved, the office hands them their own login with a temporary password.
@@ -146,7 +146,7 @@ export function SubscriberForm({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!accountNumber.trim()) throw new Error('Enter the account number, e.g. FBI0001.');
+      if (!accountNumber.trim()) throw new Error('Enter the account number, e.g. FBI001.');
       if (!name.trim()) throw new Error('Enter the full name.');
       if (!packageId) throw new Error('Choose the package the subscriber is on.');
 
@@ -215,13 +215,13 @@ export function SubscriberForm({
       >
         {error && <Alert variant="error" inline>{error}</Alert>}
         <Section title="Subscriber">
-          <Field label="Account number" htmlFor="sf-account" hint="As in the billing system, e.g. FBI0001.">
+          <Field label="Account number" htmlFor="sf-account" hint="As in the billing system, e.g. FBI001.">
             <Input
               id="sf-account"
               autoComplete="off"
               autoCapitalize="characters"
               className="uppercase"
-              placeholder="FBI0001"
+              placeholder="FBI001"
               value={accountNumber}
               onChange={(e) => {
                 const value = e.target.value.toUpperCase();

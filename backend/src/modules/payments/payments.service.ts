@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
+import { accountKey } from '../customers/customers.service';
 
 /** Where an STK push stands: "pending" until the client enters their PIN or cancels. */
 export type StkState = 'pending' | 'paid' | 'cancelled' | 'failed';
@@ -249,13 +250,12 @@ export class PaymentsService {
     payment: { account: string; phone: string | null; amount: number; transId: string },
     fallback: () => Promise<unknown>,
   ): boolean {
-    const compact = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const account = compact(payment.account);
+    const account = accountKey(payment.account);
     const last9 = payment.phone ? payment.phone.replace(/\D/g, '').slice(-9) : '';
     const cutoff = Date.now() - 30 * 60_000;
     const record = [...this.pushes.values()]
       .filter((r) => r.relay && r.state === 'pending' && r.createdAt > cutoff && r.amount === payment.amount)
-      .filter((r) => (account && compact(r.relay!.account) === account) || (last9 && r.phone.endsWith(last9)))
+      .filter((r) => (account && accountKey(r.relay!.account) === account) || (last9 && r.phone.endsWith(last9)))
       .sort((a, b) => a.createdAt - b.createdAt)[0];
     if (!record) return false;
     this.settle(record, '0', 'Paid', payment.transId);

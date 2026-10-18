@@ -14,7 +14,7 @@ import { BusinessMember } from '../businesses/entities/business-member.entity';
 import { SalesService } from '../sales/sales.service';
 import { UserRole } from '../../common/types/auth-user.interface';
 import { roundKES } from '../../common/utils/money';
-import { normaliseAccountNumber } from '../customers/customers.service';
+import { accountKey, accountKeySql, normaliseAccountNumber } from '../customers/customers.service';
 import { PaymentsService } from './payments.service';
 
 /** The fields Safaricom posts to a C2B confirmation URL; the forwarder sends the same. */
@@ -87,7 +87,7 @@ export class C2bService {
     }
   }
 
-  /** FBI0001, fbi1, "FBI 0001" and FBI-0001 all mean FBI0001. */
+  /** FBI-011, "fbi 011" and FBI011 are all written FBI011. */
   static normaliseAccount(ref: string): string {
     return normaliseAccountNumber(ref);
   }
@@ -113,9 +113,9 @@ export class C2bService {
       (await this.customerRepo
         .createQueryBuilder('c')
         .where('c.businessId = :businessId', { businessId })
-        // Hyphens and spaces in a saved account number don't matter
-        .andWhere(`(REGEXP_REPLACE(UPPER(c.account_number), '[^A-Z0-9]', '', 'g') = :account OR UPPER(c.username) = :raw)`, {
-          account: account.replace(/[^A-Z0-9]/g, ''),
+        // Hyphens, spaces and leading zeros don't matter: FBI011 = FBI0011 = FBI-11
+        .andWhere(`(${accountKeySql('c.account_number')} = :account OR UPPER(c.username) = :raw)`, {
+          account: accountKey(account),
           raw: ref.trim().toUpperCase(),
         })
         .orderBy('c.created_at', 'ASC')

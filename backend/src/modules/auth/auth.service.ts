@@ -30,6 +30,7 @@ import {
   otpauthUrl,
   verifyTotp,
 } from './totp';
+import { accountKey, accountKeySql } from '../customers/customers.service';
 
 /** Second-step ticket handed out after a correct password; never a session. */
 type MfaPurpose = 'mfa-setup' | 'mfa-verify';
@@ -157,10 +158,8 @@ export class AuthService {
       })
       .innerJoin('customers', 'c', 'c.id = m."customerId"')
       .where('LOWER(c.username) = LOWER(:loginId)', { loginId })
-      // FBI0001 and FBI-0001 both find the account
-      .orWhere(`REGEXP_REPLACE(LOWER(c.account_number), '[^a-z0-9]', '', 'g') = :compactId`, {
-        compactId: loginId.toLowerCase().replace(/[^a-z0-9]/g, ''),
-      })
+      // FBI011, FBI0011 and FBI-011 all find the account
+      .orWhere(`${accountKeySql('c.account_number')} = :accountId`, { accountId: accountKey(loginId) })
       .getRawMany<{ email: string }>();
     const users = await Promise.all(rows.map((r) => this.usersService.findByEmail(r.email)));
     return users.filter((u): u is User => Boolean(u));

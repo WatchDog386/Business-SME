@@ -15,11 +15,26 @@ import { PaginatedResult } from '../../common/dto/pagination.dto';
 /** Every subscriber account number starts with this, e.g. FBI0001 (no hyphen, as in the billing system). */
 const ACCOUNT_PREFIX = 'FBI';
 
-/** FBI-0001, fbi1, "FBI 0001" and FBI0001 all mean FBI0001; anything else is just uppercased. */
+/** FBI-011, "fbi 011" and FBI011 are saved as FBI011 (digits kept as typed); anything else is just uppercased. */
 export function normaliseAccountNumber(value: string): string {
   const compact = value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const fbi = /^FBI(\d+)$/.exec(compact);
+  return fbi ? `${ACCOUNT_PREFIX}${fbi[1]}` : value.trim().toUpperCase();
+}
+
+/**
+ * The same account written another way still means the same account:
+ * FBI011, FBI0011, FBI-11 and fbi 11 all give "FBI11". Used to match.
+ */
+export function accountKey(value: string): string {
+  const compact = value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   const fbi = /^FBI0*(\d+)$/.exec(compact);
-  return fbi ? `${ACCOUNT_PREFIX}${fbi[1].padStart(4, '0')}` : value.trim().toUpperCase();
+  return fbi ? `FBI${fbi[1]}` : compact;
+}
+
+/** SQL for accountKey() of a column, to compare against accountKey() of what was typed. */
+export function accountKeySql(column: string): string {
+  return `REGEXP_REPLACE(REGEXP_REPLACE(UPPER(COALESCE(${column}, '')), '[^A-Z0-9]', '', 'g'), '^FBI0*([0-9])', 'FBI\\1')`;
 }
 
 /** Maps the subscriber fields that were sent onto entity columns. */
@@ -79,7 +94,7 @@ export class CustomersService implements OnModuleInit {
         FROM customers c
         WHERE c.account_number ~* '^FBI-[0-9]{1,9}$'
       ), old AS (
-        SELECT id, was, 'FBI' || LPAD(n, GREATEST(4, LENGTH(n)), '0') AS now FROM digits
+        SELECT id, was, 'FBI' || SUBSTRING(was FROM 5) AS now FROM digits
       )
       UPDATE customers c
       SET account_number = old.now,
@@ -266,18 +281,21 @@ export class CustomersService implements OnModuleInit {
   }
 
   /**
-   * Next free account number in the billing system's FBI0001 style: one
-   * above the highest FBI number so far (old FBI-0001 ones count too, any
-   * case), at least four digits.
+   * Next free account number in the billing system's style: one above the
+   * highest FBI number so far (old FBI-0001 ones count too, any case), with
+   * as many digits as that one has (FBI011 → FBI012), at least three.
    */
   async nextAccountNumber(businessId: string): Promise<string> {
     const row = await this.repo
       .createQueryBuilder('c')
-      .select(`MAX(CAST(REGEXP_REPLACE(c.account_number, '[^0-9]', '', 'g') AS INTEGER))`, 'max')
+      .select(`REGEXP_REPLACE(c.account_number, '[^0-9]', '', 'g')`, 'digits')
       .where('c.businessId = :businessId', { businessId })
       .andWhere(`c.account_number ~* '^FBI-?[0-9]{1,9}$'`)
-      .getRawOne<{ max: number | null }>();
-    return `${ACCOUNT_PREFIX}${String(Number(row?.max ?? 0) + 1).padStart(4, '0')}`;
+      .orderBy(`CAST(REGEXP_REPLACE(c.account_number, '[^0-9]', '', 'g') AS INTEGER)`, 'DESC')
+      .limit(1)
+      .getRawOne<{ digits: string }>();
+    const digits = row?.digits ?? '';
+    return `${ACCOUNT_PREFIX}${String(Number(digits || 0) + 1).padStart(Math.max(3, digits.length), '0')}`;
   }
 
   /** Known locations, SMS groups and routers, for the subscriber form's pickers. */
