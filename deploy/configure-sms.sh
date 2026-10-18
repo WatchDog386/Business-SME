@@ -26,8 +26,8 @@ TOKEN="$(printf '%s' "$TOKEN" | tr -d '[:space:]"')"
 [[ -n "$TOKEN" ]] || { echo "No token entered. Nothing changed."; exit 1; }
 echo "Token received (${#TOKEN} characters)."
 
-read -rp "Sender ID [OPTIMASWIFI]: " SENDER
-SENDER="${SENDER:-OPTIMASWIFI}"
+read -rp "Sender ID [OPTIMAS]: " SENDER
+SENDER="${SENDER:-OPTIMAS}"
 SENDER="$(printf '%s' "$SENDER" | tr -d '[:space:]"')"
 
 echo "Optional: paste the webhook signing secret (whsec_...) for delivery reports,"
