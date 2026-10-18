@@ -23,13 +23,13 @@ export const SERVICE_TYPES = ['HOTSPOT', 'PPPOE', 'STATIC'] as const;
 
 /** Subscriber account details (ISP billing), shared by create and update. */
 class SubscriberFieldsDto {
-  @ApiPropertyOptional({ example: 'FBI-0001' })
+  @ApiPropertyOptional({ example: 'FBI0001' })
   @IsOptional()
   @IsString()
   @MaxLength(30)
   accountNumber?: string;
 
-  @ApiPropertyOptional({ example: 'FBI-0001' })
+  @ApiPropertyOptional({ example: 'FBI0001' })
   @IsOptional()
   @IsString()
   @MaxLength(60)

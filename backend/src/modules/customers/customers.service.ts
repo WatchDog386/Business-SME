@@ -1,7 +1,9 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
@@ -10,14 +12,24 @@ import { AuditService } from '../audit/audit.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import { PaginatedResult } from '../../common/dto/pagination.dto';
 
-/** Every subscriber account number starts with this, e.g. FBI-0001. */
-const ACCOUNT_PREFIX = 'FBI-';
+/** Every subscriber account number starts with this, e.g. FBI0001 (no hyphen, as in the billing system). */
+const ACCOUNT_PREFIX = 'FBI';
+
+/** FBI-0001, fbi1, "FBI 0001" and FBI0001 all mean FBI0001; anything else is just uppercased. */
+export function normaliseAccountNumber(value: string): string {
+  const compact = value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const fbi = /^FBI0*(\d+)$/.exec(compact);
+  return fbi ? `${ACCOUNT_PREFIX}${fbi[1].padStart(4, '0')}` : value.trim().toUpperCase();
+}
 
 /** Maps the subscriber fields that were sent onto entity columns. */
 function subscriberColumns(dto: UpdateCustomerDto): Partial<Customer> {
   const out: Partial<Customer> = {};
   const text = (v: string | undefined) => (v === undefined ? undefined : v.trim() || null);
-  if (dto.accountNumber !== undefined) out.account_number = text(dto.accountNumber)?.toUpperCase() ?? null;
+  if (dto.accountNumber !== undefined) {
+    const account = text(dto.accountNumber);
+    out.account_number = account ? normaliseAccountNumber(account) : null;
+  }
   if (dto.username !== undefined) out.username = text(dto.username);
   if (dto.extraPhones !== undefined) out.extra_phones = dto.extraPhones.map((p) => p.trim()).filter(Boolean);
   if (dto.kraPin !== undefined) out.kra_pin = text(dto.kraPin)?.toUpperCase() ?? null;
@@ -37,12 +49,51 @@ function subscriberColumns(dto: UpdateCustomerDto): Partial<Customer> {
 }
 
 @Injectable()
-export class CustomersService {
+export class CustomersService implements OnModuleInit {
+  private readonly logger = new Logger(CustomersService.name);
+
   constructor(
     @InjectRepository(Customer)
     private readonly repo: Repository<Customer>,
     private readonly auditService: AuditService,
   ) {}
+
+  /**
+   * Account numbers used to be FBI-0001; the billing system writes FBI0001.
+   * Rewrites the old ones once (and usernames that were the old account
+   * number), skipping any that would clash with an existing FBI0001.
+   */
+  async onModuleInit() {
+    try {
+      await this.renameOldAccountNumbers();
+    } catch (err) {
+      // Never block start-up over this; old numbers still match payments and sign-in
+      this.logger.warn(`Could not rewrite old FBI- account numbers: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  private async renameOldAccountNumbers() {
+    const [, count] = (await this.repo.query(`
+      WITH digits AS (
+        SELECT c.id, c.account_number AS was, LTRIM(SUBSTRING(c.account_number FROM 5), '0') AS n
+        FROM customers c
+        WHERE c.account_number ~* '^FBI-[0-9]{1,9}$'
+      ), old AS (
+        SELECT id, was, 'FBI' || LPAD(n, GREATEST(4, LENGTH(n)), '0') AS now FROM digits
+      )
+      UPDATE customers c
+      SET account_number = old.now,
+          username = CASE WHEN UPPER(c.username) = UPPER(old.was) THEN old.now ELSE c.username END
+      FROM old
+      WHERE c.id = old.id
+        AND NOT EXISTS (
+          SELECT 1 FROM customers o
+          WHERE o."businessId" = c."businessId" AND o.id <> c.id
+            AND (UPPER(o.account_number) = old.now OR UPPER(o.username) = old.now)
+        )
+    `)) as [unknown, number];
+    if (count) this.logger.log(`Account numbers: ${count} changed from FBI-0001 to FBI0001 style`);
+  }
 
   async list(
     businessId: string,
@@ -104,7 +155,9 @@ export class CustomersService {
     dto: CreateCustomerDto,
     actorId: string,
   ): Promise<Customer> {
-    const accountNumber = dto.accountNumber?.trim().toUpperCase() || (await this.nextAccountNumber(businessId));
+    const accountNumber = dto.accountNumber?.trim()
+      ? normaliseAccountNumber(dto.accountNumber)
+      : await this.nextAccountNumber(businessId);
     const username = dto.username?.trim() || accountNumber;
     await this.assertAccountFree(businessId, accountNumber);
     await this.assertUsernameFree(businessId, username);
@@ -140,8 +193,8 @@ export class CustomersService {
     actorId: string,
   ): Promise<Customer> {
     const customer = await this.get(businessId, id);
-    if (dto.accountNumber !== undefined && dto.accountNumber.trim().toUpperCase() !== customer.account_number) {
-      await this.assertAccountFree(businessId, dto.accountNumber.trim().toUpperCase(), id);
+    if (dto.accountNumber !== undefined && normaliseAccountNumber(dto.accountNumber) !== customer.account_number) {
+      await this.assertAccountFree(businessId, normaliseAccountNumber(dto.accountNumber), id);
     }
     // The username is how a subscriber signs in, so it has to stay unique
     if (dto.username !== undefined && dto.username.trim() !== customer.username) {
@@ -213,15 +266,16 @@ export class CustomersService {
   }
 
   /**
-   * Next free account number in the company's FBI-0001 style: one above the
-   * highest FBI number so far (case-insensitive), at least four digits.
+   * Next free account number in the billing system's FBI0001 style: one
+   * above the highest FBI number so far (old FBI-0001 ones count too, any
+   * case), at least four digits.
    */
   async nextAccountNumber(businessId: string): Promise<string> {
     const row = await this.repo
       .createQueryBuilder('c')
-      .select(`MAX(CAST(SUBSTRING(c.account_number FROM 5) AS INTEGER))`, 'max')
+      .select(`MAX(CAST(REGEXP_REPLACE(c.account_number, '[^0-9]', '', 'g') AS INTEGER))`, 'max')
       .where('c.businessId = :businessId', { businessId })
-      .andWhere(`c.account_number ~* '^FBI-[0-9]{1,9}$'`)
+      .andWhere(`c.account_number ~* '^FBI-?[0-9]{1,9}$'`)
       .getRawOne<{ max: number | null }>();
     return `${ACCOUNT_PREFIX}${String(Number(row?.max ?? 0) + 1).padStart(4, '0')}`;
   }

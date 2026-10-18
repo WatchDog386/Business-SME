@@ -157,7 +157,10 @@ export class AuthService {
       })
       .innerJoin('customers', 'c', 'c.id = m."customerId"')
       .where('LOWER(c.username) = LOWER(:loginId)', { loginId })
-      .orWhere('LOWER(c.account_number) = LOWER(:loginId)', { loginId })
+      // FBI0001 and FBI-0001 both find the account
+      .orWhere(`REGEXP_REPLACE(LOWER(c.account_number), '[^a-z0-9]', '', 'g') = :compactId`, {
+        compactId: loginId.toLowerCase().replace(/[^a-z0-9]/g, ''),
+      })
       .getRawMany<{ email: string }>();
     const users = await Promise.all(rows.map((r) => this.usersService.findByEmail(r.email)));
     return users.filter((u): u is User => Boolean(u));

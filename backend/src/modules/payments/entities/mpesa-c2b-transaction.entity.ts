@@ -22,7 +22,7 @@ export class MpesaC2bTransaction extends BaseEntity {
   @Column({ type: 'int' })
   amount: number;
 
-  /** What the client typed as the account number, e.g. FBI-0001. */
+  /** What the client typed as the account number, e.g. FBI0001. */
   @Column({ type: 'varchar', length: 60, nullable: true })
   bill_ref: string | null;
 

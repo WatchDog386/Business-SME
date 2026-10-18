@@ -14,6 +14,7 @@ import { BusinessMember } from '../businesses/entities/business-member.entity';
 import { SalesService } from '../sales/sales.service';
 import { UserRole } from '../../common/types/auth-user.interface';
 import { roundKES } from '../../common/utils/money';
+import { normaliseAccountNumber } from '../customers/customers.service';
 
 /** The fields Safaricom posts to a C2B confirmation URL; the forwarder sends the same. */
 export interface C2bPayload {
@@ -37,7 +38,7 @@ const ACCEPTED = { ResultCode: 0, ResultDesc: 'Accepted' };
 /**
  * Paybill payments forwarded from the company's existing M-Pesa (Daraja)
  * setup. Each one is matched to a subscriber by the account number they typed
- * (FBI-0001…) and applied: unpaid invoices first (oldest first), then a
+ * (FBI0001…) and applied: unpaid invoices first (oldest first), then a
  * package renewal if what is left covers it, and anything over is kept as
  * credit on their account. Payments with an unknown account number are still
  * counted as revenue and flagged for the office.
@@ -75,11 +76,9 @@ export class C2bService {
     }
   }
 
-  /** FBI-0001, fbi1, "FBI 0001" and FBI0001 all mean FBI-0001. */
+  /** FBI0001, fbi1, "FBI 0001" and FBI-0001 all mean FBI0001. */
   static normaliseAccount(ref: string): string {
-    const compact = ref.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const fbi = /^FBI0*(\d+)$/.exec(compact);
-    return fbi ? `FBI-${fbi[1].padStart(4, '0')}` : ref.trim().toUpperCase();
+    return normaliseAccountNumber(ref);
   }
 
   /** "20261017143005" (Nairobi time) → Date. */
@@ -103,8 +102,9 @@ export class C2bService {
       (await this.customerRepo
         .createQueryBuilder('c')
         .where('c.businessId = :businessId', { businessId })
-        .andWhere('(UPPER(c.account_number) = :account OR UPPER(c.username) = :raw)', {
-          account,
+        // Hyphens and spaces in a saved account number don't matter
+        .andWhere(`(REGEXP_REPLACE(UPPER(c.account_number), '[^A-Z0-9]', '', 'g') = :account OR UPPER(c.username) = :raw)`, {
+          account: account.replace(/[^A-Z0-9]/g, ''),
           raw: ref.trim().toUpperCase(),
         })
         .orderBy('c.created_at', 'ASC')

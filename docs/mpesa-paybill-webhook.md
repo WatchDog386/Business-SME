@@ -22,7 +22,7 @@ Safaricom's body unchanged.
 | --- | --- | --- | --- |
 | `TransID` | yes | `RKTQDM7W6S` | M-Pesa confirmation code; must be unique |
 | `TransAmount` | yes | `"1499.00"` | Amount in KES |
-| `BillRefNumber` | yes | `FBI-0001` | Account number the client typed |
+| `BillRefNumber` | yes | `FBI0001` | Account number the client typed |
 | `TransTime` | yes | `"20261017143005"` | `YYYYMMDDHHmmss`, Nairobi time |
 | `MSISDN` | yes | `"254712345678"` | Payer's phone (masked is fine) |
 | `FirstName` | yes | `"Jane"` | |
@@ -41,7 +41,7 @@ Example:
   "TransTime": "20261017143005",
   "TransAmount": "1499.00",
   "BusinessShortCode": "4092707",
-  "BillRefNumber": "FBI-0001",
+  "BillRefNumber": "FBI0001",
   "InvoiceNumber": "",
   "OrgAccountBalance": "",
   "ThirdPartyTransID": "",
