@@ -28,12 +28,10 @@ const actions: QuickAction[] = [
 ];
 
 /**
- * Quick actions use a distinct Optimas colour for each icon while keeping the
- * original neutral tiles. `onSelect` turns the tiles into buttons for the subscriber app.
+ * Round grey tiles with the original green-and-red icons (green outline, red
+ * detail). `onSelect` turns the tiles into buttons for the subscriber app.
  */
-const actionTones = [
-  'text-emerald-600 [.dark_&]:text-emerald-500',
-] as const;
+const actionTones = ['text-brand-600 [.dark_&]:text-brand-400'] as const;
 
 export function QuickActions({
   items = actions,
@@ -87,7 +85,7 @@ export function QuickActions({
               whileTap={{ scale: 0.88 }}
             >
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-3 [.dark_&]:bg-[#333333]">
-                {/* All paths inherit this action's colour, including the small icon details. */}
+                {/* Green outline from this colour; the red details are drawn in the icon */}
                 <action.icon className={cn('h-7 w-7', iconTone)} />
               </span>
               <span className={cn('line-clamp-2 text-center text-[13px] leading-snug text-foreground', labelClassName)}>

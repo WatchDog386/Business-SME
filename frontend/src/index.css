@@ -402,6 +402,11 @@
     background-color: #1e1e1e !important;
   }
 
+  /* Phone login: fields clear like the M-PIN boxes, the dark frosted panel shows through */
+  .login-dark-fields.login-clear-fields input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+    background-color: transparent !important;
+  }
+
   .login-dark-fields input::placeholder {
     color: rgb(255 255 255 / 60%) !important;
     opacity: 1;

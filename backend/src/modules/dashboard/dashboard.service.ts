@@ -67,6 +67,7 @@ export class DashboardService {
       salesCount,
       budgetAlerts,
       pendingApprovals,
+      recentMoney,
     ] = await Promise.all([
       this.recentTransactions(businessId, 10),
       this.sumPayments(businessId, month.start, month.end),
@@ -74,6 +75,7 @@ export class DashboardService {
       this.countSales(businessId, today.start, today.end),
       this.budgetsService.alerts(businessId, timezone),
       this.expensesService.countPending(businessId),
+      this.recentMoney(businessId),
     ]);
 
     return {
@@ -93,6 +95,7 @@ export class DashboardService {
       appointmentsToday: 0,
       recentCustomers,
       recentTransactions,
+      recentMoney,
       topProducts,
       salesSeries,
       budgetAlerts,
@@ -231,6 +234,73 @@ export class DashboardService {
       .groupBy('DATE(payment.transaction_date)')
       .orderBy('DATE(payment.transaction_date)', 'ASC');
     return qb.getRawMany<{ date: string; total: string }>();
+  }
+
+  /**
+   * Payments received and unpaid sales recorded in the last 24 hours, for
+   * notifications. By when they were recorded (created_at), not the sale
+   * date, so a paybill payment or a back-dated sale still counts as new.
+   */
+  private async recentMoney(businessId: string) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [payments, unpaidSales] = await Promise.all([
+      this.paymentRepo
+        .createQueryBuilder('payment')
+        .leftJoin(Sale, 'sale', 'sale.id = payment.saleId')
+        .leftJoin(Customer, 'customer', 'customer.id = COALESCE(payment.customerId, sale.customerId)')
+        .select('payment.id', 'id')
+        .addSelect('payment.amount', 'amount')
+        .addSelect('payment.method', 'method')
+        .addSelect('payment.created_at', 'created_at')
+        .addSelect('sale.id', 'sale_id')
+        .addSelect('sale.sale_type', 'sale_type')
+        .addSelect('customer.name', 'customer_name')
+        .where('payment.businessId = :businessId', { businessId })
+        .andWhere("payment.status = 'SUCCESS'")
+        .andWhere('payment.created_at >= :since', { since })
+        .orderBy('payment.created_at', 'DESC')
+        .limit(30)
+        .getRawMany<{ id: string; amount: number; method: string; created_at: Date; sale_id: string | null; sale_type: string | null; customer_name: string | null }>(),
+      this.saleRepo
+        .createQueryBuilder('sale')
+        .leftJoin(Customer, 'customer', 'customer.id = sale.customerId')
+        .select('sale.id', 'id')
+        .addSelect('sale.total', 'total')
+        .addSelect('sale.number', 'number')
+        .addSelect('sale.payment_method', 'method')
+        .addSelect('sale.created_at', 'created_at')
+        .addSelect('customer.name', 'customer_name')
+        .where('sale.businessId = :businessId', { businessId })
+        .andWhere("sale.payment_status = 'UNPAID'")
+        .andWhere('sale.created_at >= :since', { since })
+        .orderBy('sale.created_at', 'DESC')
+        .limit(30)
+        .getRawMany<{ id: string; total: number; number: number | null; method: string; created_at: Date; customer_name: string | null }>(),
+    ]);
+    return [
+      ...payments.map((p) => ({
+        type: 'PAYMENT' as const,
+        id: p.id,
+        saleId: p.sale_id,
+        amount: Number(p.amount),
+        paymentMethod: p.method,
+        status: 'SUCCESS',
+        description: p.sale_type === 'ADVANCE' ? 'Credit on account' : 'Payment received',
+        customerName: p.customer_name,
+        createdAt: p.created_at,
+      })),
+      ...unpaidSales.map((s) => ({
+        type: 'SALE' as const,
+        id: s.id,
+        saleId: s.id,
+        amount: Number(s.total),
+        paymentMethod: s.method,
+        status: 'UNPAID',
+        description: `Unpaid sale #${s.number ?? s.id.slice(0, 8).toUpperCase()}`,
+        customerName: s.customer_name,
+        createdAt: s.created_at,
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   private async recentTransactions(businessId: string, limit: number) {

@@ -55,14 +55,12 @@ function whenText(iso: string): string {
 }
 
 /**
- * Payments received and sales made in the last day, newest first. A sale paid
- * on the spot shows once (as its payment), not twice.
+ * Payments received and unpaid sales recorded in the last day, newest first
+ * (the server picks them by when they were recorded). A sale paid on the spot
+ * shows once, as its payment.
  */
 export function moneyEvents(data: DashboardData): Transaction[] {
-  const since = Date.now() - 86_400_000;
-  const recent = (data.recentTransactions ?? []).filter(
-    (t) => (t.type === 'PAYMENT' || t.type === 'SALE') && new Date(t.createdAt).getTime() >= since,
-  );
+  const recent = (data.recentMoney ?? []).filter((t) => t.type === 'PAYMENT' || t.type === 'SALE');
   const paidSales = new Set(recent.filter((t) => t.type === 'PAYMENT' && t.saleId).map((t) => t.saleId));
   return recent
     .filter((t) => t.type === 'PAYMENT' || !paidSales.has(t.id))
@@ -271,29 +269,58 @@ export function useNotifications() {
   return { ...query, items, read, unread };
 }
 
+/* Which payments and sales have already popped up on this device */
+const POPPED_KEY = 'optimas_popped_money';
+
+function loadPopped(): Set<string> | null {
+  try {
+    const raw = localStorage.getItem(POPPED_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePopped(ids: Set<string>) {
+  try {
+    localStorage.setItem(POPPED_KEY, JSON.stringify([...ids].slice(-300)));
+  } catch {
+    // Storage blocked: pop-ups still work while the app stays open
+  }
+}
+
 /**
  * Pops up "Payment received" / "Sale recorded" on whatever page the admin is
- * on, once per new payment or sale. What was there when the app opened is
- * not announced again.
+ * on, once per payment or sale, including ones that came in while the app
+ * was closed (anything from the last day not shown or read yet). The very
+ * first time on a device only the last 10 minutes pop up, not a whole day.
  */
 export function useMoneyPopups() {
-  const { data } = useNotifications();
-  const seen = useRef<Set<string> | null>(null);
+  const { data, read } = useNotifications();
+  const popped = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (!data) return;
     const events = moneyEvents(data);
-    if (!seen.current) {
-      seen.current = new Set(events.map((t) => `${t.type}-${t.id}`));
-      return;
+    if (!popped.current) {
+      popped.current = loadPopped();
+      if (!popped.current) {
+        const cutoff = Date.now() - 10 * 60_000;
+        popped.current = new Set(events.filter((t) => new Date(t.createdAt).getTime() < cutoff).map((t) => `tx-${t.type}-${t.id}`));
+      }
     }
-    for (const t of events) {
-      const key = `${t.type}-${t.id}`;
-      if (seen.current.has(key)) continue;
-      seen.current.add(key);
+    const fresh = events.filter((t) => !popped.current!.has(`tx-${t.type}-${t.id}`) && !read.has(`tx-${t.type}-${t.id}`));
+    if (fresh.length === 0) return;
+    // Oldest first, at most three; the rest are summed up in one more
+    for (const t of fresh.slice(0, 3).reverse()) {
       const n = moneyNotification(t);
       notifySuccess(n.title.split(':')[0], `${formatKES(t.amount)} · ${n.text}`);
     }
-  }, [data]);
+    if (fresh.length > 3) {
+      notifySuccess(`${fresh.length - 3} more`, 'Open Notifications to see every payment and sale.');
+    }
+    fresh.forEach((t) => popped.current!.add(`tx-${t.type}-${t.id}`));
+    savePopped(popped.current);
+  }, [data, read]);
 }
 
 /** Mounted once in the app shell for admins. */

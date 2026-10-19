@@ -181,9 +181,14 @@ export function LoginPage() {
     );
   }
 
+  // On phones both sign-in forms sit on the same dark frosted panel, so the
+  // username form looks like the M-PIN one
+  const pinPanel = !isDesktop;
+  const panelClass = 'rounded-3xl bg-black/60 px-4 pb-4 pt-6 backdrop-blur-md [&_.auth-link]:!text-[#9BD84F]';
+
   const form = (
       <form
-        className="flex flex-col gap-4"
+        className={'flex flex-col gap-4 ' + (pinPanel ? panelClass : '')}
         onSubmit={handleSubmit((values) => mutation.mutate(values))}
         noValidate
       >
@@ -229,6 +234,7 @@ export function LoginPage() {
         <div className="flex justify-end">
           <button
             type="button"
+            data-keep-color
             onClick={() => navigate('/forgot-password')}
             className="auth-link text-sm font-medium text-[#2F7F81] hover:text-[#256A6C]"
           >
@@ -237,7 +243,8 @@ export function LoginPage() {
         </div>
         <Button
           type="submit"
-          className="h-14 w-full rounded-2xl text-[20px] font-medium text-white shadow-none transition-colors bg-[#3A8F91] hover:bg-[#2F7F81] active:bg-[#2F7F81]"
+          data-keep-color
+          className="h-14 w-full rounded-2xl text-[20px] font-medium !text-white shadow-none transition-colors bg-[#3A8F91] hover:bg-[#2F7F81] active:bg-[#2F7F81]"
           size="lg"
           loading={mutation.isPending}
         >
@@ -274,14 +281,8 @@ export function LoginPage() {
   };
 
   // On phones the PIN sits on a dark frosted panel so the boxes stay clear over the photo
-  const pinPanel = !isDesktop;
   const pinView = pinDevice ? (
-    <div
-      className={
-        'flex flex-col gap-6 ' +
-        (pinPanel ? 'rounded-3xl bg-black/60 px-4 pb-4 pt-6 backdrop-blur-md [&_.auth-link]:!text-[#9BD84F]' : '')
-      }
-    >
+    <div className={'flex flex-col gap-6 ' + (pinPanel ? panelClass : '')}>
       <PinBoxes
         value={pin}
         onChange={setPin}
@@ -387,15 +388,10 @@ export function LoginPage() {
           <p className={dark ? 'mb-6 mt-1 text-center text-sm text-white/70' : 'mb-6 mt-1 text-center text-sm text-slate-700'}>
             Sign in to your Optimas account.
           </p>
-          {dark ? (
-            <div className="login-dark-fields mt-6 [&_input]:!h-12 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button:not([data-keep-color])]:!text-white/70 [&_.auth-link]:!text-[#7BCFD2] [&_.text-danger]:!text-red-300 [&_label]:sr-only">
-              {signIn}
-            </div>
-          ) : (
-            <div className="login-dark-fields mt-6 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/70 [&_input]:!bg-[#1E1E1E] [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_button:not([data-keep-color])]:!text-white/70 [&_.auth-link]:!text-[#2F7F81] [&_.text-danger]:!text-red-700 [&_label]:sr-only">
-              {signIn}
-            </div>
-          )}
+          {/* Fields drawn like the M-PIN boxes: clear, thin white outline, green when active */}
+          <div className="login-dark-fields login-clear-fields mt-6 [&_input]:!h-14 [&_input]:!rounded-xl [&_input]:!border-2 [&_input]:!border-white/80 [&_input]:!bg-transparent [&_input]:!text-white [&_input]:!shadow-none [&_input]:placeholder:!text-white/60 [&_input:focus]:!border-[#8BC53F] [&_input:focus]:!ring-0 [&_button:not([data-keep-color])]:!text-white/70 [&_.text-danger]:!text-red-300 [&_label]:sr-only">
+            {signIn}
+          </div>
           {installAppButton}
         </main>
       </div>

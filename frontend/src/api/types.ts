@@ -401,6 +401,8 @@ export interface DashboardData {
     customerName: string | null;
     createdAt: string;
   }>;
+  /** Payments and unpaid sales recorded in the last 24 hours (for notifications). */
+  recentMoney?: DashboardData['recentTransactions'];
   topProducts: Array<{ name: string; quantity: string; revenue: string }>;
   salesSeries: Array<{ date: string; total: string }>;
   /** Budgets at or over their alert threshold this month, worst first. */

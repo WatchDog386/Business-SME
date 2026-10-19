@@ -15,7 +15,6 @@ import { RecentTransactions } from './components/recent-transactions';
 import { IspOverview } from './components/isp-overview';
 import { AdvertBanner } from '@/components/brand/advert-banner';
 import { UnpaidInvoicesSection } from './components/unpaid-invoices-section';
-import { SalesChart } from './components/sales-chart';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { DesktopDashboard } from './desktop-dashboard';
 import { useRole } from '@/hooks/use-role';
@@ -97,10 +96,6 @@ function AdminDashboard() {
       {/* Subscribers who owe: tap one to prompt them to pay */}
       <motion.div {...rise(3)}>
         <UnpaidInvoicesSection />
-      </motion.div>
-      {/* Sales for the last seven days */}
-      <motion.div {...rise(4)}>
-        <SalesChart series={data.salesSeries} weekRevenue={data.weekRevenue} />
       </motion.div>
       <motion.div {...rise(3)}>
         <Alerts data={data} />
