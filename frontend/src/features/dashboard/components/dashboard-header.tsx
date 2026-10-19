@@ -80,6 +80,18 @@ export function DashboardHeader() {
               >
                 <Bell className="h-5 w-5" strokeWidth={1.9} aria-hidden />
               </motion.span>
+              {/* Red count of unread notifications */}
+              {notificationCount > 0 && (
+                <motion.span
+                  key={notificationCount}
+                  initial={{ scale: 0.4 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                  className="absolute -right-1.5 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-black/40"
+                >
+                  {notificationCount > 99 ? '99+' : notificationCount}
+                </motion.span>
+              )}
             </button>
             <button
               onClick={() => setSettingsOpen(true)}
