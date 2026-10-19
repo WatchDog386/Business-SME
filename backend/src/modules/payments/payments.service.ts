@@ -242,14 +242,14 @@ export class PaymentsService {
   /**
    * A paybill payment just arrived: if it answers a relayed prompt still
    * waiting (same amount, and same account or phone), mark the prompt paid
-   * and return true. Whoever sent the prompt then records the sale, as with
+   * and return the number it was sent to. Whoever sent the prompt then records the sale, as with
    * Daraja; if nobody picks it up in time, `fallback` records it as a plain
    * paybill payment instead, so the money is never lost or counted twice.
    */
   settleFromPaybill(
     payment: { account: string; phone: string | null; amount: number; transId: string },
     fallback: () => Promise<unknown>,
-  ): boolean {
+  ): string | null {
     const account = accountKey(payment.account);
     const last9 = payment.phone ? payment.phone.replace(/\D/g, '').slice(-9) : '';
     const cutoff = Date.now() - 30 * 60_000;
@@ -257,7 +257,7 @@ export class PaymentsService {
       .filter((r) => r.relay && r.state === 'pending' && r.createdAt > cutoff && r.amount === payment.amount)
       .filter((r) => (account && accountKey(r.relay!.account) === account) || (last9 && r.phone.endsWith(last9)))
       .sort((a, b) => a.createdAt - b.createdAt)[0];
-    if (!record) return false;
+    if (!record) return null;
     this.settle(record, '0', 'Paid', payment.transId);
     record.fallback = setTimeout(() => {
       if (record.claimed) return;
@@ -267,7 +267,7 @@ export class PaymentsService {
       );
     }, CLAIM_WINDOW_MS);
     record.fallback.unref?.();
-    return true;
+    return record.phone;
   }
 
   /** Current state: from Safaricom's callback when it has arrived, else asked directly. */

@@ -142,16 +142,18 @@ export class C2bService {
     let customer = await this.matchCustomer(business.id, ref);
 
     // The answer to a prompt sent from the app: whoever sent it records the sale
-    if (
-      !opts.promptUnclaimed &&
-      this.payments.settleFromPaybill(
-        { account: ref, phone: C2bService.localPhone(payload.MSISDN), amount, transId },
-        async () => {
-          await this.txRepo.delete({ trans_id: transId, status: 'PROMPT' });
-          return this.receive(payload, { promptUnclaimed: true });
-        },
-      )
-    ) {
+    const promptPhone = opts.promptUnclaimed
+      ? null
+      : this.payments.settleFromPaybill(
+          { account: ref, phone: C2bService.localPhone(payload.MSISDN), amount, transId },
+          async () => {
+            await this.txRepo.delete({ trans_id: transId, status: 'PROMPT' });
+            return this.receive(payload, { promptUnclaimed: true });
+          },
+        );
+    if (promptPhone) {
+      // The prompt went to a real number: keep it if the subscriber has none
+      if (customer) await this.fillPhone(customer, C2bService.localPhone(promptPhone));
       await this.txRepo.save(
         this.txRepo.create({
           businessId: business.id,
@@ -172,6 +174,7 @@ export class C2bService {
     }
 
     let outcome: MpesaC2bTransaction['status'] = 'APPLIED';
+    if (customer) await this.fillPhone(customer, C2bService.localPhone(payload.MSISDN));
     if (!customer) {
       const phone = C2bService.localPhone(payload.MSISDN);
       const account = ref ? C2bService.normaliseAccount(ref) : '';
@@ -206,7 +209,10 @@ export class C2bService {
       const saleIds =
         outcome === 'APPLIED' && customer
           ? await this.applyToCustomer(business, customer, amount, transId, actor)
-          : await this.recordPaymentSale(business, amount, transId, ref, name, payload.MSISDN, customer, actor);
+          : outcome === 'NEW_ACCOUNT' && customer
+            ? ((await this.sellPackageByAmount(business, customer, amount, transId, actor)) ??
+              (await this.recordPaymentSale(business, amount, transId, ref, name, payload.MSISDN, customer, actor)))
+            : await this.recordPaymentSale(business, amount, transId, ref, name, payload.MSISDN, customer, actor);
       tx.status = outcome;
       tx.sale_ids = saleIds;
       await this.txRepo.save(tx);
@@ -256,8 +262,16 @@ export class C2bService {
     }
 
     // 2. What is left renews their package when it covers the price
-    if (left > 0) {
-      const sub = await this.subRepo.findOne({ where: { businessId: business.id, customerId: customer.id } });
+    const sub = left > 0 ? await this.subRepo.findOne({ where: { businessId: business.id, customerId: customer.id } }) : null;
+    if (left > 0 && !sub) {
+      // No package on record yet: a payment of exactly one package's price starts that package
+      const started = await this.sellPackageByAmount(business, customer, left, transId, actor);
+      if (started) {
+        saleIds.push(...started);
+        left = 0;
+      }
+    }
+    if (left > 0 && sub) {
       const pkg = sub ? await this.productRepo.findOne({ where: { businessId: business.id, id: sub.productId, active: true } }) : null;
       const price = pkg ? Math.max(0, pkg.selling_price - (customer.discount ?? 0)) : 0;
       if (pkg?.billing_days && price > 0 && left >= price) {
@@ -303,6 +317,50 @@ export class C2bService {
       saleIds.push(sale.id);
     }
     return saleIds;
+  }
+
+  /** Saves the payer's number on their record when it has none yet. */
+  private async fillPhone(customer: Customer, phone: string | null) {
+    if (!phone || customer.phone?.trim()) return;
+    customer.phone = phone;
+    await this.customerRepo.update({ id: customer.id }, { phone });
+  }
+
+  /**
+   * A subscriber with no package paid exactly the price of one package (and
+   * only one has that price): sell them that package, which starts their
+   * subscription. Null when the amount doesn't point to a single package.
+   */
+  private async sellPackageByAmount(
+    business: Business,
+    customer: Customer,
+    amount: number,
+    transId: string,
+    actor: { userId: string; role: string },
+  ): Promise<string[] | null> {
+    const packages = (await this.productRepo.find({ where: { businessId: business.id, active: true } })).filter(
+      (p) => (p.billing_days ?? 0) > 0 && Math.max(0, p.selling_price - (customer.discount ?? 0)) === amount,
+    );
+    if (packages.length !== 1) return null;
+    const pkg = packages[0];
+    const sale = await this.sales.create(
+      business.id,
+      {
+        items: [{ productId: pkg.id, quantity: 1 }],
+        saleType: 'PACKAGE',
+        customerId: customer.id,
+        discount: Math.min(customer.discount ?? 0, pkg.selling_price),
+        paymentMethod: 'M-PESA',
+        amountPaid: amount,
+        reference: transId,
+        notes: `M-Pesa paybill ${transId}: package ${pkg.name} (matched by amount)`,
+        idempotencyKey: `mpesa-${transId}-package`,
+      },
+      actor,
+      business.timezone,
+    );
+    this.logger.log(`M-Pesa ${transId}: ${customer.name} put on ${pkg.name} (KES ${amount} is its price)`);
+    return [sale.id];
   }
 
   /**
