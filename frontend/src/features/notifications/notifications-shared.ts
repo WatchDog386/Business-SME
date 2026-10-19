@@ -269,6 +269,28 @@ export function useNotifications() {
   return { ...query, items, read, unread };
 }
 
+/** A payment or sale to announce. */
+export interface MoneyAlert {
+  id: string;
+  title: string;
+  text: string;
+  amount: number;
+  link: string;
+}
+
+/*
+ * The dashboard header's bell takes the alerts while it is on screen (it rings
+ * and shows a bubble); anywhere else they are ordinary pop-ups.
+ */
+let bellListener: ((alert: MoneyAlert) => void) | null = null;
+
+export function listenOnBell(fn: (alert: MoneyAlert) => void) {
+  bellListener = fn;
+  return () => {
+    if (bellListener === fn) bellListener = null;
+  };
+}
+
 /* Which payments and sales have already popped up on this device */
 const POPPED_KEY = 'optimas_popped_money';
 
@@ -313,9 +335,11 @@ export function useMoneyPopups() {
     // Oldest first, at most three; the rest are summed up in one more
     for (const t of fresh.slice(0, 3).reverse()) {
       const n = moneyNotification(t);
-      notifySuccess(n.title.split(':')[0], `${formatKES(t.amount)} · ${n.text}`);
+      const alert: MoneyAlert = { id: n.id, title: n.title.split(':')[0], text: n.text, amount: t.amount, link: n.link };
+      if (bellListener) bellListener(alert);
+      else notifySuccess(alert.title, `${formatKES(t.amount)} · ${n.text}`);
     }
-    if (fresh.length > 3) {
+    if (fresh.length > 3 && !bellListener) {
       notifySuccess(`${fresh.length - 3} more`, 'Open Notifications to see every payment and sale.');
     }
     fresh.forEach((t) => popped.current!.add(`tx-${t.type}-${t.id}`));

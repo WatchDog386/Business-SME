@@ -34,9 +34,11 @@ export function PdfPreview({
 
     (async () => {
       try {
-        // Loaded on first use so PDF.js stays out of the main bundle
-        const pdfjs = await import('pdfjs-dist');
-        const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+        // Loaded on first use so PDF.js stays out of the main bundle. The
+        // legacy build: the Android app's WebView is often older than what
+        // the modern build needs, and the preview then failed on phones.
+        const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+        const worker = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
         pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
 
         const pdf = await pdfjs.getDocument({ data: await file.blob.arrayBuffer() }).promise;

@@ -1,13 +1,14 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Bell, Menu } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Banknote, Bell, Menu, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SettingsPage } from '@/components/layout/settings-page';
 import { HeaderAccountPage } from '@/components/layout/header-account-page';
 import { DuoScan, DuoSearch } from '@/components/brand/duo-icons';
 import { useAuthStore } from '@/stores/auth';
 import { useActiveBusiness } from '@/stores/business';
-import { useNotifications } from '@/features/notifications/notifications-shared';
+import { listenOnBell, useNotifications, type MoneyAlert } from '@/features/notifications/notifications-shared';
+import { formatKES } from '@/lib/utils';
 import { SearchDialog } from './search-dialog';
 import { ScanSaleDialog } from './scan-sale-dialog';
 
@@ -21,6 +22,22 @@ export function DashboardHeader() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { unread: notificationCount } = useNotifications();
+  // New payments and sales ring the bell and drop a bubble from it
+  const [bubble, setBubble] = useState<MoneyAlert | null>(null);
+  const [ring, setRing] = useState(0);
+  useEffect(
+    () =>
+      listenOnBell((alert) => {
+        setBubble(alert);
+        setRing((r) => r + 1);
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (!bubble) return;
+    const timer = window.setTimeout(() => setBubble(null), 7000);
+    return () => window.clearTimeout(timer);
+  }, [bubble]);
   const firstName = user?.fullName ? user.fullName.split(' ')[0] : 'there';
 
   return (
@@ -67,6 +84,7 @@ export function DashboardHeader() {
             <button type="button" onClick={() => setScanOpen(true)} className="flex h-9 w-9 items-center justify-center text-white transition-transform active:scale-90" aria-label="Scan to record a sale">
               <DuoScan mono className="h-7 w-7" />
             </button>
+            <div className="relative">
             <button
               onClick={() => navigate('/notifications')}
               type="button"
@@ -78,7 +96,15 @@ export function DashboardHeader() {
                 transition={{ duration: 0.9, delay: 0.6, repeat: notificationCount > 0 ? Infinity : 0, repeatDelay: 6 }}
                 className="flex"
               >
-                <Bell className="h-5 w-5" strokeWidth={1.9} aria-hidden />
+                {/* A new payment rings it straight away */}
+                <motion.span
+                  key={ring}
+                  className="flex origin-top"
+                  animate={ring ? { rotate: [0, -22, 20, -16, 12, -6, 0] } : { rotate: 0 }}
+                  transition={{ duration: 1.1 }}
+                >
+                  <Bell className="h-5 w-5" strokeWidth={1.9} aria-hidden />
+                </motion.span>
               </motion.span>
               {/* Red count of unread notifications */}
               {notificationCount > 0 && (
@@ -93,6 +119,39 @@ export function DashboardHeader() {
                 </motion.span>
               )}
             </button>
+
+            {/* Bubble from the bell: the new payment or sale; tap to open it */}
+            <AnimatePresence>
+              {bubble && (
+                <motion.div
+                  key={bubble.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setBubble(null);
+                    navigate(bubble.link);
+                  }}
+                  initial={{ opacity: 0, y: -8, scale: 0.92 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.92 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                  className="absolute -right-11 top-full z-50 mt-3 w-[min(270px,calc(100vw-2rem))] origin-top-right cursor-pointer rounded-2xl bg-white p-3 text-left text-slate-900 shadow-[0_14px_34px_rgba(0,0,0,0.38)]"
+                >
+                  <span className="absolute -top-1.5 right-[52px] h-3 w-3 rotate-45 rounded-[2px] bg-white" aria-hidden />
+                  <span className="flex items-center gap-2.5">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                      {bubble.title.startsWith('Payment') ? <Banknote className="h-5 w-5" aria-hidden /> : <ShoppingCart className="h-5 w-5" aria-hidden />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[11px] font-semibold uppercase tracking-wide text-emerald-700">{bubble.title}</span>
+                      <span className="block text-[17px] font-bold leading-tight tabular-nums">{formatKES(bubble.amount)}</span>
+                      <span className="block truncate text-[12px] text-slate-600">{bubble.text}</span>
+                    </span>
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            </div>
             <button
               onClick={() => setSettingsOpen(true)}
               type="button"

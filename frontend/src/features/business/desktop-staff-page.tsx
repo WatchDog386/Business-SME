@@ -364,7 +364,7 @@ function DesktopStaffScreen({ businessId, businessName }: { businessId: string; 
             {!isSelf && m.user.twoFactorEnabled && (
               <ActionButton icon={ShieldCheck} label="Reset two-factor sign-in" onClick={() => setConfirmReset2fa(m)} />
             )}
-            {editable && (
+            {!isSelf && (
               <ActionButton icon={Trash2} label="Remove from team" danger onClick={() => setConfirmRemove(m)} />
             )}
           </div>

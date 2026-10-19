@@ -441,7 +441,8 @@ function MemberDetail({
         </Button>
       )}
 
-      {editable && (
+      {/* Admins can remove anyone but themselves, other admins included */}
+      {canEditRoles && !isSelf && (
         <Button variant="outline" className="w-full border-danger/30 text-danger hover:bg-danger-soft hover:text-danger" onClick={onRemove}>
           <Trash2 className="h-4 w-4" />
           Remove from team

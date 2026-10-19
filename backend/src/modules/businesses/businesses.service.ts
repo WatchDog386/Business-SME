@@ -262,11 +262,16 @@ export class BusinessesService {
         message: 'Member not found.',
       });
     }
+    // Another admin can remove an admin (the route is admin-only), never
+    // themselves, and the company always keeps at least one admin
+    if (member.userId === actor.userId) {
+      throw new BadRequestException({ code: 'CANNOT_REMOVE_SELF', message: "You can't remove yourself from the team." });
+    }
     if (member.role === UserRole.OWNER) {
-      throw new BadRequestException({
-        code: 'CANNOT_REMOVE_OWNER',
-        message: 'An admin cannot be removed from the team.',
-      });
+      const admins = await this.memberRepo.count({ where: { businessId, role: UserRole.OWNER } });
+      if (admins <= 1) {
+        throw new BadRequestException({ code: 'LAST_ADMIN', message: 'The last admin cannot be removed.' });
+      }
     }
     await this.memberRepo.remove(member);
     await this.auditService.log({
