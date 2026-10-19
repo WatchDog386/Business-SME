@@ -21,7 +21,7 @@ const SERVICE_LABEL = { HOTSPOT: 'Hotspot', PPPOE: 'PPPoE', STATIC: 'Static IP' 
 const STATUS: Record<SubscriberStatus, { label: string; pill: string }> = {
   ACTIVE: { label: 'Active', pill: 'bg-emerald-50 text-emerald-700 [.dark_&]:bg-emerald-500/15 [.dark_&]:text-emerald-300' },
   INACTIVE: { label: 'Inactive', pill: 'bg-red-50 text-red-700 [.dark_&]:bg-red-500/15 [.dark_&]:text-red-300' },
-  PENDING: { label: 'Pending', pill: 'bg-amber-50 text-amber-700 [.dark_&]:bg-amber-500/15 [.dark_&]:text-amber-300' },
+  INCOMPLETE: { label: 'Incomplete', pill: 'bg-amber-50 text-amber-700 [.dark_&]:bg-amber-500/15 [.dark_&]:text-amber-300' },
 };
 
 /** Stat tiles double as the filter, like the billing system's cards and tabs. */
@@ -29,7 +29,7 @@ const TILES: { id: Filter; label: string; note: string; dot: string }[] = [
   { id: 'ALL', label: 'Total', note: 'All subscribers', dot: 'bg-brand-600' },
   { id: 'ACTIVE', label: 'Active', note: 'Package running', dot: 'bg-emerald-500' },
   { id: 'INACTIVE', label: 'Inactive', note: 'Package ran out', dot: 'bg-red-500' },
-  { id: 'PENDING', label: 'Pending', note: 'No package yet', dot: 'bg-amber-500' },
+  { id: 'INCOMPLETE', label: 'Incomplete', note: 'Phone or package missing', dot: 'bg-amber-500' },
   { id: 'DUE3', label: 'Due in 3 days', note: 'Renew soon', dot: 'bg-orange-500' },
   { id: 'DUE7', label: 'Due in 7 days', note: 'Renewal attention', dot: 'bg-sky-500' },
 ];

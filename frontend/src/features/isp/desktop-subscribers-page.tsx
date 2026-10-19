@@ -25,7 +25,7 @@ const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'ALL', label: 'All statuses' },
   { value: 'ACTIVE', label: 'Active' },
   { value: 'INACTIVE', label: 'Inactive' },
-  { value: 'PENDING', label: 'No package yet' },
+  { value: 'INCOMPLETE', label: 'Incomplete (details missing)' },
   { value: 'DUE3', label: 'Due in 3 days' },
   { value: 'DUE7', label: 'Due in 7 days' },
 ];
@@ -33,7 +33,7 @@ const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
 const STATUS_TONE: Record<SubscriberStatus, { label: string; tone: 'green' | 'red' | 'amber'; dot: string }> = {
   ACTIVE: { label: 'Active', tone: 'green', dot: DOT.green },
   INACTIVE: { label: 'Inactive', tone: 'red', dot: DOT.red },
-  PENDING: { label: 'No package', tone: 'amber', dot: DOT.amber },
+  INCOMPLETE: { label: 'Incomplete', tone: 'amber', dot: DOT.amber },
 };
 
 const SERVICE_LABEL = { HOTSPOT: 'Hotspot', PPPOE: 'PPPoE', STATIC: 'Static IP' } as const;
@@ -182,7 +182,12 @@ export function DesktopSubscribersPage() {
     {
       key: 'status',
       header: 'Status',
-      cell: (s) => <StatusText tone={STATUS_TONE[s.status].tone}>{STATUS_TONE[s.status].label}</StatusText>,
+      cell: (s) => (
+        <StatusText tone={STATUS_TONE[s.status].tone}>
+          {STATUS_TONE[s.status].label}
+          {s.status === 'INCOMPLETE' && s.missing.length > 0 && ` · no ${s.missing.join(', no ')}`}
+        </StatusText>
+      ),
     },
     {
       key: 'due',

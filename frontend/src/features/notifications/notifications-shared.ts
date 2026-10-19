@@ -1,12 +1,14 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlarmClock,
+  Banknote,
   ClipboardCheck,
   FileBarChart2,
   PackageX,
   PhoneCall,
   PiggyBank,
+  ShoppingCart,
   Wallet,
   WifiOff,
 } from 'lucide-react';
@@ -14,6 +16,8 @@ import type { LucideIcon } from 'lucide-react';
 import { dashboardApi } from '@/api/endpoints';
 import type { DashboardData } from '@/api/types';
 import { useRole } from '@/hooks/use-role';
+import { notifySuccess } from '@/components/ui/popup-host';
+import { formatKES } from '@/lib/utils';
 
 export type NotificationCategory = 'subscribers' | 'money' | 'expenses' | 'reports' | 'stock';
 
@@ -38,12 +42,58 @@ const isoDay = (offset = 0) =>
     new Date(Date.now() + offset * 86_400_000),
   );
 
+type Transaction = DashboardData['recentTransactions'][number];
+
+const clock = new Intl.DateTimeFormat('en-KE', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
+
+/** "Just now", "12 min ago", or the time today. */
+function whenText(iso: string): string {
+  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  return isoDay() === new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso)) ? clock.format(new Date(iso)) : 'Yesterday';
+}
+
+/**
+ * Payments received and sales made in the last day, newest first. A sale paid
+ * on the spot shows once (as its payment), not twice.
+ */
+export function moneyEvents(data: DashboardData): Transaction[] {
+  const since = Date.now() - 86_400_000;
+  const recent = (data.recentTransactions ?? []).filter(
+    (t) => (t.type === 'PAYMENT' || t.type === 'SALE') && new Date(t.createdAt).getTime() >= since,
+  );
+  const paidSales = new Set(recent.filter((t) => t.type === 'PAYMENT' && t.saleId).map((t) => t.saleId));
+  return recent
+    .filter((t) => t.type === 'PAYMENT' || !paidSales.has(t.id))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+function moneyNotification(t: Transaction): NotificationItem {
+  const payment = t.type === 'PAYMENT';
+  const who = t.customerName ?? (payment ? 'a client' : 'walk-in');
+  return {
+    id: `tx-${t.type}-${t.id}`,
+    category: 'money',
+    icon: payment ? Banknote : ShoppingCart,
+    tone: 'success',
+    // Paid sales arrive as their payment; a SALE here is one still unpaid
+    title: payment ? `Payment received: ${formatKES(t.amount)}` : `Sale recorded (unpaid): ${formatKES(t.amount)}`,
+    text: [who, t.paymentMethod, payment ? null : t.description].filter(Boolean).join(' · '),
+    time: whenText(t.createdAt),
+    link: payment ? (t.saleId ? `/sales/${t.saleId}` : '/sales') : `/sales/${t.id}`,
+  };
+}
+
 /** Notifications built from live dashboard data: only things that need attention. */
 export function buildNotifications(data: DashboardData, options: { canApprove?: boolean } = {}): NotificationItem[] {
   const today = isoDay();
   const yesterday = isoDay(-1);
   const items: NotificationItem[] = [];
   const subs = data.subscribers;
+
+  // Money in: every payment and sale from the last day, newest first
+  items.push(...moneyEvents(data).map(moneyNotification));
 
   // Subscribers
   if (subs && subs.expired > 0) {
@@ -209,8 +259,9 @@ export function useReadNotifications(): Set<string> {
 
 /** Notifications plus how many are unread: used by the bell and the page. */
 export function useNotifications() {
-  const { canApprove } = useRole();
-  const query = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.get });
+  const { canApprove, isClient } = useRole();
+  // Checked every 15 s so new payments and sales show up without a refresh
+  const query = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.get, refetchInterval: isClient ? false : 15_000 });
   const read = useReadNotifications();
   const items = useMemo(
     () => (query.data ? buildNotifications(query.data, { canApprove }) : []),
@@ -218,4 +269,35 @@ export function useNotifications() {
   );
   const unread = items.filter((n) => !read.has(n.id)).length;
   return { ...query, items, read, unread };
+}
+
+/**
+ * Pops up "Payment received" / "Sale recorded" on whatever page the admin is
+ * on, once per new payment or sale. What was there when the app opened is
+ * not announced again.
+ */
+export function useMoneyPopups() {
+  const { data } = useNotifications();
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    const events = moneyEvents(data);
+    if (!seen.current) {
+      seen.current = new Set(events.map((t) => `${t.type}-${t.id}`));
+      return;
+    }
+    for (const t of events) {
+      const key = `${t.type}-${t.id}`;
+      if (seen.current.has(key)) continue;
+      seen.current.add(key);
+      const n = moneyNotification(t);
+      notifySuccess(n.title.split(':')[0], `${formatKES(t.amount)} · ${n.text}`);
+    }
+  }, [data]);
+}
+
+/** Mounted once in the app shell for admins. */
+export function MoneyPopups() {
+  useMoneyPopups();
+  return null;
 }

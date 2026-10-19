@@ -17,6 +17,7 @@ import { useRole } from '@/hooks/use-role';
 import { SetPasswordGate } from '@/features/auth/set-password-gate';
 import { SetPinGate, TrustDevicePrompt } from '@/features/auth/set-pin-gate';
 import { pinDeviceSkipped, readPinDevice } from '@/lib/pin-device';
+import { MoneyPopups } from '@/features/notifications/notifications-shared';
 
 /** The only pages a subscriber (CLIENT role) may open. */
 const CLIENT_PATHS = [
@@ -40,7 +41,7 @@ export function AppShell() {
   // Asked once per visit whether this device should open with the PIN
   const [trustAsked, setTrustAsked] = useState(pinDeviceSkipped);
   const isDashboard = location.pathname === '/dashboard';
-  const { isClient } = useRole();
+  const { isClient, isEmployee } = useRole();
 
   // Pinned headers only show their edge once the page has scrolled under them
   useEffect(() => {
@@ -113,6 +114,8 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen">
+      {/* "Payment received" / "Sale recorded" pop-ups on any page (admins only) */}
+      {!isEmployee && <MoneyPopups />}
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />

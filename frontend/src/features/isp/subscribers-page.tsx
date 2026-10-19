@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { AlertCircle, CheckCircle2, Clock, Search, Wifi, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Search, UserCog, Wifi, X } from 'lucide-react';
 import { subscriptionsApi } from '@/api/endpoints';
 import { apiErrorMessage } from '@/api/client';
-import type { SubscriptionStatus, UserRole } from '@/api/types';
+import type { SubscriberRow, SubscriptionStatus, UserRole } from '@/api/types';
 import { Dialog } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ import { StatusPill, daysText } from './subscription';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { DesktopSubscribersPage } from './desktop-subscribers-page';
 
-type Filter = SubscriptionStatus | 'ALL';
+type Filter = SubscriptionStatus | 'ALL' | 'INCOMPLETE';
 
 const ROLE_LABEL: Record<UserRole, string> = {
   OWNER: 'Admin',
@@ -36,6 +36,15 @@ const RING: Record<SubscriptionStatus, string> = {
   EXPIRING: 'bg-amber-500',
   EXPIRED: 'bg-red-500',
 };
+
+/** Amber pill for a subscriber whose phone or package is still missing. */
+function IncompletePill() {
+  return <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">Incomplete</span>;
+}
+
+function missingText(row: SubscriberRow | undefined): string {
+  return row?.missing.length ? `No ${row.missing.join(', no ')} yet` : '';
+}
 
 function initials(name: string) {
   return name
@@ -71,21 +80,32 @@ function SubscribersMobilePage() {
     setEditId(null);
   };
   const { data, isLoading, error } = useQuery({ queryKey: ['subscriptions'], queryFn: () => subscriptionsApi.list() });
+  // The register knows who is missing a phone or package (e.g. added from a paybill payment)
+  const register = useQuery({ queryKey: ['subscribers'], queryFn: () => subscriptionsApi.register() });
+  const incomplete = new Map((register.data ?? []).filter((r) => r.status === 'INCOMPLETE').map((r) => [r.id, r]));
+  // No package yet, so they have no subscription row: listed on their own
+  const noPackage = [...incomplete.values()].filter((r) => r.missing.includes('package'));
 
   const all = data ?? [];
   const counts = {
-    ALL: all.length,
-    ACTIVE: all.filter((s) => s.status === 'ACTIVE').length,
+    ALL: all.length + noPackage.length,
+    ACTIVE: all.filter((s) => s.status === 'ACTIVE' && !incomplete.has(s.customerId)).length,
     EXPIRING: all.filter((s) => s.status === 'EXPIRING').length,
     EXPIRED: all.filter((s) => s.status === 'EXPIRED').length,
+    INCOMPLETE: incomplete.size,
   };
   const monthly = all.filter((s) => s.status !== 'EXPIRED').reduce((sum, s) => sum + s.price, 0);
   const term = search.trim().toLowerCase();
   const visible = all.filter(
     (s) =>
-      (filter === 'ALL' || s.status === filter) &&
+      (filter === 'ALL' ||
+        (filter === 'INCOMPLETE' ? incomplete.has(s.customerId) : s.status === filter && !(filter === 'ACTIVE' && incomplete.has(s.customerId)))) &&
       (!term || s.customer?.name.toLowerCase().includes(term) || s.packageName.toLowerCase().includes(term)),
   );
+  const visibleNoPackage =
+    filter === 'ALL' || filter === 'INCOMPLETE'
+      ? noPackage.filter((r) => !term || r.name.toLowerCase().includes(term) || (r.accountNumber ?? '').toLowerCase().includes(term))
+      : [];
   // Faces row: clients to chase first (expiring, then expired)
   const dueSoon = all.filter((s) => s.status !== 'ACTIVE').sort((a, b) => b.daysLeft - a.daysLeft);
 
@@ -121,6 +141,7 @@ function SubscribersMobilePage() {
           { id: 'ACTIVE', label: 'Active', icon: CheckCircle2, count: counts.ACTIVE, iconClass: 'text-emerald-600', hoverClass: 'hover:bg-emerald-50', selectedClass: 'bg-emerald-50 border-emerald-500' },
           { id: 'EXPIRING', label: 'Expiring', icon: Clock, count: counts.EXPIRING, iconClass: 'text-amber-500', hoverClass: 'hover:bg-amber-50', selectedClass: 'bg-amber-50 border-amber-500' },
           { id: 'EXPIRED', label: 'Expired', icon: AlertCircle, count: counts.EXPIRED, iconClass: 'text-red-600', hoverClass: 'hover:bg-red-50', selectedClass: 'bg-red-50 border-red-500' },
+          { id: 'INCOMPLETE', label: 'Incomplete', icon: UserCog, count: counts.INCOMPLETE, iconClass: 'text-amber-600', hoverClass: 'hover:bg-amber-50', selectedClass: 'bg-amber-50 border-amber-500' },
         ]}
       />
 
@@ -171,7 +192,7 @@ function SubscribersMobilePage() {
         </section>
       )}
 
-      {data && visible.length === 0 && (
+      {data && visible.length === 0 && visibleNoPackage.length === 0 && (
         <div className="flex flex-col items-center py-10 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: CHARCOAL, color: LIME }}>
             <Wifi className="h-6 w-6" aria-hidden />
@@ -185,13 +206,39 @@ function SubscribersMobilePage() {
         </div>
       )}
 
-      {data && visible.length > 0 && (
+      {data && (visible.length > 0 || visibleNoPackage.length > 0) && (
         <section>
           <div className="mb-2 flex items-center justify-between px-1">
             <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Subscribers</h2>
-            <span className="text-[12px] font-medium text-foreground-4">{visible.length}</span>
+            <span className="text-[12px] font-medium text-foreground-4">{visible.length + visibleNoPackage.length}</span>
           </div>
           <ul className="stagger-list space-y-1">
+            {/* Added with just an account number and name: open them to add the phone and package */}
+            {visibleNoPackage.map((r) => (
+              <li key={`incomplete-${r.id}`} className="py-1">
+                <div className="flex items-center gap-3">
+                  <Link
+                    to={`/customers/${r.id}`}
+                    className="-mx-1 flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1.5 transition-[transform,background-color] active:scale-[0.99] active:bg-surface-3"
+                  >
+                    <span
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold"
+                      style={{ backgroundColor: CHARCOAL, color: LIME }}
+                    >
+                      {initials(r.name)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-semibold text-foreground">{r.name}</span>
+                      <span className="block truncate text-[12px] text-foreground-4">{r.accountNumber ?? 'No account number'}</span>
+                      <span className="block text-[11px] font-medium text-amber-600">{missingText(r)}</span>
+                    </span>
+                  </Link>
+                  <span className="shrink-0">
+                    <IncompletePill />
+                  </span>
+                </div>
+              </li>
+            ))}
             {visible.map((s) => (
               <li key={s.id} className="py-1">
                 <div className="flex items-center gap-3">
@@ -217,11 +264,12 @@ function SubscribersMobilePage() {
                         )}
                       >
                         {daysText(s.daysLeft)}
+                        {incomplete.has(s.customerId) && <span className="text-amber-600"> · {missingText(incomplete.get(s.customerId))}</span>}
                       </span>
                     </span>
                   </Link>
                   <span className="shrink-0">
-                    <StatusPill status={s.status} />
+                    {incomplete.has(s.customerId) ? <IncompletePill /> : <StatusPill status={s.status} />}
                   </span>
                 </div>
                 {s.status !== 'ACTIVE' && (

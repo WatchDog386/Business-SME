@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { setTheme } from '@/lib/theme';
 import { WorkspaceLoader } from '@/components/ui/workspace-loader';
 import { useQuery } from '@tanstack/react-query';
@@ -21,8 +21,6 @@ import { DesktopDashboard } from './desktop-dashboard';
 import { useRole } from '@/hooks/use-role';
 import { EmployeeDashboard } from './employee-dashboard';
 import { ClientDashboard } from '@/features/client/client-dashboard';
-import { notifySuccess } from '@/components/ui/popup-host';
-import { formatKES } from '@/lib/utils';
 
 /**
  * One dashboard per kind of user: admins (owner, manager, accountant) get the
@@ -42,21 +40,6 @@ function AdminDashboard() {
     queryFn: dashboardApi.get,
     refetchInterval: 5000,
   });
-  const seenPaymentIds = useRef<Set<string> | null>(null);
-
-  useEffect(() => {
-    if (!data) return;
-    const payments = data.recentTransactions.filter((transaction) => transaction.type === 'PAYMENT');
-    if (!seenPaymentIds.current) {
-      seenPaymentIds.current = new Set(payments.map((payment) => payment.id));
-      return;
-    }
-    for (const payment of payments) {
-      if (seenPaymentIds.current.has(payment.id)) continue;
-      notifySuccess('Payment received', `${formatKES(payment.amount)} from ${payment.customerName ?? 'a client'} · ${payment.paymentMethod}.`);
-      seenPaymentIds.current.add(payment.id);
-    }
-  }, [data]);
   const isDesktop = useIsDesktop();
 
   // The admin dashboard opens in dark mode by default.

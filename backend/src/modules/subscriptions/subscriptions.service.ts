@@ -187,8 +187,9 @@ export class SubscriptionsService {
 
   /**
    * The subscriber register: every client, newest first, with their account
-   * details and package. Active = package running, Inactive = package ran
-   * out, Pending = no package yet.
+   * details and package. Incomplete = phone or package still missing (e.g.
+   * added automatically from a paybill payment with just an account number
+   * and name); otherwise Active = package running, Inactive = package ran out.
    */
   async subscribers(businessId: string) {
     const [customers, subs] = await Promise.all([
@@ -199,6 +200,7 @@ export class SubscriptionsService {
     const now = Date.now();
     return customers.map((c) => {
       const s = byCustomer.get(c.id);
+      const missing = [...(c.phone?.trim() ? [] : ['phone' as const]), ...(s ? [] : ['package' as const])];
       return {
         id: c.id,
         name: c.name,
@@ -214,7 +216,8 @@ export class SubscriptionsService {
         price: s?.price ?? null,
         expiresAt: s?.expires_at ?? null,
         daysLeft: s ? Math.ceil((s.expires_at.getTime() - now) / DAY) : null,
-        status: !s ? 'PENDING' : s.expires_at.getTime() > now ? 'ACTIVE' : 'INACTIVE',
+        missing,
+        status: missing.length ? 'INCOMPLETE' : s!.expires_at.getTime() > now ? 'ACTIVE' : 'INACTIVE',
       };
     });
   }

@@ -171,7 +171,8 @@ export interface CustomerOptions {
   nextAccountNumber: string;
 }
 
-export type SubscriberStatus = 'ACTIVE' | 'INACTIVE' | 'PENDING';
+/** INCOMPLETE: phone or package still missing. */
+export type SubscriberStatus = 'ACTIVE' | 'INACTIVE' | 'INCOMPLETE';
 
 /** One row of the subscriber register. */
 export interface SubscriberRow {
@@ -189,6 +190,8 @@ export interface SubscriberRow {
   price: number | null;
   expiresAt: string | null;
   daysLeft: number | null;
+  /** What still has to be filled in before the subscriber is complete. */
+  missing: Array<'phone' | 'package'>;
   status: SubscriberStatus;
 }
 
