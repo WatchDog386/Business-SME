@@ -1,6 +1,6 @@
 // Optimas service worker — makes the app installable and lets the shell
 // open on a weak connection. API data is never cached (always live).
-const CACHE = 'optimas-shell-v8';
+const CACHE = 'optimas-shell-v9';
 const REQUIRED_SHELL = ['/', '/index.html'];
 const OPTIONAL_SHELL = ['/manifest.json', '/icons/splash-logo.png', '/icons/launch-192.png', '/icons/launch-512.png', '/icons/maskable-192.png', '/icons/maskable-512.png'];
 
@@ -26,6 +26,8 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) {
     return;
   }
+  // The release marker is always read live, or updates would never be noticed
+  if (url.pathname === '/version.json') return;
 
   // Pages: network first, fall back to the cached app shell when offline
   if (request.mode === 'navigate') {

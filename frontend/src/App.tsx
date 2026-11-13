@@ -7,6 +7,7 @@ import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { OfflineBanner } from '@/components/layout/offline-banner';
 import { SessionTimeout } from '@/components/layout/session-timeout';
 import { PopupHost } from '@/components/ui/popup-host';
+import { UpdateBanner } from '@/components/layout/update-banner';
 import { InstallAppPrompt } from '@/components/layout/install-app-prompt';
 import { SHOW_MOBILE_HOME } from '@/lib/flags';
 import { SignInReveal } from '@/components/ui/workspace-loader';
@@ -75,6 +76,7 @@ export default function App() {
       <OfflineBanner />
       <SessionTimeout />
       <PopupHost />
+      <UpdateBanner />
       <InstallAppPrompt />
       <SignInReveal />
       <Suspense fallback={<RouteLoading />}>

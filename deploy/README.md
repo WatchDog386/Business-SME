@@ -23,6 +23,11 @@ cd /opt/business-sme && sudo -u postgres pg_dump -Fc kenya_sme > ~/before-update
 This backs up the database, pulls, installs, builds the web app and API, and
 restarts the API. Nginx serves the new web app straight away.
 
+Open and installed apps notice the new release within a couple of minutes (or
+as soon as they are brought back to the front) and show a "New version ready"
+pill; one tap switches to it. The build writes the release id to
+`frontend/dist/version.json`, which the app compares with its own.
+
 ## Checking it
 
 ```bash
