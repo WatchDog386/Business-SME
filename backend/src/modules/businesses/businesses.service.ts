@@ -159,6 +159,15 @@ export class BusinessesService {
       });
     }
     let user = await this.usersService.findByEmail(dto.email);
+    const existing = user
+      ? await this.memberRepo.findOne({ where: { businessId, userId: user.id } })
+      : null;
+    if (existing && existing.status !== 'DEACTIVATED') {
+      throw new ConflictException({
+        code: 'ALREADY_MEMBER',
+        message: 'This user is already a member of the business.',
+      });
+    }
     if (!user) {
       // No public sign-up: the owner creates the staff member's login here
       if (!dto.fullName?.trim() || !dto.password) {
@@ -176,22 +185,36 @@ export class BusinessesService {
         // their own, then a PIN, at their first sign-in
         mustChangePassword: true,
       });
-    }
-
-    const existing = await this.memberRepo.findOne({
-      where: { businessId, userId: user.id },
-    });
-    if (existing) {
-      if (existing.status === 'DEACTIVATED') {
-        existing.status = 'ACTIVE';
-        existing.role = dto.role;
-        await this.memberRepo.save(existing);
-      } else {
+    } else if (dto.password) {
+      // The email already has a login. If nobody is using it (the person was
+      // removed from the team earlier), the password typed here becomes its
+      // password; otherwise it would be silently ignored and the new member
+      // could never sign in with what the admin gave them.
+      const inUse = await this.memberRepo.count({ where: { userId: user.id, status: 'ACTIVE' } });
+      if (inUse > 0) {
         throw new ConflictException({
-          code: 'ALREADY_MEMBER',
-          message: 'This user is already a member of the business.',
+          code: 'LOGIN_EXISTS',
+          message:
+            'This email already has a login with its own password. Leave the password empty to add them; they sign in with the password they already use.',
         });
       }
+      user = await this.usersService.update(user.id, {
+        password_hash: await bcrypt.hash(dto.password, 10),
+        must_change_password: true,
+        ...(dto.fullName?.trim() ? { full_name: dto.fullName.trim() } : {}),
+        ...(dto.phone ? { phone: dto.phone } : {}),
+        // A leftover authenticator would lock the new sign-in out
+        totp_enabled: false,
+        totp_secret_enc: null,
+        totp_last_counter: null,
+        totp_recovery_hashes: null,
+      });
+    }
+
+    if (existing) {
+      existing.status = 'ACTIVE';
+      existing.role = dto.role;
+      await this.memberRepo.save(existing);
     } else {
       const member = this.memberRepo.create({
         businessId,

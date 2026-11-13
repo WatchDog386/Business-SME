@@ -56,6 +56,15 @@ interface DemoAccount {
 
 const COMPANY_NAME = 'Optimas Technologies Ltd';
 
+/**
+ * Real team logins, created on every environment (production included).
+ * The password is only a starting one: the person chooses their own at first
+ * sign-in, and it is never written again once they have.
+ */
+const TEAM_ACCOUNTS: Array<{ email: string; fullName: string; role: UserRole; password: string }> = [
+  { email: 'rose@optimas.co.ke', fullName: 'Rose Mutethya', role: UserRole.OWNER, password: 'admin@123' },
+];
+
 const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     email: 'fanteskorri36@gmail.com',
@@ -112,13 +121,72 @@ export class SeedService implements OnModuleInit {
     const seedDemo = process.env.SEED_DEMO
       ? process.env.SEED_DEMO === 'true'
       : process.env.NODE_ENV !== 'production';
-    if (!seedDemo) return;
     try {
-      for (const account of DEMO_ACCOUNTS) {
-        await this.ensureAccount(account);
+      if (seedDemo) {
+        for (const account of DEMO_ACCOUNTS) {
+          await this.ensureAccount(account);
+        }
       }
     } catch (err) {
       this.logger.error('Error in SeedService:', err);
+    }
+    try {
+      await this.ensureTeamAccounts();
+    } catch (err) {
+      this.logger.error('Error creating team accounts:', err);
+    }
+  }
+
+  /** Adds the real team logins to the company; leaves a login alone once its owner has taken it over. */
+  private async ensureTeamAccounts() {
+    const business =
+      (await this.bizRepo.findOne({ where: { name: COMPANY_NAME }, order: { created_at: 'ASC' } })) ??
+      (await this.bizRepo.find({ order: { created_at: 'ASC' }, take: 1 }))[0];
+    if (!business) return;
+
+    for (const account of TEAM_ACCOUNTS) {
+      let user = await this.userRepo.findOne({ where: { email: account.email } });
+      let member = user
+        ? await this.memberRepo.findOne({ where: { userId: user.id, businessId: business.id } })
+        : null;
+      const onTeam = member?.status === 'ACTIVE' && member.role !== UserRole.CLIENT;
+      // Signed in and chose their own password: nothing left to do
+      if (user && onTeam && !user.must_change_password) continue;
+
+      const password_hash = await bcrypt.hash(account.password, 10);
+      if (!user) {
+        user = await this.userRepo.save(
+          this.userRepo.create({
+            email: account.email,
+            full_name: account.fullName,
+            password_hash,
+            email_verified: true,
+            must_change_password: true,
+          }),
+        );
+        this.logger.log(`Created team account ${account.email}`);
+      } else {
+        // An earlier attempt left a login that can't sign in: start it over
+        await this.userRepo.update(user.id, {
+          password_hash,
+          must_change_password: true,
+          totp_enabled: false,
+          totp_secret_enc: null,
+          totp_last_counter: null,
+          totp_recovery_hashes: null,
+          pin_hash: null,
+          pin_set_at: null,
+          pin_failed_attempts: 0,
+        });
+      }
+      if (!member) {
+        member = this.memberRepo.create({ userId: user.id, businessId: business.id });
+      }
+      if (!onTeam) {
+        member.role = account.role;
+        member.status = 'ACTIVE';
+        await this.memberRepo.save(member);
+      }
     }
   }
 
