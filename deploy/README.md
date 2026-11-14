@@ -14,19 +14,30 @@ Everything runs on the company server (Proxmox VM 105) at
 
 ## Updating the server
 
-After changes are pushed to `main`, on the server:
+After changes are pushed, on the server:
 
 ```bash
-cd /opt/business-sme && sudo -u postgres pg_dump -Fc kenya_sme > ~/before-update.dump && git pull && npm ci && npm run build && sudo systemctl restart business-sme
+cd /opt/business-sme && bash deploy/deploy.sh
 ```
 
-This backs up the database, pulls, installs, builds the web app and API, and
-restarts the API. Nginx serves the new web app straight away.
+This backs up the database, pulls, installs, builds the web app and API,
+restarts the API and waits until it answers. Add a branch name to deploy a
+branch other than the one the server is on.
 
-Open and installed apps notice the new release within a couple of minutes (or
-as soon as they are brought back to the front) and show a "New version ready"
-pill; one tap switches to it. The build writes the release id to
-`frontend/dist/version.json`, which the app compares with its own.
+### How the update reaches phones and browsers
+
+The build writes its release id to `frontend/dist/version.json` and into the
+app itself. Every open or installed app compares the two on start, whenever it
+comes back to the front, and every two minutes:
+
+- nobody signed in, or the app only just opened: it reloads into the new
+  release by itself;
+- someone is working: a "New version ready" pill appears and one tap switches,
+  so nothing being typed is lost.
+
+The service worker keeps no copy of the app on the device, so there is no old
+release to fall back to. The sign-in page shows the release ("Version abc1234")
+for checking which one a device is on.
 
 ## Checking it
 

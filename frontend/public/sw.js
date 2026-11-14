@@ -1,67 +1,59 @@
-// Optimas service worker — makes the app installable and lets the shell
-// open on a weak connection. API data is never cached (always live).
-const CACHE = 'optimas-shell-v9';
-const REQUIRED_SHELL = ['/', '/index.html'];
-const OPTIONAL_SHELL = ['/manifest.json', '/icons/splash-logo.png', '/icons/launch-192.png', '/icons/launch-512.png', '/icons/maskable-192.png', '/icons/maskable-512.png'];
+// Optimas service worker. The app works online only (the server holds the one
+// database), so nothing is kept here: every page and file comes straight from
+// the server, and a new release reaches every phone and browser at once. The
+// worker stays so the app can be installed.
 
-self.addEventListener('install', (event) => {
-  event.waitUntil((async () => {
-    const cache = await caches.open(CACHE);
-    await cache.addAll(REQUIRED_SHELL);
-    await Promise.all(OPTIONAL_SHELL.map((path) => cache.add(path).catch(() => undefined)));
-  })());
-  self.skipWaiting();
-});
+self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))),
-  );
-  self.clients.claim();
+  // Earlier versions kept a copy of the app on the device, which could go on
+  // showing an old release after a deploy. Remove every copy.
+  const cleaned = (async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+    await self.clients.claim();
+    return keys.length > 0;
+  })();
+  event.waitUntil(cleaned);
+  // A page that was opened from one of those copies is running old code: load
+  // it again, this time from the server. Happens once per device. Not part of
+  // waitUntil: the reload is answered by this worker, which only answers once
+  // it has finished activating.
+  cleaned
+    .then(async (hadCopies) => {
+      if (!hadCopies) return;
+      const pages = await self.clients.matchAll({ type: 'window' });
+      for (const page of pages) page.navigate(page.url).catch(() => undefined);
+    })
+    .catch(() => undefined);
 });
 
+const OFFLINE_PAGE =
+  '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+  '<title>Optimas</title><body style="margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;' +
+  'justify-content:center;gap:16px;background:#0033A1;color:#fff;font-family:system-ui,sans-serif;text-align:center;padding:24px">' +
+  '<h1 style="margin:0;font-size:22px;font-weight:600">No internet connection</h1>' +
+  '<p style="margin:0;opacity:.8">Optimas needs a connection. Check it and try again.</p>' +
+  '<a href="" style="padding:12px 28px;border-radius:999px;background:#fff;color:#0033A1;font-weight:600;text-decoration:none">Try again</a></body>';
+
+/** The page, always the server's current copy: never one the browser kept. */
+async function freshPage(request) {
+  try {
+    const response = await fetch(request.url, { cache: 'no-store', credentials: 'same-origin' });
+    // A page request may not be answered with a followed redirect
+    if (!response.redirected) return response;
+  } catch {
+    // Fall through to the ordinary request
+  }
+  try {
+    return await fetch(request);
+  } catch {
+    return new Response(OFFLINE_PAGE, { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  }
+}
+
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) {
-    return;
-  }
-  // The release marker is always read live, or updates would never be noticed
-  if (url.pathname === '/version.json') return;
-
-  // Pages: network first, fall back to the cached app shell when offline
-  if (request.mode === 'navigate') {
-    event.respondWith((async () => {
-      try {
-        const response = await fetch(request);
-        if (response.ok) return response;
-        return (await caches.match('/index.html')) || response;
-      } catch {
-        return (await caches.match('/index.html')) || new Response(
-          'Optimas is offline. Reconnect and try again.',
-          { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } },
-        );
-      }
-    })());
-    return;
-  }
-
-  // Built assets are content-hashed: serve from cache, fill it on first use
-  event.respondWith((async () => {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    try {
-      const response = await fetch(request);
-      if (response.ok && url.pathname.startsWith('/assets/')) {
-        await caches.open(CACHE).then((cache) => cache.put(request, response.clone())).catch(() => undefined);
-      }
-      return response;
-    } catch {
-      if (request.destination === 'image') {
-        const imageFallback = await caches.match('/icons/launch-192.png');
-        if (imageFallback) return imageFallback;
-      }
-      return new Response(null, { status: 503, statusText: 'Service Unavailable' });
-    }
-  })());
+  // Only pages are answered here (phones on older Chrome need that to offer
+  // "Install app"). Files and API calls go to the server untouched.
+  if (event.request.mode === 'navigate') event.respondWith(freshPage(event.request));
 });

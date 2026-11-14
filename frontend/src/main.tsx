@@ -37,6 +37,8 @@ createRoot(document.getElementById('root')!).render(
 // Installable app (desktop + mobile). Skipped in dev so Vite hot reload isn't cached.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    // Never take the worker itself from the browser's cache: it is what
+    // brings a new release to this device
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
   });
 }

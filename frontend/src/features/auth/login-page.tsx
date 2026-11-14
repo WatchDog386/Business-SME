@@ -16,6 +16,7 @@ import { InvalidDetailsArt } from '@/components/brand/invalid-details-art';
 import { notifyError, notifyInfo } from '@/components/ui/popup-host';
 import { ArrowLeft, Download, Lock, Mail } from 'lucide-react';
 import { PasswordInput } from './components/password-input';
+import { APP_BUILD } from '@/hooks/use-app-update';
 import { PinBoxes } from './components/pin-boxes';
 import { HomePhoto } from '@/components/brand/home-photo';
 import { clearPinDevice, lastLogin, lastName, readPinDevice, rememberLastLogin, rememberLastName } from '@/lib/pin-device';
@@ -251,7 +252,8 @@ export function LoginPage() {
           Sign in
         </Button>
         {signingIn && <WorkspaceLoader />}
-
+        {/* Tells support which release this phone or browser is on */}
+        {APP_BUILD && <p className="text-center text-[11px] text-slate-400">Version {APP_BUILD}</p>}
       </form>
   );
 
